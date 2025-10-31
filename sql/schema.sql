@@ -5,8 +5,10 @@ DROP TABLE IF EXISTS customers CASCADE;
 DROP TABLE IF EXISTS addresses CASCADE;
 DROP TABLE IF EXISTS product_categories CASCADE;
 DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS product_variants CASCADE;
 
 --================ CREATE TABLES STATEMENTS ================
+--1. Customers Table
 CREATE TABLE customers (
     customer_id BIGSERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -21,6 +23,7 @@ CREATE TABLE customers (
     last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+--2. Addresses Table
 CREATE TABLE addresses (
     address_id  BIGSERIAL PRIMARY KEY,
     customer_id BIGINT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
@@ -35,6 +38,7 @@ CREATE TABLE addresses (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+--3. Product_Categories Table
 CREATE TABLE product_categories (
     category_id BIGSERIAL PRIMARY KEY,
     category_name VARCHAR(50) UNIQUE NOT NULL,
@@ -42,6 +46,7 @@ CREATE TABLE product_categories (
     is_active BOOLEAN DEFAULT TRUE
 );
 
+--4. Products Table
 CREATE TABLE products (
     product_id BIGSERIAL PRIMARY KEY,
     category_id BIGINT NOT NULL REFERENCES product_categories(category_id) ON DELETE CASCADE,
@@ -53,7 +58,31 @@ CREATE TABLE products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+--5. Product_Variants Table
+CREATE TABLE product_variants (
+    variant_id BIGSERIAL PRIMARY KEY,
+    product_id BIGINT NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
+    variant_type VARCHAR(50) NOT NULL,       
+    variant_value VARCHAR(100) NOT NULL,    
+    price_modifier DECIMAL(10,2) DEFAULT 0.00,
+    stock_quantity INT DEFAULT 0,
+    is_available BOOLEAN DEFAULT TRUE
+);
 
+--6. Printing_Options Table
+--7. Design_Templates Table
+--8. Orders Table
+--9. Order_Items Table
+--10. Uploaded_Designs Table
+--11. Price_Tiers Table
+--12. Order_Status_History Table
+--13. Product_Specifications Table
+--14. Reviews Table
+--15. Shopping_Cart Table
+--16. Cart_Items Table
+--17. Discount_Codes Table
+--18. Admin_Users Table
+--19. Production_Queue Table
 --================ INSERT TABLES STATEMENTS ================
 
 INSERT INTO customers (customer_id, username, email, password, first_name, last_name, phone_number, is_verified, created_at) VALUES 
@@ -82,9 +111,39 @@ INSERT INTO products (product_id, category_id, product_name, description, base_p
     (7, 4, 'V-Neck T-Shirt', 'Lightweight v-neck t-shirt for casual wear.', 21.99, 'TSHIRT-002', 3)
 ;
 
+    -- Product Variants for Mugs (category_id = 1)
+    INSERT INTO product_variants (variant_id, product_id, variant_type, variant_value, price_modifier, stock_quantity, is_available) VALUES
+    (1, 1, 'size', '11oz', 0.00, 150, TRUE),
+    (2, 1, 'size', '15oz', 2.50, 100, TRUE),
+    (3, 2, 'color', 'White', 0.00, 120, TRUE),
+    (4, 2, 'color', 'Black', 0.50, 90, TRUE);
+
+    -- Product Variants for Tumblers (category_id = 2)
+    INSERT INTO product_variants (product_id, variant_type, variant_value, price_modifier, stock_quantity, is_available) VALUES
+    (3, 'size', '20oz', 0.00, 200, TRUE),
+    (3, 'size', '30oz', 3.00, 120, TRUE),
+    (3, 'material', 'Stainless Steel', 0.00, 200, TRUE);
+
+    -- Product Variants for Bags (category_id = 3)
+    INSERT INTO product_variants (product_id, variant_type, variant_value, price_modifier, stock_quantity, is_available) VALUES
+    (4, 'type', 'Canvas Tote', 0.00, 150, TRUE),
+    (4, 'type', 'Drawstring Bag', 1.50, 90, TRUE),
+    (5, 'color', 'Natural', 0.00, 100, TRUE),
+    (5, 'color', 'Black', 0.75, 80, TRUE);
+
+    -- Product Variants for T-Shirts (category_id = 4)
+    INSERT INTO product_variants (product_id, variant_type, variant_value, price_modifier, stock_quantity, is_available) VALUES
+    (6, 'size', 'Small', 0.00, 60, TRUE),
+    (6, 'size', 'Medium', 0.00, 80, TRUE),
+    (6, 'size', 'Large', 1.50, 50, TRUE),
+    (6, 'color', 'White', 0.00, 70, TRUE),
+    (6, 'color', 'Black', 0.50, 65, TRUE),
+    (7, 'size', 'Medium', 0.00, 40, TRUE),
+    (7, 'size', 'Large', 1.00, 35, TRUE);
 
 --================ SELECT STATEMENTS ================
 select * from customers;
 select * from addresses;
 select * from product_categories;
 select * from products;
+
