@@ -8,6 +8,7 @@
 DROP TABLE IF EXISTS customers CASCADE;
 DROP TABLE IF EXISTS categories CASCADE;
 DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
 
 -- ============================================
 -- 1. Customers Table
@@ -37,7 +38,7 @@ CREATE TABLE categories (
 -- 3. Products Table
 -- ============================================
 CREATE TABLE products (
-    product_id SERIAL PRIMARY KEY,
+    product_id BIGSERIAL PRIMARY KEY,
     category_id BIGINT NOT NULL REFERENCES categories(category_id) ON DELETE RESTRICT,
     product_name VARCHAR(100) NOT NULL,
     description TEXT,
@@ -46,6 +47,39 @@ CREATE TABLE products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================================
+-- 4. Orders Table
+-- ============================================
+CREATE TABLE orders (
+    order_id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
+    order_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (order_status IN ('pending', 'processing', 'completed', 'cancelled')),
+    total_amount DECIMAL(10, 2) NOT NULL CHECK (total_amount >= 0),
+    shipping_address TEXT NOT NULL,
+    contact_phone VARCHAR(20),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- FUNCTIONS FOR GENERATING ORDER NUMBERS
+-- ============================================
+CREATE OR REPLACE FUNCTION generate_order_number()
+RETURNS TEXT AS $$
+DECLARE
+    new_order_number TEXT;
+    max_number INTEGER;
+BEGIN
+    SELECT COALESCE(MAX(CAST(SUBSTRING(order_number FROM 5) AS INTEGER)), 0) + 1
+    INTO max_number
+    FROM orders;
+    
+    new_order_number := 'ORD-' || LPAD(max_number::TEXT, 5, '0');
+    RETURN new_order_number;
+END;
+$$ LANGUAGE plpgsql;
 
 
 -- ============================================
@@ -92,10 +126,20 @@ INSERT INTO products (product_id, category_id, product_name, description, base_p
     (12, 4, 'Cotton T-Shirt - XL', 'Premium 100% cotton t-shirt, size XL', 19.99, TRUE)
 ;
 
+-- Insert Sample Orders
+INSERT INTO orders (order_id, customer_id, order_number, order_status, total_amount, shipping_address, contact_phone, notes)
+VALUES
+(1, 1, generate_order_number(), 'completed', 27.98, '123 Main St, Montreal, QC H1A 1A1', '514-555-0101', 'Please handle with care'),
+(2, 2, generate_order_number(), 'processing', 44.98, '456 Oak Ave, Montreal, QC H2B 2B2', '514-555-0102', NULL),
+(3, 3, generate_order_number(), 'pending', 19.99, '789 Pine Rd, Montreal, QC H3C 3C3', '514-555-0103', 'Rush order'),
+(4, 1, generate_order_number(), 'cancelled', 49.99, '123 Main St, Montreal, QC H1A 1A1', '514-555-0101', 'Customer changed mind'),
+(5, 4, generate_order_number(), 'completed', 54.97, '321 Elm St, Montreal, QC H4D 4D4', '514-555-0104', NULL);
+
 
 -- SELECT  statements 
 SELECT * FROM customers;
 SELECT * FROM categories;
 SELECT * FROM products;
+SELECT * FROM orders;
 
 COMMIT;
