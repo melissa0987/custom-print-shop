@@ -298,5 +298,294 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
+
+-- ============================================
+-- OTHER FUNCTIONS 
+-- ============================================
+
+-- Function to generate order numbers
+CREATE OR REPLACE FUNCTION generate_order_number()
+RETURNS TEXT AS $$
+DECLARE
+    new_order_number TEXT;
+    max_number INTEGER;
+BEGIN
+    SELECT COALESCE(MAX(CAST(SUBSTRING(order_number FROM 5) AS INTEGER)), 0) + 1
+    INTO max_number
+    FROM orders;
+    
+    new_order_number := 'ORD-' || LPAD(max_number::TEXT, 5, '0');
+    RETURN new_order_number;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to generate file path for customer uploads
+CREATE OR REPLACE FUNCTION generate_customer_file_path(
+    p_customer_id BIGINT,
+    p_filename VARCHAR(255)
+)
+RETURNS TEXT AS $$
+DECLARE
+    v_username VARCHAR(50);
+    v_timestamp TEXT;
+    v_extension TEXT;
+    v_base_name TEXT;
+BEGIN
+    -- Get customer username
+    SELECT username INTO v_username
+    FROM customers
+    WHERE customer_id = p_customer_id;
+    
+    IF v_username IS NULL THEN
+        RAISE EXCEPTION 'Customer not found';
+    END IF;
+    
+    -- Generate timestamp for unique filename
+    v_timestamp := TO_CHAR(CURRENT_TIMESTAMP, 'YYYYMMDD_HH24MISS');
+    
+    -- Extract file extension
+    v_extension := SUBSTRING(p_filename FROM '\.([^.]+)$');
+    v_base_name := SUBSTRING(p_filename FROM '^(.+)\.[^.]+$');
+    
+    -- Generate path: uploads/username/basename_timestamp.ext
+    RETURN 'uploads/' || v_username || '/' || v_base_name || '_' || v_timestamp || '.' || v_extension;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to generate file path for guest uploads
+CREATE OR REPLACE FUNCTION generate_guest_file_path(
+    p_session_id VARCHAR(255),
+    p_filename VARCHAR(255)
+)
+RETURNS TEXT AS $$
+DECLARE
+    v_timestamp TEXT;
+    v_extension TEXT;
+    v_base_name TEXT;
+BEGIN
+    -- Generate timestamp for unique filename
+    v_timestamp := TO_CHAR(CURRENT_TIMESTAMP, 'YYYYMMDD_HH24MISS');
+    
+    -- Extract file extension
+    v_extension := SUBSTRING(p_filename FROM '\.([^.]+)$');
+    v_base_name := SUBSTRING(p_filename FROM '^(.+)\.[^.]+$');
+    
+    -- Generate path: uploads/guest/session_id/basename_timestamp.ext
+    RETURN 'uploads/guest/' || p_session_id || '/' || v_base_name || '_' || v_timestamp || '.' || v_extension;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to check if user can access a file
+CREATE OR REPLACE FUNCTION can_access_file(
+    p_file_id BIGINT,
+    p_customer_id BIGINT
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_file_owner_id BIGINT;
+BEGIN
+    SELECT customer_id INTO v_file_owner_id
+    FROM uploaded_files
+    WHERE file_id = p_file_id;
+    
+    -- Customer can only access their own files
+    RETURN (v_file_owner_id = p_customer_id);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to check if admin can access file (admins can access all files)
+CREATE OR REPLACE FUNCTION admin_can_access_file(
+    p_file_id BIGINT,
+    p_admin_id BIGINT
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Admin with view permission can access all files
+    RETURN has_permission(p_admin_id, 'view_orders');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get customer files
+CREATE OR REPLACE FUNCTION get_customer_files(p_customer_id BIGINT)
+RETURNS TABLE (
+    file_id BIGINT,
+    file_url TEXT,
+    original_filename VARCHAR(255),
+    file_size BIGINT,
+    file_type VARCHAR(50),
+    uploaded_at TIMESTAMP
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        uf.file_id,
+        uf.file_url,
+        uf.original_filename,
+        uf.file_size,
+        uf.file_type,
+        uf.uploaded_at
+    FROM uploaded_files uf
+    WHERE uf.customer_id = p_customer_id
+    ORDER BY uf.uploaded_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get or create cart for customer
+CREATE OR REPLACE FUNCTION get_or_create_customer_cart(p_customer_id BIGINT)
+RETURNS BIGINT AS $$
+DECLARE
+    v_cart_id BIGINT;
+BEGIN
+    -- Try to get existing active cart
+    SELECT shopping_cart_id INTO v_cart_id
+    FROM shopping_carts
+    WHERE customer_id = p_customer_id
+    AND expires_at > CURRENT_TIMESTAMP
+    ORDER BY created_at DESC
+    LIMIT 1;
+    
+    -- If no cart exists, create one
+    IF v_cart_id IS NULL THEN
+        INSERT INTO shopping_carts (customer_id)
+        VALUES (p_customer_id)
+        RETURNING shopping_cart_id INTO v_cart_id;
+    END IF;
+    
+    RETURN v_cart_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get or create cart for guest
+CREATE OR REPLACE FUNCTION get_or_create_guest_cart(p_session_id VARCHAR(255))
+RETURNS BIGINT AS $$
+DECLARE
+    v_cart_id BIGINT;
+BEGIN
+    -- Try to get existing active cart
+    SELECT shopping_cart_id INTO v_cart_id
+    FROM shopping_carts
+    WHERE session_id = p_session_id
+    AND expires_at > CURRENT_TIMESTAMP
+    ORDER BY created_at DESC
+    LIMIT 1;
+    
+    -- If no cart exists, create one
+    IF v_cart_id IS NULL THEN
+        INSERT INTO shopping_carts (session_id)
+        VALUES (p_session_id)
+        RETURNING shopping_cart_id INTO v_cart_id;
+    END IF;
+    
+    RETURN v_cart_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to merge guest cart into customer cart after login
+CREATE OR REPLACE FUNCTION merge_guest_cart_to_customer(
+    p_session_id VARCHAR(255),
+    p_customer_id BIGINT
+)
+RETURNS VOID AS $$
+DECLARE
+    v_guest_cart_id BIGINT;
+    v_customer_cart_id BIGINT;
+BEGIN
+    -- Get guest cart
+    SELECT shopping_cart_id INTO v_guest_cart_id
+    FROM shopping_carts
+    WHERE session_id = p_session_id
+    AND expires_at > CURRENT_TIMESTAMP;
+    
+    -- If no guest cart, nothing to do
+    IF v_guest_cart_id IS NULL THEN
+        RETURN;
+    END IF;
+    
+    -- Get or create customer cart
+    v_customer_cart_id := get_or_create_customer_cart(p_customer_id);
+    
+    -- Move all items from guest cart to customer cart
+    UPDATE cart_items
+    SET shopping_cart_id = v_customer_cart_id
+    WHERE shopping_cart_id = v_guest_cart_id;
+    
+    -- Update uploaded files to link to customer instead of session
+    UPDATE uploaded_files
+    SET customer_id = p_customer_id, session_id = NULL
+    WHERE session_id = p_session_id;
+    
+    -- Delete the guest cart
+    DELETE FROM shopping_carts WHERE shopping_cart_id = v_guest_cart_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to calculate cart total
+CREATE OR REPLACE FUNCTION calculate_cart_total(p_cart_id BIGINT)
+RETURNS DECIMAL(10, 2) AS $$
+DECLARE
+    v_total DECIMAL(10, 2);
+BEGIN
+    SELECT COALESCE(SUM(ci.quantity * p.base_price), 0)
+    INTO v_total
+    FROM cart_items ci
+    JOIN products p ON ci.product_id = p.product_id
+    WHERE ci.shopping_cart_id = p_cart_id;
+    
+    RETURN v_total;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to clean up expired carts (run periodically)
+CREATE OR REPLACE FUNCTION cleanup_expired_carts()
+RETURNS INTEGER AS $$
+DECLARE
+    v_deleted_count INTEGER;
+BEGIN
+    DELETE FROM shopping_carts
+    WHERE expires_at < CURRENT_TIMESTAMP;
+    
+    GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+    RETURN v_deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper function to add customization to cart item
+CREATE OR REPLACE FUNCTION add_cart_item_customization(
+    p_cart_item_id BIGINT,
+    p_key VARCHAR(100),
+    p_value TEXT
+)
+RETURNS BIGINT AS $$
+DECLARE
+    v_customization_id BIGINT;
+BEGIN
+    INSERT INTO cart_item_customizations (cart_item_id, customization_key, customization_value)
+    VALUES (p_cart_item_id, p_key, p_value)
+    RETURNING customization_id INTO v_customization_id;
+    
+    RETURN v_customization_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper function to add customization to order item
+CREATE OR REPLACE FUNCTION add_order_item_customization(
+    p_order_item_id BIGINT,
+    p_key VARCHAR(100),
+    p_value TEXT
+)
+RETURNS BIGINT AS $$
+DECLARE
+    v_customization_id BIGINT;
+BEGIN
+    INSERT INTO order_item_customizations (order_item_id, customization_key, customization_value)
+    VALUES (p_order_item_id, p_key, p_value)
+    RETURNING customization_id INTO v_customization_id;
+    
+    RETURN v_customization_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
 COMMIT;
 

@@ -216,9 +216,8 @@ CREATE TABLE order_status_history (
 
 
 
-
 -- ============================================
--- 13. Admin_Activity_Log Table (NEW - for audit trail)
+-- 13. Admin_Activity_Log Table 
 -- ============================================
 CREATE TABLE admin_activity_log (
     log_id BIGSERIAL PRIMARY KEY,
