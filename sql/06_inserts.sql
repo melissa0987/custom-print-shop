@@ -200,6 +200,13 @@ INSERT INTO admin_activity_log (admin_id, action, table_name, record_id, old_val
     (2, 'add_product', 'products', 2, NULL, '{"product_name": "Ceramic Mug 15oz", "category_id": 1, "base_price": 14.99}'::jsonb, CURRENT_TIMESTAMP),
     (3, 'update_order_status', 'orders', 2, '{"order_status": "pending"}'::jsonb, '{"order_status": "processing", "notes": "Order confirmed and being prepared"}'::jsonb, CURRENT_TIMESTAMP);
 
+
+
+
+
+
+
+
 -- Reset sequences to match the inserted data
 SELECT setval('admin_users_admin_id_seq', (SELECT MAX(admin_id) FROM admin_users));
 SELECT setval('customers_customer_id_seq', (SELECT MAX(customer_id) FROM customers));
