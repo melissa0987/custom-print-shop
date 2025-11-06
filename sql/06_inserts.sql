@@ -1,0 +1,219 @@
+
+-- Insert Sample Admin Users 
+INSERT INTO admin_users (username, email, password_hash, first_name, last_name, role, is_active) VALUES
+    ('superadmin', 'superadmin@printcraft.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Super', 'Admin', 'super_admin', TRUE),
+    ('admin_john', 'john.admin@printcraft.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'John', 'Administrator', 'admin', TRUE),
+    ('staff_jane', 'jane.staff@printcraft.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Jane', 'Staff', 'staff', TRUE);
+
+-- Insert Sample Customers
+INSERT INTO customers (username, email, password_hash, first_name, last_name, phone_number) VALUES
+    ('johndoe', 'john.doe@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'John', 'Doe', '514-555-0101'),
+    ('janesmith', 'jane.smith@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Jane', 'Smith', '514-555-0102'),
+    ('bobwilson', 'bob.wilson@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Bob', 'Wilson', '514-555-0103'),
+    ('alicebrown', 'alice.brown@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Alice', 'Brown', '514-555-0104'),
+    ('charliedavis', 'charlie.davis@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Charlie', 'Davis', '514-555-0105');
+
+-- Insert Categories (created by admin_john with admin_id = 2)
+INSERT INTO categories (category_name, description, is_active, display_order, created_by, updated_by) VALUES
+    ('Mugs', 'Ceramic and insulated mugs for hot and cold beverages', TRUE, 1, 2, 2),
+    ('Tumblers', 'Insulated stainless steel tumblers', TRUE, 2, 2, 2),
+    ('Bags', 'Tote bags, drawstring bags, and shopping bags', TRUE, 3, 2, 2),
+    ('T-Shirts', 'Custom printed t-shirts in various sizes', TRUE, 4, 2, 2);
+
+-- Insert Sample Products (created by admin_john with admin_id = 2)
+INSERT INTO products (category_id, product_name, description, base_price, is_active, created_by, updated_by) VALUES
+    -- Mugs (category_id = 1)
+    (1, 'Ceramic Mug 11oz', 'Classic white ceramic mug, dishwasher safe', 12.99, TRUE, 2, 2),
+    (1, 'Ceramic Mug 15oz', 'Large ceramic mug, perfect for coffee lovers', 14.99, TRUE, 2, 2),
+    (1, 'Travel Mug', 'Insulated stainless steel travel mug with lid', 19.99, TRUE, 2, 2),
+    
+    -- Tumblers (category_id = 2)
+    (2, 'Stainless Tumbler 20oz', 'Double-wall insulated tumbler', 24.99, TRUE, 2, 2),
+    (2, 'Stainless Tumbler 30oz', 'Large insulated tumbler with straw', 29.99, TRUE, 2, 2),
+    
+    -- Bags (category_id = 3)
+    (3, 'Canvas Tote Bag', 'Durable canvas tote bag, 15x16 inches', 16.99, TRUE, 2, 2),
+    (3, 'Cotton Drawstring Bag', 'Lightweight cotton drawstring bag', 9.99, TRUE, 2, 2),
+    (3, 'Cotton Shopping Bag', 'Reusable cotton shopping bag with handles', 12.99, TRUE, 2, 2),
+    
+    -- T-Shirts (category_id = 4)
+    (4, 'Cotton T-Shirt - S', 'Premium 100% cotton t-shirt, size Small', 19.99, TRUE, 2, 2),
+    (4, 'Cotton T-Shirt - M', 'Premium 100% cotton t-shirt, size Medium', 19.99, TRUE, 2, 2),
+    (4, 'Cotton T-Shirt - L', 'Premium 100% cotton t-shirt, size Large', 19.99, TRUE, 2, 2),
+    (4, 'Cotton T-Shirt - XL', 'Premium 100% cotton t-shirt, size XL', 19.99, TRUE, 2, 2);
+
+-- Insert Sample Shopping Carts (customer and guest carts)
+INSERT INTO shopping_carts (customer_id, session_id) VALUES
+    (1, NULL),  -- johndoe's cart
+    (2, NULL),  -- janesmith's cart
+    (NULL, 'guest-session-12345'),  -- Guest cart 1
+    (NULL, 'guest-session-67890');  -- Guest cart 2
+
+-- Insert Sample Cart Items
+INSERT INTO cart_items (shopping_cart_id, product_id, quantity, design_file_url) VALUES
+    -- johndoe's cart (shopping_cart_id = 1)
+    (1, 1, 2, '../uploads/johndoe/company_logo_20251104_143022.png'),
+    (1, 4, 1, '../uploads/johndoe/tumbler_design_20251104_143045.png'),
+    
+    -- janesmith's cart (shopping_cart_id = 2)
+    (2, 6, 1, NULL),
+    (2, 10, 2, '../uploads/janesmith/tshirt_design_20251104_144510.png'),
+    
+    -- Guest cart 1 (shopping_cart_id = 3)
+    (3, 3, 1, '../uploads/guest/guest-session-12345/travel_mug_20251104_145030.png'),
+    
+    -- Guest cart 2 (shopping_cart_id = 4)
+    (4, 6, 1, NULL);
+
+-- Insert Cart Item Customizations
+INSERT INTO cart_item_customizations (cart_item_id, customization_key, customization_value) VALUES
+    -- Cart item 1 customizations (johndoe's ceramic mugs)
+    (1, 'size', '11oz'),
+    (1, 'color', 'white'),
+    (1, 'print_location', 'both_sides'),
+    
+    -- Cart item 2 customizations (johndoe's tumbler)
+    (2, 'size', '20oz'),
+    (2, 'color', 'silver'),
+    
+    -- Cart item 3 customizations (janesmith's tote bag)
+    (3, 'color', 'natural'),
+    (3, 'print_location', 'front'),
+    
+    -- Cart item 4 customizations (janesmith's t-shirts)
+    (4, 'size', 'M'),
+    (4, 'color', 'black'),
+    (4, 'print_location', 'front');
+
+-- Insert Sample Orders
+INSERT INTO orders (customer_id, session_id, order_number, order_status, total_amount, shipping_address, contact_phone, contact_email, notes, updated_by)
+VALUES
+    (1, NULL, 'ORD-00001', 'completed', 25.98, '123 Main St, Montreal, QC H1A 1A1', '514-555-0101', 'john.doe@email.com', 'Please handle with care', NULL),
+    (2, NULL, 'ORD-00002', 'processing', 44.98, '456 Oak Ave, Montreal, QC H2B 2B2', '514-555-0102', 'jane.smith@email.com', NULL, 3),
+    (3, NULL, 'ORD-00003', 'pending', 16.99, '789 Pine Rd, Montreal, QC H3C 3C3', '514-555-0103', 'bob.wilson@email.com', 'Rush order', NULL),
+    (1, NULL, 'ORD-00004', 'cancelled', 29.98, '123 Main St, Montreal, QC H1A 1A1', '514-555-0101', 'john.doe@email.com', 'Customer changed mind', NULL),
+    (4, NULL, 'ORD-00005', 'completed', 49.97, '321 Elm St, Montreal, QC H4D 4D4', '514-555-0104', 'alice.brown@email.com', NULL, NULL),
+    (NULL, 'guest-checkout-abc123', 'ORD-00006', 'pending', 19.99, '555 Guest Ave, Montreal, QC H5E 5E5', '514-555-0199', 'guest@email.com', 'Guest order', NULL);
+
+-- Insert Sample Order Items
+INSERT INTO order_items (order_id, product_id, quantity, unit_price, design_file_url, subtotal)VALUES
+    -- Order 1: Two ceramic mugs (order_id = 1)
+    (1, 1, 2, 12.99, '../uploads/johndoe/order_design1_20251020_100500.png', 25.98),
+
+    -- Order 2: Tumbler and T-shirt (order_id = 2)
+    (2, 4, 1, 24.99, '../uploads/janesmith/order_design2_20251021_113000.png', 24.99),
+    (2, 10, 1, 19.99, '../uploads/janesmith/order_design3_20251021_113015.png', 19.99),
+
+    -- Order 3: Canvas tote bag (order_id = 3)
+    (3, 6, 1, 16.99, '../uploads/bobwilson/order_design4_20251022_094500.png', 16.99),
+
+    -- Order 4: Cotton Shopping Bag (order_id = 4, cancelled)
+    (4, 8, 2, 12.99, '../uploads/johndoe/order_design5_20251023_151000.png', 25.98),
+    (4, 1, 1, 12.99, '../uploads/johndoe/order_design5b_20251023_151030.png', 12.99),
+
+    -- Order 5: Multiple items (order_id = 5)
+    (5, 11, 1, 19.99, '../uploads/alicebrown/order_design6_20251024_160000.png', 19.99),
+    (5, 1, 2, 14.99, '../uploads/alicebrown/order_design7_20251024_160030.png', 29.98),
+
+    -- Order 6: Guest order (order_id = 6)
+    (6, 3, 1, 19.99, '../uploads/guest/guest-checkout-abc123/guest_design8_20251025_120000.png', 19.99);
+
+-- Insert Order Item Customizations
+INSERT INTO order_item_customizations (order_item_id, customization_key, customization_value) VALUES
+    -- Order item 1 customizations (ceramic mugs for order 1)
+    (1, 'size', '11oz'),
+    (1, 'color', 'white'),
+    (1, 'print_location', 'both_sides'),
+    
+    -- Order item 2 customizations (tumbler for order 2)
+    (2, 'size', '20oz'),
+    (2, 'color', 'silver'),
+    
+    -- Order item 3 customizations (t-shirt for order 2)
+    (3, 'size', 'M'),
+    (3, 'color', 'black'),
+    (3, 'print_location', 'front'),
+    
+    -- Order item 4 customizations (tote bag for order 3)
+    (4, 'color', 'natural'),
+    (4, 'print_location', 'front'),
+    
+    -- Order item 5 customizations (shopping bags for order 4)
+    (5, 'color', 'navy'),
+    (5, 'print_location', 'both_sides'),
+    
+    -- Order item 6 customizations (ceramic mug for order 4)
+    (6, 'size', '11oz'),
+    (6, 'color', 'white'),
+    
+    -- Order item 7 customizations (t-shirt for order 5)
+    (7, 'size', 'L'),
+    (7, 'color', 'navy'),
+    (7, 'print_location', 'back'),
+    
+    -- Order item 8 customizations (ceramic mugs for order 5)
+    (8, 'size', '11oz'),
+    (8, 'color', 'white'),
+    
+    -- Order item 9 customizations (travel mug for order 6)
+    (9, 'size', 'travel'),
+    (9, 'color', 'silver');
+
+-- Insert Sample Uploaded Files
+INSERT INTO uploaded_files (customer_id, session_id, order_item_id, cart_item_id, file_url, original_filename, file_size, file_type)
+VALUES
+    -- Files linked to order items
+    (1, NULL, 1, NULL, '../uploads/johndoe/order_design1_20251020_100500.png', 'company_logo.png', 245678, 'image/png'),
+    (2, NULL, 2, NULL, '../uploads/janesmith/order_design2_20251021_113000.png', 'family_photo.jpg', 567890, 'image/jpeg'),
+    (2, NULL, 3, NULL, '../uploads/janesmith/order_design3_20251021_113015.png', 'band_artwork.png', 389012, 'image/png'),
+    (3, NULL, 4, NULL, '../uploads/bobwilson/order_design4_20251022_094500.png', 'business_design.pdf', 1024567, 'application/pdf'),
+    (1, NULL, 5, NULL, '../uploads/johndoe/order_design5_20251023_151000.png', 'event_design.ai', 2048912, 'application/illustrator'),
+    (1, NULL, 6, NULL, '../uploads/johndoe/order_design5b_20251023_151030.png', 'mug_design.png', 189456, 'image/png'),
+    (4, NULL, 7, NULL, '../uploads/alicebrown/order_design6_20251024_160000.png', 'team_logo.png', 156789, 'image/png'),
+    (4, NULL, 8, NULL, '../uploads/alicebrown/order_design7_20251024_160030.png', 'motivational_quote.jpg', 234567, 'image/jpeg'),
+    (NULL, 'guest-checkout-abc123', 9, NULL, '../uploads/guest/guest-checkout-abc123/guest_design8_20251025_120000.png', 'guest_design.jpg', 345678, 'image/jpeg'),
+    
+    -- Files linked to cart items (temporary)
+    (1, NULL, NULL, 1, '../uploads/johndoe/company_logo_20251104_143022.png', 'cart_logo.png', 198765, 'image/png'),
+    (1, NULL, NULL, 2, '../uploads/johndoe/tumbler_design_20251104_143045.png', 'cart_tumbler_design.jpg', 287654, 'image/jpeg'),
+    (2, NULL, NULL, 4, '../uploads/janesmith/tshirt_design_20251104_144510.png', 'cart_tshirt_design.png', 312456, 'image/png'),
+    (NULL, 'guest-session-12345', NULL, 5, '../uploads/guest/guest-session-12345/travel_mug_20251104_145030.png', 'guest_cart_design.png', 223344, 'image/png');
+
+-- Insert Order Status History
+INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES
+    (1, 'pending', NULL, 'Order created'),
+    (1, 'processing', NULL, 'Order confirmed'),
+    (1, 'completed', NULL, 'Order shipped and delivered'),
+    (2, 'pending', NULL, 'Order created'),
+    (2, 'processing', 3, 'Order confirmed and being prepared'),
+    (3, 'pending', NULL, 'Order created'),
+    (4, 'pending', NULL, 'Order created'),
+    (4, 'cancelled', NULL, 'Customer requested cancellation'),
+    (5, 'pending', NULL, 'Order created'),
+    (5, 'processing', NULL, 'Order confirmed'),
+    (5, 'completed', NULL, 'Order completed'),
+    (6, 'pending', NULL, 'Guest order created');
+
+-- Insert Admin Activity Log (for the staff update action)
+INSERT INTO admin_activity_log (admin_id, action, table_name, record_id, old_values, new_values, created_at) VALUES
+    (2, 'add_product', 'products', 1, NULL, '{"product_name": "Ceramic Mug 11oz", "category_id": 1, "base_price": 12.99}'::jsonb, CURRENT_TIMESTAMP),
+    (2, 'add_product', 'products', 2, NULL, '{"product_name": "Ceramic Mug 15oz", "category_id": 1, "base_price": 14.99}'::jsonb, CURRENT_TIMESTAMP),
+    (3, 'update_order_status', 'orders', 2, '{"order_status": "pending"}'::jsonb, '{"order_status": "processing", "notes": "Order confirmed and being prepared"}'::jsonb, CURRENT_TIMESTAMP);
+
+-- Reset sequences to match the inserted data
+SELECT setval('admin_users_admin_id_seq', (SELECT MAX(admin_id) FROM admin_users));
+SELECT setval('customers_customer_id_seq', (SELECT MAX(customer_id) FROM customers));
+SELECT setval('categories_category_id_seq', (SELECT MAX(category_id) FROM categories));
+SELECT setval('products_product_id_seq', (SELECT MAX(product_id) FROM products));
+SELECT setval('shopping_carts_shopping_cart_id_seq', (SELECT MAX(shopping_cart_id) FROM shopping_carts));
+SELECT setval('cart_items_cart_item_id_seq', (SELECT MAX(cart_item_id) FROM cart_items));
+SELECT setval('cart_item_customizations_customization_id_seq', (SELECT MAX(customization_id) FROM cart_item_customizations));
+SELECT setval('orders_order_id_seq', (SELECT MAX(order_id) FROM orders));
+SELECT setval('order_items_order_item_id_seq', (SELECT MAX(order_item_id) FROM order_items));
+SELECT setval('order_item_customizations_customization_id_seq', (SELECT MAX(customization_id) FROM order_item_customizations));
+SELECT setval('uploaded_files_file_id_seq', (SELECT MAX(file_id) FROM uploaded_files));
+SELECT setval('order_status_history_history_id_seq', (SELECT MAX(history_id) FROM order_status_history));
+SELECT setval('admin_activity_log_log_id_seq', (SELECT MAX(log_id) FROM admin_activity_log));
+
+
+COMMIT;
