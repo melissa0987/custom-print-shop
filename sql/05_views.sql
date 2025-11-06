@@ -115,3 +115,6 @@ SELECT
 FROM admin_activity_log aal
 JOIN admin_users au ON aal.admin_id = au.admin_id
 ORDER BY aal.created_at DESC;
+
+
+COMMIT;
