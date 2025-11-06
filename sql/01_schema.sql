@@ -1,3 +1,4 @@
+
 -- ============================================
 -- Custom Printing Website Database Schema
 -- PostgreSQL Script (WITH STAFF/ADMIN & ROLE-BASED ACCESS) 
@@ -192,8 +193,6 @@ CREATE TABLE uploaded_files (
     cart_item_id BIGINT REFERENCES cart_items(cart_item_id) ON DELETE SET NULL,
     file_url TEXT NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
-    file_size BIGINT,
-    file_type VARCHAR(50),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_file_owner CHECK (
         (customer_id IS NOT NULL AND session_id IS NULL) OR 

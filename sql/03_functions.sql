@@ -407,13 +407,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to get customer files
+
 CREATE OR REPLACE FUNCTION get_customer_files(p_customer_id BIGINT)
 RETURNS TABLE (
     file_id BIGINT,
     file_url TEXT,
     original_filename VARCHAR(255),
-    file_size BIGINT,
-    file_type VARCHAR(50),
     uploaded_at TIMESTAMP
 ) AS $$
 BEGIN
@@ -422,8 +421,6 @@ BEGIN
         uf.file_id,
         uf.file_url,
         uf.original_filename,
-        uf.file_size,
-        uf.file_type,
         uf.uploaded_at
     FROM uploaded_files uf
     WHERE uf.customer_id = p_customer_id
