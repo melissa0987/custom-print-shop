@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}PrintCraft - Custom Printing Made Easy{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero text-center">
+    <div class="container">
+        <h1 class="display-3 fw-bold mb-4">Bring Your Designs to Life</h1>
+        <p class="lead mb-4">Premium custom printing on mugs, tumblers, bags, and t-shirts.<br>Fast turnaround, exceptional quality.</p>
+        <a href="/products" class="btn btn-light btn-lg px-5 py-3">
+            <i class="bi bi-grid"></i> Browse Products
+        </a>
+    </div>
+</section>
+
+<!-- Featured Products -->
+<section class="container mb-5">
+    <div class="text-center mb-4">
+        <h2 class="fw-bold">Featured Products</h2>
+        <p class="text-muted">Check out our most popular items</p>
+    </div>
+    
+    <div class="row" id="featured-products">
+        <div class="col-12 text-center py-5">
+            <div class="loading"></div>
+            <p class="text-muted mt-2">Loading products...</p>
+        </div>
+    </div>
+    
+    <div class="text-center mt-4">
+        <a href="/products" class="btn btn-primary btn-lg">View All Products</a>
+    </div>
+</section>
+
+<!-- Product Categories -->
+<section class="bg-light py-5">
+    <div class="container">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold">What We Print</h2>
+            <p class="text-muted">Explore our product categories</p>
+        </div>
+        
+        <div class="row g-4" id="categories">
+            <div class="col-12 text-center py-5">
+                <div class="loading"></div>
+                <p class="text-muted mt-2">Loading categories...</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="container my-5 py-5">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold">Why Choose PrintCraft?</h2>
+        <p class="text-muted">Quality and service you can trust</p>
+    </div>
+    
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 text-center p-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-palette display-4 text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Easy Design Tools</h5>
+                    <p class="card-text text-muted">Upload your designs or use our templates. Simple and intuitive process.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 text-center p-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-lightning-charge display-4 text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Fast Production</h5>
+                    <p class="card-text text-muted">Quick turnaround times without compromising on quality.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 text-center p-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-star display-4 text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Premium Quality</h5>
+                    <p class="card-text text-muted">High-resolution printing with durable, fade-resistant inks.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="hero text-center py-5">
+    <div class="container">
+        <h2 class="display-5 fw-bold mb-3">Ready to Create Something Amazing?</h2>
+        <p class="lead mb-4">Join thousands of satisfied customers who trust PrintCraft for their custom printing needs</p>
+        <a href="/products" class="btn btn-light btn-lg px-5 py-3 me-2">
+            <i class="bi bi-grid"></i> Browse Products
+        </a>
+        <a href="/auth/register" class="btn btn-outline-light btn-lg px-5 py-3">
+            <i class="bi bi-person-plus"></i> Create Account
+        </a>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load featured products
+    fetch('/products/featured?limit=6')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('featured-products');
+            
+            if (data.featured_products && data.featured_products.length > 0) {
+                container.innerHTML = data.featured_products.map(product => `
+                    <div class="col-md-4 col-lg-2 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="text-center mb-3">
+                                    <i class="bi bi-image display-1 text-muted"></i>
+                                </div>
+                                <h5 class="card-title">${product.product_name}</h5>
+                                <p class="card-text text-muted small">${product.description || ''}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="price-tag">$${product.base_price.toFixed(2)}</span>
+                                    <button class="btn btn-primary btn-sm" onclick="viewProduct(${product.product_id})">
+                                        View
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="col-12"><p class="text-center text-muted">No products available</p></div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading products:', error);
+            document.getElementById('featured-products').innerHTML = '<div class="col-12"><p class="text-center text-danger">Failed to load products</p></div>';
+        });
+    
+    // Load categories
+    fetch('/products/categories')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('categories');
+            
+            if (data.categories && data.categories.length > 0) {
+                const icons = {
+                    'Mugs': 'cup-hot',
+                    'Tumblers': 'droplet',
+                    'Bags': 'bag',
+                    'T-Shirts': 'palette'
+                };
+                
+                container.innerHTML = data.categories.map(category => `
+                    <div class="col-md-6 col-lg-3">
+                        <a href="/products?category_id=${category.category_id}" class="text-decoration-none">
+                            <div class="card h-100 text-center p-4">
+                                <div class="card-body">
+                                    <i class="bi bi-${icons[category.category_name] || 'star'} display-3 text-primary mb-3"></i>
+                                    <h5 class="card-title">${category.category_name}</h5>
+                                    <p class="card-text text-muted small">${category.description || ''}</p>
+                                    <span class="badge bg-primary">${category.product_count} Products</span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="col-12"><p class="text-center text-muted">No categories available</p></div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading categories:', error);
+            document.getElementById('categories').innerHTML = '<div class="col-12"><p class="text-center text-danger">Failed to load categories</p></div>';
+        });
+    
+    function viewProduct(productId) {
+        window.location.href = `/products/${productId}`;
+    }
+</script>
+{% endblock %}
