@@ -3,14 +3,23 @@ Cart Service
 Business logic for shopping cart management
 """
 
-from datetime import datetime, timedelta
-import uuid
-
+from datetime import timedelta
 from app.database import get_db_session
 from app.models import (
     ShoppingCart, CartItem, CartItemCustomization,
-    Product, Customer
+    Product
 )
+from app.utils import (
+    DateHelper,
+    FileHelper,
+    PriceHelper,
+    StringHelper,
+    SessionHelper,
+    generate_unique_filename,
+    format_currency,
+    truncate_text,
+)
+
 
 
 class CartService:
@@ -33,32 +42,34 @@ class CartService:
         
         try:
             with get_db_session() as session:
+                now = DateHelper.now()
+
                 # Find existing cart
                 if customer_id:
                     cart = session.query(ShoppingCart).filter(
                         ShoppingCart.customer_id == customer_id,
-                        ShoppingCart.expires_at > datetime.now()
+                        ShoppingCart.expires_at > now
                     ).first()
                 else:
                     cart = session.query(ShoppingCart).filter(
                         ShoppingCart.session_id == session_id,
-                        ShoppingCart.expires_at > datetime.now()
+                        ShoppingCart.expires_at > now
                     ).first()
-                
+
                 # Create new cart if not found
                 if not cart:
                     cart = ShoppingCart(
                         customer_id=customer_id,
-                        session_id=session_id,
-                        expires_at=datetime.now() + timedelta(days=30)
+                        session_id=session_id or SessionHelper.generate_session_id(),
+                        expires_at=DateHelper.now_plus_days(30)
                     )
                     session.add(cart)
                     session.flush()
-                
+
                 return cart
-                
+
         except Exception as e:
-            print(f"Error getting/creating cart: {e}")
+            print(f"Error getting/creating cart: {truncate_text(str(e), 120)}")
             return None
     
     @staticmethod
@@ -79,9 +90,10 @@ class CartService:
                 ).first()
         except Exception:
             return None
+
     
     @staticmethod
-    def add_to_cart(customer_id, session_id, product_id, quantity, 
+    def add_to_cart(customer_id, session_id, product_id, quantity,
                     design_file_url=None, customizations=None):
         """
         Add item to cart
@@ -102,33 +114,37 @@ class CartService:
         
         try:
             with get_db_session() as session:
-                # Verify product exists and is active
+                # Verify product exists
                 product = session.query(Product).filter_by(
                     product_id=product_id,
                     is_active=True
                 ).first()
-                
                 if not product:
                     return False, "Product not found or inactive"
-                
+
                 # Get or create cart
                 cart = CartService.get_or_create_cart(customer_id, session_id)
                 if not cart:
                     return False, "Failed to create cart"
-                
+
                 # Check if product already in cart
                 existing_item = session.query(CartItem).filter_by(
                     shopping_cart_id=cart.shopping_cart_id,
                     product_id=product_id
                 ).first()
-                
+
+                now = DateHelper.now()
+
                 if existing_item:
-                    # Update quantity
                     existing_item.quantity += quantity
-                    existing_item.updated_at = datetime.now()
+                    existing_item.updated_at = now
                     cart_item = existing_item
                 else:
-                    # Create new cart item
+                    if not design_file_url:
+                        design_file_url = generate_unique_filename(prefix="design_", extension=".png")
+                    else:
+                        design_file_url = FileHelper.sanitize_url(design_file_url)
+
                     cart_item = CartItem(
                         shopping_cart_id=cart.shopping_cart_id,
                         product_id=product_id,
@@ -137,33 +153,33 @@ class CartService:
                     )
                     session.add(cart_item)
                     session.flush()
-                
-                # Handle customizations
+
+                # Customizations
                 if customizations:
-                    # Remove existing customizations
                     session.query(CartItemCustomization).filter_by(
                         cart_item_id=cart_item.cart_item_id
                     ).delete()
-                    
-                    # Add new customizations
+
                     for key, value in customizations.items():
                         customization = CartItemCustomization(
                             cart_item_id=cart_item.cart_item_id,
-                            customization_key=key,
-                            customization_value=str(value)
+                            customization_key=StringHelper.clean(key),
+                            customization_value=StringHelper.clean(str(value))
                         )
                         session.add(customization)
-                
-                # Update cart timestamp
-                cart.updated_at = datetime.now()
-                
-                return True, cart
-                
+
+                cart.updated_at = now
+
+                total = PriceHelper.calculate_cart_total(cart.cart_items)
+                formatted_total = format_currency(total)
+
+                return True, {"cart": cart, "formatted_total": formatted_total}
+
         except Exception as e:
-            return False, f"Failed to add to cart: {str(e)}"
-    
+            return False, f"Failed to add to cart: {truncate_text(str(e), 120)}"
+     
     @staticmethod
-    def update_cart_item(cart_item_id, quantity=None, design_file_url=None, 
+    def update_cart_item(cart_item_id, quantity=None, design_file_url=None,
                          customizations=None, customer_id=None, session_id=None):
         """
         Update cart item
@@ -187,44 +203,43 @@ class CartService:
                 cart_item = session.query(CartItem).filter_by(
                     cart_item_id=cart_item_id
                 ).first()
-                
+
                 if not cart_item:
                     return False, "Cart item not found"
-                
-                # Verify ownership
+
                 cart = cart_item.shopping_cart
-                if customer_id and cart.customer_id != customer_id:
+
+                # Ownership check using SessionHelper
+                if not SessionHelper.verify_cart_access(cart, customer_id, session_id):
                     return False, "Access denied"
-                if session_id and cart.session_id != session_id:
-                    return False, "Access denied"
-                
-                # Update fields
+
+                # Update values
                 if quantity is not None:
                     cart_item.quantity = quantity
                 if design_file_url is not None:
-                    cart_item.design_file_url = design_file_url
-                
-                # Update customizations
+                    cart_item.design_file_url = FileHelper.sanitize_url(design_file_url)
+
+                # Customizations
                 if customizations is not None:
                     session.query(CartItemCustomization).filter_by(
                         cart_item_id=cart_item_id
                     ).delete()
-                    
                     for key, value in customizations.items():
                         customization = CartItemCustomization(
                             cart_item_id=cart_item_id,
-                            customization_key=key,
-                            customization_value=str(value)
+                            customization_key=StringHelper.clean(key),
+                            customization_value=StringHelper.clean(str(value))
                         )
                         session.add(customization)
-                
-                cart_item.updated_at = datetime.now()
-                cart.updated_at = datetime.now()
-                
-                return True, cart
-                
+
+                now = DateHelper.now()
+                cart_item.updated_at = now
+                cart.updated_at = now
+
+                return True, "Cart item updated"
+
         except Exception as e:
-            return False, f"Failed to update cart item: {str(e)}"
+            return False, f"Failed to update cart item: {truncate_text(str(e), 120)}"
     
     @staticmethod
     def remove_from_cart(cart_item_id, customer_id=None, session_id=None):
@@ -244,24 +259,21 @@ class CartService:
                 cart_item = session.query(CartItem).filter_by(
                     cart_item_id=cart_item_id
                 ).first()
-                
                 if not cart_item:
                     return False, "Cart item not found"
-                
-                # Verify ownership
+
                 cart = cart_item.shopping_cart
-                if customer_id and cart.customer_id != customer_id:
+                if not SessionHelper.verify_cart_access(cart, customer_id, session_id):
                     return False, "Access denied"
-                if session_id and cart.session_id != session_id:
-                    return False, "Access denied"
-                
+
                 session.delete(cart_item)
-                cart.updated_at = datetime.now()
-                
+                cart.updated_at = DateHelper.now()
+
                 return True, "Item removed from cart"
-                
+
         except Exception as e:
-            return False, f"Failed to remove item: {str(e)}"
+            return False, f"Failed to remove item: {truncate_text(str(e), 120)}"
+
     
     @staticmethod
     def clear_cart(customer_id=None, session_id=None):
@@ -277,30 +289,24 @@ class CartService:
         """
         try:
             with get_db_session() as session:
-                # Find cart
                 if customer_id:
-                    cart = session.query(ShoppingCart).filter_by(
-                        customer_id=customer_id
-                    ).first()
+                    cart = session.query(ShoppingCart).filter_by(customer_id=customer_id).first()
                 else:
-                    cart = session.query(ShoppingCart).filter_by(
-                        session_id=session_id
-                    ).first()
-                
+                    cart = session.query(ShoppingCart).filter_by(session_id=session_id).first()
+
                 if not cart:
                     return True, "Cart already empty"
-                
-                # Delete all items
+
                 session.query(CartItem).filter_by(
                     shopping_cart_id=cart.shopping_cart_id
                 ).delete()
-                
-                cart.updated_at = datetime.now()
-                
+
+                cart.updated_at = DateHelper.now()
                 return True, "Cart cleared"
-                
+
         except Exception as e:
-            return False, f"Failed to clear cart: {str(e)}"
+            return False, f"Failed to clear cart: {truncate_text(str(e), 120)}"
+
     
     @staticmethod
     def merge_guest_cart_to_customer(guest_session_id, customer_id):
@@ -316,53 +322,50 @@ class CartService:
         """
         try:
             with get_db_session() as session:
-                # Get guest cart
+                now = DateHelper.now()
+
                 guest_cart = session.query(ShoppingCart).filter(
                     ShoppingCart.session_id == guest_session_id,
-                    ShoppingCart.expires_at > datetime.now()
+                    ShoppingCart.expires_at > now
                 ).first()
-                
+
                 if not guest_cart or guest_cart.get_total_items() == 0:
                     return True, "No guest cart to merge"
-                
-                # Get or create customer cart
+
                 customer_cart = session.query(ShoppingCart).filter(
                     ShoppingCart.customer_id == customer_id,
-                    ShoppingCart.expires_at > datetime.now()
+                    ShoppingCart.expires_at > now
                 ).first()
-                
+
                 if not customer_cart:
                     customer_cart = ShoppingCart(
                         customer_id=customer_id,
-                        expires_at=datetime.now() + timedelta(days=30)
+                        expires_at=DateHelper.now_plus_days(30)
                     )
                     session.add(customer_cart)
                     session.flush()
-                
-                # Move items from guest cart to customer cart
+
+                # Merge items
                 for guest_item in guest_cart.cart_items:
-                    # Check if product already in customer cart
                     existing_item = session.query(CartItem).filter_by(
                         shopping_cart_id=customer_cart.shopping_cart_id,
                         product_id=guest_item.product_id
                     ).first()
-                    
+
                     if existing_item:
-                        # Add quantities
                         existing_item.quantity += guest_item.quantity
-                        existing_item.updated_at = datetime.now()
+                        existing_item.updated_at = now
                     else:
-                        # Move item to customer cart
                         guest_item.shopping_cart_id = customer_cart.shopping_cart_id
-                
-                # Delete guest cart
+
                 session.delete(guest_cart)
-                customer_cart.updated_at = datetime.now()
-                
+                customer_cart.updated_at = now
+
                 return True, "Cart merged successfully"
-                
+
         except Exception as e:
-            return False, f"Failed to merge cart: {str(e)}"
+            return False, f"Failed to merge cart: {truncate_text(str(e), 120)}"
+
     
     @staticmethod
     def calculate_cart_total(shopping_cart_id):
@@ -380,11 +383,10 @@ class CartService:
                 cart = session.query(ShoppingCart).filter_by(
                     shopping_cart_id=shopping_cart_id
                 ).first()
-                
                 if not cart:
                     return 0.0
-                
-                return cart.calculate_total()
+                return PriceHelper.calculate_cart_total(cart.cart_items)
+            
         except Exception:
             return 0.0
     
@@ -423,15 +425,14 @@ class CartService:
         try:
             with get_db_session() as session:
                 expired_carts = session.query(ShoppingCart).filter(
-                    ShoppingCart.expires_at < datetime.now()
+                    ShoppingCart.expires_at < DateHelper.now()
                 ).all()
-                
+
                 count = len(expired_carts)
-                
                 for cart in expired_carts:
                     session.delete(cart)
-                
+
                 return count
         except Exception as e:
-            print(f"Error cleaning up carts: {e}")
+            print(f"Error cleaning up carts: {truncate_text(str(e), 120)}")
             return 0
