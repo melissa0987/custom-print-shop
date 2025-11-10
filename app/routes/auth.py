@@ -10,8 +10,8 @@ import re
 from datetime import datetime
 
 from app.database import get_db_session
-from app.models import Customer, AdminUser
-from app.utils import login_required, admin_required, validate_email
+from app.models.__models_init__ import Customer, AdminUser
+from app.utils.__utils_init__ import login_required, admin_required, validate_email
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__)

@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
 
 from app.database import get_db_session
-from app.models import Customer, AdminUser
+from app.models.__models_init__ import Customer, AdminUser
 from app.utils.validators import Validators
 
 

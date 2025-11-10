@@ -5,11 +5,11 @@ Business logic for shopping cart management
 
 from datetime import timedelta
 from app.database import get_db_session
-from app.models import (
+from app.models.__models_init__ import (
     ShoppingCart, CartItem, CartItemCustomization,
     Product
 )
-from app.utils import (
+from app.utils.__utils_init__ import (
     DateHelper,
     FileHelper,
     PriceHelper,

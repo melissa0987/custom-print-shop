@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import uuid
 
 from app.database import get_db_session
-from app.models import (
+from app.models.__models_init__ import (
     ShoppingCart, CartItem, CartItemCustomization,
     Product, Customer
 )

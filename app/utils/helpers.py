@@ -110,6 +110,21 @@ class FileHelper:
             return f"{size_bytes / (1024 * 1024):.2f} MB"
         else:
             return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+    
+    @staticmethod
+    def sanitize_url(url):
+        """
+        Sanitize URL string
+        
+        Args:
+            url (str): URL to sanitize
+            
+        Returns:
+            str: Cleaned URL
+        """
+        if not url:
+            return ""
+        return url.strip()
 
 
 class PriceHelper:
@@ -183,10 +198,55 @@ class PriceHelper:
             return float(subtotal) + float(tax) + float(shipping) - float(discount)
         except (ValueError, TypeError):
             return 0.0
+    
+    @staticmethod
+    def calculate_cart_total(cart_items):
+        """
+        Calculate total from cart items
+        
+        Args:
+            cart_items (list): List of CartItem objects
+            
+        Returns:
+            float: Total amount
+        """
+        try:
+            total = 0.0
+            for item in cart_items:
+                # Access product base_price and item quantity
+                price = float(item.product.base_price)
+                quantity = int(item.quantity)
+                total += price * quantity
+            return total
+        except (AttributeError, ValueError, TypeError):
+            return 0.0
 
 
 class DateHelper:
     """Helper functions for date and time operations"""
+    
+    @staticmethod
+    def now():
+        """
+        Get current datetime
+        
+        Returns:
+            datetime: Current datetime
+        """
+        return datetime.now()
+    
+    @staticmethod
+    def now_plus_days(days):
+        """
+        Get datetime X days from now
+        
+        Args:
+            days (int): Number of days to add
+            
+        Returns:
+            datetime: Future datetime
+        """
+        return datetime.now() + timedelta(days=days)
     
     @staticmethod
     def format_datetime(dt, format='%B %d, %Y at %I:%M %p'):
@@ -351,7 +411,7 @@ class StringHelper:
         return ' '.join(word.capitalize() for word in text.split())
     
     @staticmethod
-    def clean_whitespace(text):
+    def clean(text):
         """
         Clean excessive whitespace from text
         
@@ -369,6 +429,19 @@ class StringHelper:
         
         # Trim leading/trailing whitespace
         return text.strip()
+    
+    @staticmethod
+    def clean_whitespace(text):
+        """
+        Alias for clean() - kept for backward compatibility
+        
+        Args:
+            text (str): Text to clean
+            
+        Returns:
+            str: Cleaned text
+        """
+        return StringHelper.clean(text)
 
 
 class SessionHelper:
@@ -422,6 +495,25 @@ class SessionHelper:
             int or None: User ID if authenticated, None otherwise
         """
         return session.get('customer_id') or session.get('admin_id')
+    
+    @staticmethod
+    def verify_cart_access(cart, customer_id=None, session_id=None):
+        """
+        Verify user has access to cart
+        
+        Args:
+            cart: ShoppingCart object
+            customer_id (int, optional): Customer ID
+            session_id (str, optional): Session ID
+            
+        Returns:
+            bool: True if user has access, False otherwise
+        """
+        if customer_id and cart.customer_id == customer_id:
+            return True
+        if session_id and cart.session_id == session_id:
+            return True
+        return False
 
 
 class OrderHelper:

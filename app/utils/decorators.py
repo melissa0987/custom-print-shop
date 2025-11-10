@@ -7,7 +7,7 @@ from functools import wraps
 from flask import session, jsonify, redirect, url_for, request, flash
 
 from app.database import get_db_session
-from app.models import AdminUser
+from app.models.__models_init__ import AdminUser
 
 
 def login_required(f):

@@ -53,10 +53,14 @@ class Config:
     REQUIRE_NUMBERS = os.environ.get('REQUIRE_NUMBERS', 'True').lower() == 'true'
     REQUIRE_SPECIAL_CHARS = os.environ.get('REQUIRE_SPECIAL_CHARS', 'True').lower() == 'true'
     
-    # File Upload Security (if needed in future)
-    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
-    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', '1048576'))  # 1MB
-    ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+    # File Upload Configuration for Custom Printing
+    UPLOAD_FOLDER = os.path.join('static', os.environ.get('UPLOAD_FOLDER', 'uploads'))
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', '16777216'))  # 16MB for design files
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'ai', 'svg', 'psd'}  # Design file formats
+    
+    # Static Files Configuration
+    STATIC_FOLDER = 'static'
+    STATIC_URL_PATH = '/static'
     
     # CORS Configuration (restrictive by default)
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '').split(',') if os.environ.get('CORS_ORIGINS') else []
@@ -165,8 +169,8 @@ class TestingConfig(Config):
     FORCE_HTTPS = False
     SESSION_SECURE = False
     
-    # Use in-memory database for testing
-    DATABASE_NAME = 'test_bankingdb'
+    # Use test database for testing
+    DATABASE_NAME = 'test_printingdb'
     
     # Disable rate limiting for tests
     RATE_LIMITING = False

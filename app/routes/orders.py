@@ -9,7 +9,7 @@ import random
 import string
 
 from app.database import get_db_session
-from app.models import (
+from app.models.__models_init__ import (
     Order, OrderItem, OrderItemCustomization, OrderStatusHistory,
     ShoppingCart, CartItem, Product, Customer
 )

@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, render_template
 from sqlalchemy import or_, func
 
 from app.database import get_db_session
-from app.models import Product, Category
+from app.models.__models_init__ import Product, Category
 
 # Create blueprint
 products_bp = Blueprint('products', __name__)
@@ -376,7 +376,7 @@ def get_popular_products():
     try:
         with get_db_session() as db_session:
             # Get products with order counts
-            from app.models import OrderItem
+            from app.models.__models_init__ import OrderItem
             
             popular_products = db_session.query(
                 Product,

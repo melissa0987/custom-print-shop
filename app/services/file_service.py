@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 from uuid import uuid4
 
 from app.database import get_db_session
-from app.models import UploadedFile, CartItem, OrderItem
+from app.models.__models_init__ import UploadedFile, CartItem, OrderItem
 from app.utils.helpers import FileHelper
 from app.utils.validators import Validators
 
