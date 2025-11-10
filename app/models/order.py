@@ -1,87 +1,127 @@
 """
-Order Model
+Order Model  
 Represents customer orders
 """
-from sqlalchemy import Column, BigInteger, String, Text, NUMERIC, TIMESTAMP, ForeignKey, CheckConstraint
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.database import Base
+
+import psycopg2
+import psycopg2.extras
+from datetime import datetime
+from flask import current_app
 
 
-class Order(Base):
+class Order:
     """Orders table"""
-    
-    __tablename__ = 'orders'
-    
-    # Primary key
-    order_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    
-    # Owner (either customer or guest session)
-    customer_id = Column(BigInteger, ForeignKey('customers.customer_id', ondelete='SET NULL'), nullable=True)
-    session_id = Column(String(255), nullable=True)
-    
-    # Order information
-    order_number = Column(String(50), unique=True, nullable=False)
-    order_status = Column(String(20), nullable=False, default='pending')
-    total_amount = Column(NUMERIC(10, 2), nullable=False)
-    
-    # Shipping and contact information
-    shipping_address = Column(Text, nullable=False)
-    contact_phone = Column(String(20), nullable=True)
-    contact_email = Column(String(255), nullable=True)
-    notes = Column(Text, nullable=True)
-    
-    # Timestamps
-    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
-    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
-    
-    # Foreign key - who last updated this order
-    updated_by = Column(BigInteger, ForeignKey('admin_users.admin_id', ondelete='SET NULL'), nullable=True)
-    
-    # Relationships
-    customer = relationship('Customer', back_populates='orders')
-    updater = relationship('AdminUser', back_populates='updated_orders')
-    order_items = relationship('OrderItem', back_populates='order', cascade='all, delete-orphan')
-    status_history = relationship('OrderStatusHistory', back_populates='order', cascade='all, delete-orphan')
-    
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "order_status IN ('pending', 'processing', 'completed', 'cancelled')",
-            name='chk_order_status'
-        ),
-        CheckConstraint('total_amount >= 0', name='chk_order_total_amount'),
-    )
-    
-    def __repr__(self):
-        return f"<Order(order_id={self.order_id}, order_number='{self.order_number}', status='{self.order_status}')>"
-    
-    def get_total_items(self):
-        """Get total number of items in order"""
-        return len(self.order_items)
-    
-    def get_total_quantity(self):
-        """Get total quantity of all items in order"""
-        return sum(item.quantity for item in self.order_items)
-    
-    def calculate_total(self):
-        """Calculate total from order items"""
-        return float(sum(item.subtotal for item in self.order_items))
-    
-    def get_customer_name(self):
-        """Get customer name or 'Guest' for guest orders"""
-        if self.customer:
-            return self.customer.full_name
-        return "Guest"
-    
-    def get_customer_email(self):
-        """Get customer email"""
-        return self.customer.email if self.customer else self.contact_email
-    
-    def can_be_cancelled(self):
+
+    VALID_STATUSES = ('pending', 'processing', 'completed', 'cancelled')
+
+    def __init__(self):
+        self.conn = psycopg2.connect(
+            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
+                "postgresql+psycopg2", "postgresql"
+            ),
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+
+    def __del__(self):
+        try:
+            if self.conn:
+                self.conn.close()
+        except Exception:
+            pass
+
+    # ---------------------
+    # CREATE
+    # ---------------------
+    def create(self, order_number, total_amount, shipping_address, 
+               customer_id=None, session_id=None, order_status='pending',
+               contact_phone=None, contact_email=None, notes=None, updated_by=None):
+        if order_status not in self.VALID_STATUSES:
+            raise ValueError(f"Invalid status: {order_status}")
+
+        sql = """
+            INSERT INTO orders (
+                customer_id, session_id, order_number, order_status,
+                total_amount, shipping_address, contact_phone,
+                contact_email, notes, updated_by, created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING order_id;
+        """
+        now = datetime.utcnow()
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (
+                customer_id, session_id, order_number, order_status,
+                total_amount, shipping_address, contact_phone,
+                contact_email, notes, updated_by, now, now
+            ))
+            self.conn.commit()
+            return cur.fetchone()["order_id"]
+
+    # ---------------------
+    # READ
+    # ---------------------
+    def get_by_id(self, order_id):
+        sql = "SELECT * FROM orders WHERE order_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (order_id,))
+            return cur.fetchone()
+
+    def get_by_customer(self, customer_id):
+        sql = "SELECT * FROM orders WHERE customer_id = %s ORDER BY created_at DESC;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (customer_id,))
+            return cur.fetchall()
+
+    # ---------------------
+    # UPDATE
+    # ---------------------
+    def update_status(self, order_id, order_status, updated_by=None):
+        if order_status not in self.VALID_STATUSES:
+            raise ValueError(f"Invalid status: {order_status}")
+
+        sql = """
+            UPDATE orders
+            SET order_status = %s, updated_at = %s, updated_by = %s
+            WHERE order_id = %s;
+        """
+        now = datetime.utcnow()
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (order_status, now, updated_by, order_id))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ---------------------
+    # DELETE
+    # ---------------------
+    def delete(self, order_id):
+        sql = "DELETE FROM orders WHERE order_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (order_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ---------------------
+    # HELPERS
+    # ---------------------
+    def can_be_cancelled(self, order_record):
         """Check if order can be cancelled"""
-        return self.order_status in ['pending', 'processing']
-    
-    def can_be_updated(self):
+        return order_record["order_status"] in ['pending', 'processing']
+
+    def can_be_updated(self, order_record):
         """Check if order can be updated"""
-        return self.order_status != 'completed'
+        return order_record["order_status"] != 'completed'
+
+    def get_customer_name(self, order_record, customer_model=None):
+        """Return customer full name or 'Guest'"""
+        if order_record.get("customer_id") and customer_model:
+            customer = customer_model.get_by_id(order_record["customer_id"])
+            if customer:
+                return f"{customer['first_name']} {customer['last_name']}"
+        return "Guest"
+
+    def get_customer_email(self, order_record, customer_model=None):
+        """Return customer email"""
+        if order_record.get("customer_id") and customer_model:
+            customer = customer_model.get_by_id(order_record["customer_id"])
+            if customer:
+                return customer.get("email")
+        return order_record.get("contact_email")

@@ -1,6 +1,7 @@
 """
 Orders Routes
 Handles order placement, tracking, and history
+Updated to use psycopg2-based models
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -8,10 +9,9 @@ from datetime import datetime
 import random
 import string
 
-from app.database import get_db_session
-from app.models.__models_init__ import (
+from app.models import (
     Order, OrderItem, OrderItemCustomization, OrderStatusHistory,
-    ShoppingCart, CartItem, Product, Customer
+    ShoppingCart, CartItem, Product, Customer, Category
 )
 
 # Create blueprint
@@ -24,7 +24,6 @@ orders_bp = Blueprint('orders', __name__)
 
 def generate_order_number():
     """Generate unique order number"""
-    # Format: ORD-XXXXX (5 digits)
     timestamp = datetime.now().strftime('%y%m%d')
     random_suffix = ''.join(random.choices(string.digits, k=3))
     return f"ORD-{timestamp}{random_suffix}"
@@ -33,49 +32,64 @@ def generate_order_number():
 def format_order_response(order, include_items=True):
     """Format order data for JSON response"""
     order_data = {
-        'order_id': order.order_id,
-        'order_number': order.order_number,
-        'order_status': order.order_status,
-        'total_amount': float(order.total_amount),
-        'shipping_address': order.shipping_address,
-        'contact_phone': order.contact_phone,
-        'contact_email': order.contact_email,
-        'notes': order.notes,
-        'created_at': order.created_at.isoformat() if order.created_at else None,
-        'updated_at': order.updated_at.isoformat() if order.updated_at else None
+        'order_id': order['order_id'],
+        'order_number': order['order_number'],
+        'order_status': order['order_status'],
+        'total_amount': float(order['total_amount']),
+        'shipping_address': order['shipping_address'],
+        'contact_phone': order.get('contact_phone'),
+        'contact_email': order.get('contact_email'),
+        'notes': order.get('notes'),
+        'created_at': order['created_at'].isoformat() if order.get('created_at') else None,
+        'updated_at': order['updated_at'].isoformat() if order.get('updated_at') else None
     }
     
     # Add customer info if available
-    if order.customer:
-        order_data['customer'] = {
-            'customer_id': order.customer.customer_id,
-            'username': order.customer.username,
-            'email': order.customer.email,
-            'full_name': order.customer.full_name
-        }
+    if order.get('customer_id'):
+        customer_model = Customer()
+        customer = customer_model.get_by_id(order['customer_id'])
+        if customer:
+            order_data['customer'] = {
+                'customer_id': customer['customer_id'],
+                'username': customer['username'],
+                'email': customer['email'],
+                'full_name': customer_model.full_name(customer)
+            }
     else:
         order_data['customer'] = 'Guest'
     
     # Add items if requested
     if include_items:
+        order_item_model = OrderItem()
+        order_items = order_item_model.get_by_order(order['order_id'])
+        
+        product_model = Product()
+        category_model = Category()
+        
         items = []
-        for order_item in order.order_items:
-            customizations = {
-                c.customization_key: c.customization_value
-                for c in order_item.customizations
-            }
+        for order_item in order_items:
+            product = product_model.get_by_id(order_item['product_id'])
+            category = category_model.get_by_id(product['category_id'])
+            
+            # Get customizations
+            customizations = {}
+            if order_item.get('customizations'):
+                customizations = {
+                    c['customization_key']: c['customization_value']
+                    for c in order_item['customizations']
+                }
             
             items.append({
-                'order_item_id': order_item.order_item_id,
+                'order_item_id': order_item['order_item_id'],
                 'product': {
-                    'product_id': order_item.product.product_id,
-                    'product_name': order_item.product.product_name,
-                    'category_name': order_item.product.category.category_name
+                    'product_id': product['product_id'],
+                    'product_name': product['product_name'],
+                    'category_name': category['category_name']
                 },
-                'quantity': order_item.quantity,
-                'unit_price': float(order_item.unit_price),
-                'subtotal': float(order_item.subtotal),
-                'design_file_url': order_item.design_file_url,
+                'quantity': order_item['quantity'],
+                'unit_price': float(order_item['unit_price']),
+                'subtotal': float(order_item['subtotal']),
+                'design_file_url': order_item.get('design_file_url'),
                 'customizations': customizations
             })
         
@@ -119,98 +133,112 @@ def checkout():
         return jsonify({'error': 'Contact email is required for guest checkout'}), 400
     
     try:
-        with get_db_session() as db_session:
-            # Get cart
-            if 'customer_id' in session:
-                cart = db_session.query(ShoppingCart).filter(
-                    ShoppingCart.customer_id == session['customer_id'],
-                    ShoppingCart.expires_at > datetime.now()
-                ).first()
-                customer_id = session['customer_id']
-                session_id = None
-            elif 'session_id' in session:
-                cart = db_session.query(ShoppingCart).filter(
-                    ShoppingCart.session_id == session['session_id'],
-                    ShoppingCart.expires_at > datetime.now()
-                ).first()
-                customer_id = None
-                session_id = session['session_id']
-            else:
-                return jsonify({'error': 'No cart found'}), 404
+        cart_model = ShoppingCart()
+        cart_item_model = CartItem()
+        order_model = Order()
+        order_item_model = OrderItem()
+        order_item_customization_model = OrderItemCustomization()
+        order_status_history_model = OrderStatusHistory()
+        product_model = Product()
+        
+        # Get cart
+        now = datetime.now()
+        cart = None
+        
+        if 'customer_id' in session:
+            carts = cart_model.get_by_customer(session['customer_id'])
+            for c in carts:
+                if c.get('expires_at') and c['expires_at'] > now:
+                    cart = c
+                    break
+            customer_id = session['customer_id']
+            session_id = None
+        elif 'session_id' in session:
+            carts = cart_model.get_by_session(session['session_id'])
+            for c in carts:
+                if c.get('expires_at') and c['expires_at'] > now:
+                    cart = c
+                    break
+            customer_id = None
+            session_id = session['session_id']
+        else:
+            return jsonify({'error': 'No cart found'}), 404
+        
+        if not cart:
+            return jsonify({'error': 'Cart not found'}), 404
+        
+        # Get cart items
+        cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
+        
+        if not cart_items or len(cart_items) == 0:
+            return jsonify({'error': 'Cart is empty'}), 400
+        
+        # Calculate total
+        total_amount = cart_model.calculate_total(cart['shopping_cart_id'])
+        
+        # Generate order number
+        order_number = generate_order_number()
+        
+        # Get customer email if logged in
+        if customer_id and not contact_email:
+            customer_model = Customer()
+            customer = customer_model.get_by_id(customer_id)
+            contact_email = customer.get('email') if customer else None
+        
+        # Create order
+        order_id = order_model.create(
+            order_number=order_number,
+            total_amount=total_amount,
+            shipping_address=shipping_address,
+            customer_id=customer_id,
+            session_id=session_id,
+            order_status='pending',
+            contact_phone=contact_phone or None,
+            contact_email=contact_email,
+            notes=notes or None
+        )
+        
+        # Create order items from cart items
+        for cart_item in cart_items:
+            product = product_model.get_by_id(cart_item['product_id'])
+            unit_price = float(product['base_price'])
+            quantity = cart_item['quantity']
             
-            if not cart or cart.get_total_items() == 0:
-                return jsonify({'error': 'Cart is empty'}), 400
-            
-            # Calculate total
-            total_amount = cart.calculate_total()
-            
-            # Generate order number
-            order_number = generate_order_number()
-            
-            # Ensure unique order number
-            while db_session.query(Order).filter_by(order_number=order_number).first():
-                order_number = generate_order_number()
-            
-            # Get customer email if logged in
-            if customer_id:
-                customer = db_session.query(Customer).filter_by(customer_id=customer_id).first()
-                if not contact_email:
-                    contact_email = customer.email
-            
-            # Create order
-            order = Order(
-                customer_id=customer_id,
-                session_id=session_id,
-                order_number=order_number,
-                order_status='pending',
-                total_amount=total_amount,
-                shipping_address=shipping_address,
-                contact_phone=contact_phone or None,
-                contact_email=contact_email,
-                notes=notes or None
+            order_item_id = order_item_model.create(
+                order_id=order_id,
+                product_id=cart_item['product_id'],
+                quantity=quantity,
+                unit_price=unit_price,
+                design_file_url=cart_item.get('design_file_url')
             )
-            db_session.add(order)
-            db_session.flush()
             
-            # Create order items from cart items
-            for cart_item in cart.cart_items:
-                order_item = OrderItem(
-                    order_id=order.order_id,
-                    product_id=cart_item.product_id,
-                    quantity=cart_item.quantity,
-                    unit_price=cart_item.product.base_price,
-                    subtotal=cart_item.get_line_total(),
-                    design_file_url=cart_item.design_file_url
-                )
-                db_session.add(order_item)
-                db_session.flush()
-                
-                # Copy customizations
-                for customization in cart_item.customizations:
-                    order_customization = OrderItemCustomization(
-                        order_item_id=order_item.order_item_id,
-                        customization_key=customization.customization_key,
-                        customization_value=customization.customization_value
+            # Copy customizations
+            if cart_item.get('customizations'):
+                for customization in cart_item['customizations']:
+                    order_item_customization_model.create(
+                        order_item_id=order_item_id,
+                        customization_key=customization['customization_key'],
+                        customization_value=customization['customization_value']
                     )
-                    db_session.add(order_customization)
-            
-            # Create initial status history
-            status_history = OrderStatusHistory(
-                order_id=order.order_id,
-                status='pending',
-                notes='Order created'
-            )
-            db_session.add(status_history)
-            
-            # Clear cart
-            db_session.query(CartItem).filter_by(
-                shopping_cart_id=cart.shopping_cart_id
-            ).delete()
-            
-            return jsonify({
-                'message': 'Order placed successfully',
-                'order': format_order_response(order)
-            }), 201
+        
+        # Create initial status history
+        order_status_history_model.create(
+            order_id=order_id,
+            status='pending',
+            notes='Order created'
+        )
+        
+        # Clear cart
+        for item in cart_items:
+            cart_item_model.delete(item['cart_item_id'])
+        
+        # Get the created order
+        order = order_model.get_by_id(order_id)
+        
+        return jsonify({
+            'message': 'Order placed successfully',
+            'order': format_order_response(order)
+        }), 201
             
     except Exception as e:
         return jsonify({'error': f'Failed to place order: {str(e)}'}), 500
@@ -243,42 +271,53 @@ def get_orders():
     per_page = min(request.args.get('per_page', 10, type=int), 50)
     
     try:
-        with get_db_session() as db_session:
-            query = db_session.query(Order).filter_by(
-                customer_id=session['customer_id']
-            )
-            
-            # Filter by status
-            if status_filter:
-                query = query.filter_by(order_status=status_filter)
-            
-            # Order by date (newest first)
-            query = query.order_by(Order.created_at.desc())
-            
-            # Get total count
-            total_orders = query.count()
-            
-            # Pagination
-            offset = (page - 1) * per_page
-            orders = query.offset(offset).limit(per_page).all()
-            
-            # Format results
-            result = [format_order_response(order, include_items=False) for order in orders]
-            
-            # Pagination info
-            total_pages = (total_orders + per_page - 1) // per_page
-            
-            return jsonify({
-                'orders': result,
-                'pagination': {
-                    'page': page,
-                    'per_page': per_page,
-                    'total_orders': total_orders,
-                    'total_pages': total_pages,
-                    'has_next': page < total_pages,
-                    'has_prev': page > 1
-                }
-            }), 200
+        order_model = Order()
+        order_item_model = OrderItem()
+        
+        orders = order_model.get_by_customer(session['customer_id'])
+        
+        # Filter by status
+        if status_filter:
+            orders = [o for o in orders if o.get('order_status') == status_filter]
+        
+        # Sort by created_at descending
+        orders.sort(key=lambda x: x.get('created_at') or datetime.min, reverse=True)
+        
+        # Get total count
+        total_orders = len(orders)
+        
+        # Pagination
+        offset = (page - 1) * per_page
+        orders = orders[offset:offset + per_page]
+        
+        # Format results
+        result = []
+        for o in orders:
+            order_items = order_item_model.get_by_order(o['order_id'])
+            result.append({
+                'order_id': o['order_id'],
+                'order_number': o['order_number'],
+                'order_status': o['order_status'],
+                'total_amount': float(o['total_amount']),
+                'total_items': len(order_items),
+                'created_at': o['created_at'].isoformat() if o.get('created_at') else None,
+                'updated_at': o['updated_at'].isoformat() if o.get('updated_at') else None
+            })
+        
+        # Pagination info
+        total_pages = (total_orders + per_page - 1) // per_page
+        
+        return jsonify({
+            'orders': result,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total_orders': total_orders,
+                'total_pages': total_pages,
+                'has_next': page < total_pages,
+                'has_prev': page > 1
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get orders: {str(e)}'}), 500
@@ -293,23 +332,23 @@ def get_order(order_id):
         JSON order details with items
     """
     try:
-        with get_db_session() as db_session:
-            order = db_session.query(Order).filter_by(order_id=order_id).first()
-            
-            if not order:
-                return jsonify({'error': 'Order not found'}), 404
-            
-            # Check ownership (customer or guest session)
-            if 'customer_id' in session:
-                if order.customer_id != session['customer_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            elif 'session_id' in session:
-                if order.session_id != session['session_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            else:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            return jsonify({'order': format_order_response(order)}), 200
+        order_model = Order()
+        order = order_model.get_by_id(order_id)
+        
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        # Check ownership (customer or guest session)
+        if 'customer_id' in session:
+            if order.get('customer_id') != session['customer_id']:
+                return jsonify({'error': 'Access denied'}), 403
+        elif 'session_id' in session:
+            if order.get('session_id') != session['session_id']:
+                return jsonify({'error': 'Access denied'}), 403
+        else:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        return jsonify({'order': format_order_response(order)}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get order: {str(e)}'}), 500
@@ -324,25 +363,23 @@ def get_order_by_number(order_number):
         JSON order details
     """
     try:
-        with get_db_session() as db_session:
-            order = db_session.query(Order).filter_by(
-                order_number=order_number
-            ).first()
+        order_model = Order()
+        
+        # Find order by number
+        if 'customer_id' in session:
+            orders = order_model.get_by_customer(session['customer_id'])
+            order = None
+            for o in orders:
+                if o.get('order_number') == order_number:
+                    order = o
+                    break
             
             if not order:
                 return jsonify({'error': 'Order not found'}), 404
             
-            # Check ownership
-            if 'customer_id' in session:
-                if order.customer_id != session['customer_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            elif 'session_id' in session:
-                if order.session_id != session['session_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            else:
-                return jsonify({'error': 'Authentication required'}), 401
-            
             return jsonify({'order': format_order_response(order)}), 200
+        else:
+            return jsonify({'error': 'Customer login required'}), 401
             
     except Exception as e:
         return jsonify({'error': f'Failed to get order: {str(e)}'}), 500
@@ -361,37 +398,40 @@ def get_order_status(order_id):
         JSON order status and history
     """
     try:
-        with get_db_session() as db_session:
-            order = db_session.query(Order).filter_by(order_id=order_id).first()
-            
-            if not order:
-                return jsonify({'error': 'Order not found'}), 404
-            
-            # Check ownership
-            if 'customer_id' in session:
-                if order.customer_id != session['customer_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            elif 'session_id' in session:
-                if order.session_id != session['session_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            else:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            # Get status history
-            history = []
-            for status_record in order.status_history:
-                history.append({
-                    'status': status_record.status,
-                    'changed_at': status_record.changed_at.isoformat() if status_record.changed_at else None,
-                    'changed_by': status_record.get_changed_by_name(),
-                    'notes': status_record.notes
-                })
-            
-            return jsonify({
-                'order_number': order.order_number,
-                'current_status': order.order_status,
-                'status_history': history
-            }), 200
+        order_model = Order()
+        order = order_model.get_by_id(order_id)
+        
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        # Check ownership
+        if 'customer_id' in session:
+            if order.get('customer_id') != session['customer_id']:
+                return jsonify({'error': 'Access denied'}), 403
+        elif 'session_id' in session:
+            if order.get('session_id') != session['session_id']:
+                return jsonify({'error': 'Access denied'}), 403
+        else:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        # Get status history
+        order_status_history_model = OrderStatusHistory()
+        status_records = order_status_history_model.get_by_order(order_id)
+        
+        history = []
+        for status_record in status_records:
+            history.append({
+                'status': status_record['status'],
+                'changed_at': status_record['changed_at'].isoformat() if status_record.get('changed_at') else None,
+                'changed_by': order_status_history_model.get_changed_by_name(status_record),
+                'notes': status_record.get('notes')
+            })
+        
+        return jsonify({
+            'order_number': order['order_number'],
+            'current_status': order['order_status'],
+            'status_history': history
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get order status: {str(e)}'}), 500
@@ -416,44 +456,46 @@ def cancel_order(order_id):
     reason = data.get('reason', 'Customer requested cancellation')
     
     try:
-        with get_db_session() as db_session:
-            order = db_session.query(Order).filter_by(order_id=order_id).first()
-            
-            if not order:
-                return jsonify({'error': 'Order not found'}), 404
-            
-            # Check ownership
-            if 'customer_id' in session:
-                if order.customer_id != session['customer_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            elif 'session_id' in session:
-                if order.session_id != session['session_id']:
-                    return jsonify({'error': 'Access denied'}), 403
-            else:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            # Check if order can be cancelled
-            if not order.can_be_cancelled():
-                return jsonify({
-                    'error': f'Order cannot be cancelled (current status: {order.order_status})'
-                }), 400
-            
-            # Update order status
-            order.order_status = 'cancelled'
-            order.updated_at = datetime.now()
-            
-            # Add status history
-            status_history = OrderStatusHistory(
-                order_id=order.order_id,
-                status='cancelled',
-                notes=reason
-            )
-            db_session.add(status_history)
-            
+        order_model = Order()
+        order = order_model.get_by_id(order_id)
+        
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        # Check ownership
+        if 'customer_id' in session:
+            if order.get('customer_id') != session['customer_id']:
+                return jsonify({'error': 'Access denied'}), 403
+        elif 'session_id' in session:
+            if order.get('session_id') != session['session_id']:
+                return jsonify({'error': 'Access denied'}), 403
+        else:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        # Check if order can be cancelled
+        if not order_model.can_be_cancelled(order):
             return jsonify({
-                'message': 'Order cancelled successfully',
-                'order': format_order_response(order, include_items=False)
-            }), 200
+                'error': f'Order cannot be cancelled (current status: {order["order_status"]})'
+            }), 400
+        
+        # Update order status
+        order_model.update_status(order_id, 'cancelled')
+        
+        # Add status history
+        order_status_history_model = OrderStatusHistory()
+        order_status_history_model.create(
+            order_id=order_id,
+            status='cancelled',
+            notes=reason
+        )
+        
+        # Get updated order
+        order = order_model.get_by_id(order_id)
+        
+        return jsonify({
+            'message': 'Order cancelled successfully',
+            'order': format_order_response(order, include_items=False)
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to cancel order: {str(e)}'}), 500
@@ -476,21 +518,22 @@ def get_order_stats():
         return jsonify({'error': 'Customer login required'}), 401
     
     try:
-        with get_db_session() as db_session:
-            orders = db_session.query(Order).filter_by(
-                customer_id=session['customer_id']
-            ).all()
-            
-            stats = {
-                'total_orders': len(orders),
-                'pending_orders': sum(1 for o in orders if o.order_status == 'pending'),
-                'processing_orders': sum(1 for o in orders if o.order_status == 'processing'),
-                'completed_orders': sum(1 for o in orders if o.order_status == 'completed'),
-                'cancelled_orders': sum(1 for o in orders if o.order_status == 'cancelled'),
-                'total_spent': float(sum(o.total_amount for o in orders if o.order_status == 'completed'))
-            }
-            
-            return jsonify({'stats': stats}), 200
+        order_model = Order()
+        orders = order_model.get_by_customer(session['customer_id'])
+        
+        stats = {
+            'total_orders': len(orders),
+            'pending_orders': sum(1 for o in orders if o.get('order_status') == 'pending'),
+            'processing_orders': sum(1 for o in orders if o.get('order_status') == 'processing'),
+            'completed_orders': sum(1 for o in orders if o.get('order_status') == 'completed'),
+            'cancelled_orders': sum(1 for o in orders if o.get('order_status') == 'cancelled'),
+            'total_spent': float(sum(
+                o.get('total_amount', 0) for o in orders 
+                if o.get('order_status') == 'completed'
+            ))
+        }
+        
+        return jsonify({'stats': stats}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get order stats: {str(e)}'}), 500

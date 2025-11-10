@@ -1,13 +1,12 @@
 """
 Products Routes
 Handles product browsing, searching, and category management
+Updated to use psycopg2-based models
 """
 
 from flask import Blueprint, request, jsonify, render_template
-from sqlalchemy import or_, func
 
-from app.database import get_db_session
-from app.models.__models_init__ import Product, Category
+from app.models import Product, Category
 
 # Create blueprint
 products_bp = Blueprint('products', __name__)
@@ -31,27 +30,28 @@ def get_categories():
     include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
     
     try:
-        with get_db_session() as db_session:
-            query = db_session.query(Category)
-            
-            if not include_inactive:
-                query = query.filter_by(is_active=True)
-            
-            categories = query.order_by(Category.display_order, Category.category_name).all()
-            
-            result = []
-            for category in categories:
-                result.append({
-                    'category_id': category.category_id,
-                    'category_name': category.category_name,
-                    'description': category.description,
-                    'is_active': category.is_active,
-                    'display_order': category.display_order,
-                    'product_count': category.get_active_product_count(),
-                    'created_at': category.created_at.isoformat() if category.created_at else None
-                })
-            
-            return jsonify({'categories': result}), 200
+        category_model = Category()
+        categories = category_model.get_all()
+        
+        if not include_inactive:
+            categories = [c for c in categories if c.get('is_active')]
+        
+        # Sort by display_order and category_name
+        categories.sort(key=lambda x: (x.get('display_order', 0), x.get('category_name', '')))
+        
+        result = []
+        for category in categories:
+            result.append({
+                'category_id': category['category_id'],
+                'category_name': category['category_name'],
+                'description': category.get('description'),
+                'is_active': category.get('is_active'),
+                'display_order': category.get('display_order'),
+                'product_count': category_model.get_active_product_count(category['category_id']),
+                'created_at': category['created_at'].isoformat() if category.get('created_at') else None
+            })
+        
+        return jsonify({'categories': result}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get categories: {str(e)}'}), 500
@@ -66,36 +66,38 @@ def get_category(category_id):
         JSON category details with product list
     """
     try:
-        with get_db_session() as db_session:
-            category = db_session.query(Category).filter_by(
-                category_id=category_id
-            ).first()
-            
-            if not category:
-                return jsonify({'error': 'Category not found'}), 404
-            
-            # Get active products in this category
-            products = [
-                {
-                    'product_id': p.product_id,
-                    'product_name': p.product_name,
-                    'description': p.description,
-                    'base_price': float(p.base_price),
-                    'is_active': p.is_active
-                }
-                for p in category.get_active_products()
-            ]
-            
-            return jsonify({
-                'category': {
-                    'category_id': category.category_id,
-                    'category_name': category.category_name,
-                    'description': category.description,
-                    'is_active': category.is_active,
-                    'product_count': len(products),
-                    'products': products
-                }
-            }), 200
+        category_model = Category()
+        category = category_model.get_by_id(category_id)
+        
+        if not category:
+            return jsonify({'error': 'Category not found'}), 404
+        
+        # Get active products in this category
+        product_model = Product()
+        products_list = product_model.get_by_category(category_id)
+        products_list = [p for p in products_list if p.get('is_active')]
+        
+        products = [
+            {
+                'product_id': p['product_id'],
+                'product_name': p['product_name'],
+                'description': p.get('description'),
+                'base_price': float(p['base_price']),
+                'is_active': p.get('is_active')
+            }
+            for p in products_list
+        ]
+        
+        return jsonify({
+            'category': {
+                'category_id': category['category_id'],
+                'category_name': category['category_name'],
+                'description': category.get('description'),
+                'is_active': category.get('is_active'),
+                'product_count': len(products),
+                'products': products
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get category: {str(e)}'}), 500
@@ -135,80 +137,78 @@ def get_products():
     sort_order = request.args.get('sort_order', 'asc')
     
     try:
-        with get_db_session() as db_session:
-            # Base query - only active products
-            query = db_session.query(Product).filter_by(is_active=True)
+        product_model = Product()
+        category_model = Category()
+        
+        # Get all active products
+        products = product_model.get_all(active_only=True)
+        
+        # Filter by category
+        if category_id:
+            products = [p for p in products if p.get('category_id') == category_id]
+        
+        # Search filter
+        if search_term:
+            search_lower = search_term.lower()
+            products = [
+                p for p in products
+                if search_lower in p.get('product_name', '').lower() or
+                   search_lower in p.get('description', '').lower()
+            ]
+        
+        # Price filters
+        if min_price is not None:
+            products = [p for p in products if float(p.get('base_price', 0)) >= min_price]
+        if max_price is not None:
+            products = [p for p in products if float(p.get('base_price', 0)) <= max_price]
+        
+        # Sorting
+        if sort_by == 'price':
+            products.sort(key=lambda x: float(x.get('base_price', 0)), reverse=(sort_order == 'desc'))
+        elif sort_by == 'newest':
+            products.sort(key=lambda x: x.get('created_at') or '', reverse=(sort_order == 'desc'))
+        else:  # default to name
+            products.sort(key=lambda x: x.get('product_name', '').lower(), reverse=(sort_order == 'desc'))
+        
+        # Get total count
+        total_products = len(products)
+        
+        # Pagination
+        offset = (page - 1) * per_page
+        products = products[offset:offset + per_page]
+        
+        # Format results
+        result = []
+        for product in products:
+            category = category_model.get_by_id(product['category_id'])
             
-            # Filter by category
-            if category_id:
-                query = query.filter_by(category_id=category_id)
-            
-            # Search filter
-            if search_term:
-                search_pattern = f'%{search_term}%'
-                query = query.filter(
-                    or_(
-                        Product.product_name.ilike(search_pattern),
-                        Product.description.ilike(search_pattern)
-                    )
-                )
-            
-            # Price filters
-            if min_price is not None:
-                query = query.filter(Product.base_price >= min_price)
-            if max_price is not None:
-                query = query.filter(Product.base_price <= max_price)
-            
-            # Sorting
-            if sort_by == 'price':
-                sort_column = Product.base_price
-            elif sort_by == 'newest':
-                sort_column = Product.created_at
-            else:  # default to name
-                sort_column = Product.product_name
-            
-            if sort_order == 'desc':
-                query = query.order_by(sort_column.desc())
-            else:
-                query = query.order_by(sort_column.asc())
-            
-            # Get total count
-            total_products = query.count()
-            
-            # Pagination
-            offset = (page - 1) * per_page
-            products = query.offset(offset).limit(per_page).all()
-            
-            # Format results
-            result = []
-            for product in products:
-                result.append({
-                    'product_id': product.product_id,
-                    'product_name': product.product_name,
-                    'description': product.description,
-                    'base_price': float(product.base_price),
-                    'category': {
-                        'category_id': product.category.category_id,
-                        'category_name': product.category.category_name
-                    },
-                    'is_active': product.is_active,
-                    'created_at': product.created_at.isoformat() if product.created_at else None
-                })
-            
-            # Pagination info
-            total_pages = (total_products + per_page - 1) // per_page
-            
-            return jsonify({
-                'products': result,
-                'pagination': {
-                    'page': page,
-                    'per_page': per_page,
-                    'total_products': total_products,
-                    'total_pages': total_pages,
-                    'has_next': page < total_pages,
-                    'has_prev': page > 1
-                }
-            }), 200
+            result.append({
+                'product_id': product['product_id'],
+                'product_name': product['product_name'],
+                'description': product.get('description'),
+                'base_price': float(product['base_price']),
+                'category': {
+                    'category_id': category['category_id'],
+                    'category_name': category['category_name']
+                } if category else None,
+                'is_active': product.get('is_active'),
+                'created_at': product['created_at'].isoformat() if product.get('created_at') else None
+            })
+        
+        # Pagination info
+        total_pages = (total_products + per_page - 1) // per_page
+        
+        return jsonify({
+            'products': result,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total_products': total_products,
+                'total_pages': total_pages,
+                'has_next': page < total_pages,
+                'has_prev': page > 1
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
@@ -223,31 +223,31 @@ def get_product(product_id):
         JSON product details
     """
     try:
-        with get_db_session() as db_session:
-            product = db_session.query(Product).filter_by(
-                product_id=product_id,
-                is_active=True
-            ).first()
-            
-            if not product:
-                return jsonify({'error': 'Product not found'}), 404
-            
-            return jsonify({
-                'product': {
-                    'product_id': product.product_id,
-                    'product_name': product.product_name,
-                    'description': product.description,
-                    'base_price': float(product.base_price),
-                    'category': {
-                        'category_id': product.category.category_id,
-                        'category_name': product.category.category_name,
-                        'description': product.category.description
-                    },
-                    'is_active': product.is_active,
-                    'created_at': product.created_at.isoformat() if product.created_at else None,
-                    'updated_at': product.updated_at.isoformat() if product.updated_at else None
-                }
-            }), 200
+        product_model = Product()
+        product = product_model.get_by_id(product_id)
+        
+        if not product or not product.get('is_active'):
+            return jsonify({'error': 'Product not found'}), 404
+        
+        category_model = Category()
+        category = category_model.get_by_id(product['category_id'])
+        
+        return jsonify({
+            'product': {
+                'product_id': product['product_id'],
+                'product_name': product['product_name'],
+                'description': product.get('description'),
+                'base_price': float(product['base_price']),
+                'category': {
+                    'category_id': category['category_id'],
+                    'category_name': category['category_name'],
+                    'description': category.get('description')
+                } if category else None,
+                'is_active': product.get('is_active'),
+                'created_at': product['created_at'].isoformat() if product.get('created_at') else None,
+                'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get product: {str(e)}'}), 500
@@ -281,38 +281,41 @@ def search_products():
         return jsonify({'error': 'Search query must be at least 2 characters'}), 400
     
     try:
-        with get_db_session() as db_session:
-            search_pattern = f'%{search_query}%'
-            
-            query = db_session.query(Product).filter(
-                Product.is_active == True,
-                or_(
-                    Product.product_name.ilike(search_pattern),
-                    Product.description.ilike(search_pattern)
-                )
-            )
-            
-            if category_id:
-                query = query.filter_by(category_id=category_id)
-            
-            products = query.limit(limit).all()
-            
-            result = [
-                {
-                    'product_id': p.product_id,
-                    'product_name': p.product_name,
-                    'description': p.description,
-                    'base_price': float(p.base_price),
-                    'category_name': p.category.category_name
-                }
-                for p in products
-            ]
-            
-            return jsonify({
-                'query': search_query,
-                'results': result,
-                'count': len(result)
-            }), 200
+        product_model = Product()
+        category_model = Category()
+        
+        search_lower = search_query.lower()
+        products = product_model.get_all(active_only=True)
+        
+        # Search in name and description
+        results = [
+            p for p in products
+            if search_lower in p.get('product_name', '').lower() or
+               search_lower in p.get('description', '').lower()
+        ]
+        
+        if category_id:
+            results = [p for p in results if p.get('category_id') == category_id]
+        
+        results = results[:limit]
+        
+        # Format results
+        result = []
+        for p in results:
+            category = category_model.get_by_id(p['category_id'])
+            result.append({
+                'product_id': p['product_id'],
+                'product_name': p['product_name'],
+                'description': p.get('description'),
+                'base_price': float(p['base_price']),
+                'category_name': category['category_name'] if category else 'Unknown'
+            })
+        
+        return jsonify({
+            'query': search_query,
+            'results': result,
+            'count': len(result)
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Search failed: {str(e)}'}), 500
@@ -336,25 +339,27 @@ def get_featured_products():
     limit = min(request.args.get('limit', 10, type=int), 20)
     
     try:
-        with get_db_session() as db_session:
-            products = db_session.query(Product).filter_by(
-                is_active=True
-            ).order_by(
-                Product.created_at.desc()
-            ).limit(limit).all()
-            
-            result = [
-                {
-                    'product_id': p.product_id,
-                    'product_name': p.product_name,
-                    'description': p.description,
-                    'base_price': float(p.base_price),
-                    'category_name': p.category.category_name
-                }
-                for p in products
-            ]
-            
-            return jsonify({'featured_products': result}), 200
+        product_model = Product()
+        category_model = Category()
+        
+        products = product_model.get_all(active_only=True)
+        
+        # Sort by created_at descending
+        products.sort(key=lambda x: x.get('created_at') or '', reverse=True)
+        products = products[:limit]
+        
+        result = []
+        for p in products:
+            category = category_model.get_by_id(p['category_id'])
+            result.append({
+                'product_id': p['product_id'],
+                'product_name': p['product_name'],
+                'description': p.get('description'),
+                'base_price': float(p['base_price']),
+                'category_name': category['category_name'] if category else 'Unknown'
+            })
+        
+        return jsonify({'featured_products': result}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get featured products: {str(e)}'}), 500
@@ -374,36 +379,34 @@ def get_popular_products():
     limit = min(request.args.get('limit', 10, type=int), 20)
     
     try:
-        with get_db_session() as db_session:
-            # Get products with order counts
-            from app.models.__models_init__ import OrderItem
-            
-            popular_products = db_session.query(
-                Product,
-                func.count(OrderItem.order_item_id).label('order_count')
-            ).join(
-                OrderItem, Product.product_id == OrderItem.product_id
-            ).filter(
-                Product.is_active == True
-            ).group_by(
-                Product.product_id
-            ).order_by(
-                func.count(OrderItem.order_item_id).desc()
-            ).limit(limit).all()
-            
-            result = [
-                {
-                    'product_id': p.product_id,
-                    'product_name': p.product_name,
-                    'description': p.description,
-                    'base_price': float(p.base_price),
-                    'category_name': p.category.category_name,
-                    'times_ordered': order_count
-                }
-                for p, order_count in popular_products
-            ]
-            
-            return jsonify({'popular_products': result}), 200
+        product_model = Product()
+        category_model = Category()
+        
+        products = product_model.get_all(active_only=True)
+        
+        # Get order counts for each product
+        product_stats = []
+        for product in products:
+            order_count = product_model.get_total_orders(product['product_id'])
+            product_stats.append((product, order_count))
+        
+        # Sort by order count descending
+        product_stats.sort(key=lambda x: x[1], reverse=True)
+        product_stats = product_stats[:limit]
+        
+        result = []
+        for p, order_count in product_stats:
+            category = category_model.get_by_id(p['category_id'])
+            result.append({
+                'product_id': p['product_id'],
+                'product_name': p['product_name'],
+                'description': p.get('description'),
+                'base_price': float(p['base_price']),
+                'category_name': category['category_name'] if category else 'Unknown',
+                'times_ordered': order_count
+            })
+        
+        return jsonify({'popular_products': result}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get popular products: {str(e)}'}), 500
@@ -422,16 +425,18 @@ def get_price_range():
         JSON with min and max prices
     """
     try:
-        with get_db_session() as db_session:
-            result = db_session.query(
-                func.min(Product.base_price).label('min_price'),
-                func.max(Product.base_price).label('max_price')
-            ).filter_by(is_active=True).first()
-            
-            return jsonify({
-                'min_price': float(result.min_price) if result.min_price else 0,
-                'max_price': float(result.max_price) if result.max_price else 0
-            }), 200
+        product_model = Product()
+        products = product_model.get_all(active_only=True)
+        
+        if not products:
+            return jsonify({'min_price': 0, 'max_price': 0}), 200
+        
+        prices = [float(p.get('base_price', 0)) for p in products]
+        
+        return jsonify({
+            'min_price': min(prices),
+            'max_price': max(prices)
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get price range: {str(e)}'}), 500

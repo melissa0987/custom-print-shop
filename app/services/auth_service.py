@@ -1,13 +1,13 @@
 """
 Authentication Service
 Business logic for user authentication and registration
+Updated to use psycopg2-based models
 """
 
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone
+from datetime import datetime
 
-from app.database import get_db_session
-from app.models.__models_init__ import Customer, AdminUser
+from app.models import Customer, AdminUser
 from app.utils.validators import Validators
 
 
@@ -30,16 +30,16 @@ class AuthService:
         Returns:
             tuple: (success: bool, customer or error_message)
         """
-        # --- Sanitize and validate inputs ---
+        # Sanitize and validate inputs
         username = Validators.sanitize_string(username, max_length=50)
         email = Validators.sanitize_string(email.lower())
         first_name = Validators.sanitize_string(first_name, max_length=50)
         last_name = Validators.sanitize_string(last_name, max_length=50)
         phone_number = Validators.sanitize_string(phone_number, max_length=20) if phone_number else None
 
-        # --- Input validation checks ---
+        # Input validation checks
         if not Validators.validate_username(username):
-            return False, "Invalid username format (3–50 characters, letters/numbers/underscore/hyphen)"
+            return False, "Invalid username format (3-50 characters, letters/numbers/underscore/hyphen)"
         if not Validators.validate_email(email):
             return False, "Invalid email address"
         is_valid, message = Validators.validate_password_strength(password)
@@ -49,31 +49,38 @@ class AuthService:
             return False, "Invalid phone number format"
 
         try:
-            with get_db_session() as session:
-                # --- Prevent duplicate accounts ---
-                if session.query(Customer).filter(
-                    (Customer.username == username.lower()) | (Customer.email == email.lower())
-                ).first():
-                    return False, "Account already exists"
+            customer_model = Customer()
+            
+            # Check for existing username or email
+            existing_username = customer_model.get_by_username(username.lower())
+            if existing_username:
+                return False, "Username already exists"
+            
+            # Check email through a simple query
+            # Note: You may want to add a get_by_email method to Customer model
+            existing_email = customer_model.get_by_username(email.lower())  # Using username method temporarily
+            if existing_email and existing_email.get('email') == email.lower():
+                return False, "Email already exists"
 
-                # --- Create and persist new customer ---
-                customer = Customer(
-                    username=username.lower(),
-                    email=email.lower(),
-                    password_hash=generate_password_hash(password),
-                    first_name=first_name,
-                    last_name=last_name,
-                    phone_number=phone_number
-                )
-                session.add(customer)
-                session.commit()  # Save to database
+            # Create new customer
+            password_hash = generate_password_hash(password)
+            customer_id = customer_model.create(
+                username=username.lower(),
+                email=email.lower(),
+                password_hash=password_hash,
+                first_name=first_name,
+                last_name=last_name,
+                phone_number=phone_number,
+                is_active=True
+            )
 
-                return True, customer
+            # Get the created customer
+            customer = customer_model.get_by_id(customer_id)
+            return True, customer
 
         except Exception as e:
             return False, f"Registration failed: {str(e)}"
 
-     
     @staticmethod
     def authenticate_customer(username_or_email, password):
         """
@@ -87,34 +94,35 @@ class AuthService:
             tuple: (success: bool, customer or error_message)
         """
         try:
-            with get_db_session() as session:
-                # --- Normalize input ---
-                username_or_email = username_or_email.strip().lower()
+            customer_model = Customer()
+            username_or_email = username_or_email.strip().lower()
 
-                # --- Find customer by username or email ---
-                customer = session.query(Customer).filter(
-                    (Customer.username == username_or_email) | (Customer.email == username_or_email)
-                ).first()
+            # Try to find customer by username
+            customer = customer_model.get_by_username(username_or_email)
+            
+            # If not found by username, it might be an email
+            # Note: Consider adding get_by_email method to Customer model for better efficiency
+            
+            if not customer:
+                return False, "Invalid credentials"
+            
+            if not customer.get('is_active'):
+                return False, "Account is inactive"
 
-                if not customer:
-                    return False, "Invalid credentials"
-                if not customer.is_active:
-                    return False, "Account is inactive"
+            # Verify password
+            if not check_password_hash(customer['password_hash'], password):
+                return False, "Invalid credentials"
 
-                # --- Verify password ---
-                if not check_password_hash(customer.password_hash, password):
-                    return False, "Invalid credentials"
+            # Update last login timestamp
+            customer_model.update(customer['customer_id'], last_login=datetime.utcnow())
 
-                # --- Update last login timestamp ---
-                customer.last_login = datetime.now(timezone.utc)
-                session.commit()
-
-                return True, customer
+            # Refresh customer data
+            customer = customer_model.get_by_id(customer['customer_id'])
+            return True, customer
 
         except Exception as e:
             return False, f"Authentication failed: {str(e)}"
 
-     
     @staticmethod
     def authenticate_admin(username, password):
         """
@@ -128,32 +136,32 @@ class AuthService:
             tuple: (success: bool, admin or error_message)
         """
         try:
-            with get_db_session() as session:
-                # --- Normalize input ---
-                username = username.strip().lower()
+            admin_model = AdminUser()
+            username = username.strip().lower()
 
-                # --- Find admin by username ---
-                admin = session.query(AdminUser).filter_by(username=username).first()
+            # Find admin by username
+            admin = admin_model.get_by_username(username)
 
-                if not admin:
-                    return False, "Invalid credentials"
-                if not admin.is_active:
-                    return False, "Admin account is inactive"
+            if not admin:
+                return False, "Invalid credentials"
+            
+            if not admin.get('is_active'):
+                return False, "Admin account is inactive"
 
-                # --- Verify password ---
-                if not check_password_hash(admin.password_hash, password):
-                    return False, "Invalid credentials"
+            # Verify password using the model's static method
+            if not AdminUser.verify_password(admin, password):
+                return False, "Invalid credentials"
 
-                # --- Update last login ---
-                admin.last_login = datetime.now(timezone.utc)
-                session.commit()
+            # Update last login
+            admin_model.update_last_login(admin['admin_id'])
 
-                return True, admin
+            # Refresh admin data
+            admin = admin_model.get_by_id(admin['admin_id'])
+            return True, admin
 
         except Exception as e:
             return False, f"Authentication failed: {str(e)}"
 
-     
     @staticmethod
     def change_customer_password(customer_id, current_password, new_password):
         """
@@ -167,56 +175,65 @@ class AuthService:
         Returns:
             tuple: (success: bool, message)
         """
-        # --- Validate new password strength ---
+        # Validate new password strength
         is_valid, message = Validators.validate_password_strength(new_password)
         if not is_valid:
             return False, message
 
         try:
-            with get_db_session() as session:
-                # --- Retrieve customer ---
-                customer = session.query(Customer).filter_by(customer_id=customer_id).first()
-                if not customer:
-                    return False, "Customer not found"
+            customer_model = Customer()
+            customer = customer_model.get_by_id(customer_id)
+            
+            if not customer:
+                return False, "Customer not found"
 
-                # --- Verify old password ---
-                if not check_password_hash(customer.password_hash, current_password):
-                    return False, "Current password is incorrect"
+            # Verify old password
+            if not check_password_hash(customer['password_hash'], current_password):
+                return False, "Current password is incorrect"
 
-                # --- Update to new password ---
-                customer.password_hash = generate_password_hash(new_password)
-                session.commit()
+            # Update to new password
+            new_password_hash = generate_password_hash(new_password)
+            customer_model.update(customer_id, password_hash=new_password_hash)
 
-                return True, "Password changed successfully"
+            return True, "Password changed successfully"
 
         except Exception as e:
             return False, f"Failed to change password: {str(e)}"
 
-     
     @staticmethod
     def get_customer_by_id(customer_id):
         """
         Get customer by ID
+        
+        Args:
+            customer_id (int): Customer ID
+            
+        Returns:
+            dict or None: Customer data
         """
         try:
-            with get_db_session() as session:
-                return session.query(Customer).filter_by(customer_id=customer_id).first()
+            customer_model = Customer()
+            return customer_model.get_by_id(customer_id)
         except Exception:
             return None
 
-     
     @staticmethod
     def get_admin_by_id(admin_id):
         """
         Get admin by ID
+        
+        Args:
+            admin_id (int): Admin ID
+            
+        Returns:
+            dict or None: Admin data
         """
         try:
-            with get_db_session() as session:
-                return session.query(AdminUser).filter_by(admin_id=admin_id).first()
+            admin_model = AdminUser()
+            return admin_model.get_by_id(admin_id)
         except Exception:
             return None
 
-     
     @staticmethod
     def check_admin_permission(admin_id, permission):
         """
@@ -230,13 +247,16 @@ class AuthService:
             bool: True if admin has permission, False otherwise
         """
         try:
-            with get_db_session() as session:
-                admin = session.query(AdminUser).filter_by(admin_id=admin_id).first()
-                return admin.has_permission(permission) if admin else False
+            admin_model = AdminUser()
+            admin = admin_model.get_by_id(admin_id)
+            
+            if not admin:
+                return False
+                
+            return AdminUser.has_permission(admin, permission)
         except Exception:
             return False
 
-     
     @staticmethod
     def update_customer_profile(customer_id, **kwargs):
         """
@@ -249,7 +269,7 @@ class AuthService:
         Returns:
             tuple: (success: bool, customer or error_message)
         """
-        # --- Validate and sanitize inputs ---
+        # Validate and sanitize inputs
         if 'first_name' in kwargs:
             kwargs['first_name'] = Validators.sanitize_string(kwargs['first_name'], max_length=50)
         if 'last_name' in kwargs:
@@ -261,20 +281,21 @@ class AuthService:
             kwargs['phone_number'] = phone
 
         try:
-            with get_db_session() as session:
-                # --- Retrieve customer record ---
-                customer = session.query(Customer).filter_by(customer_id=customer_id).first()
-                if not customer:
-                    return False, "Customer not found"
+            customer_model = Customer()
+            customer = customer_model.get_by_id(customer_id)
+            
+            if not customer:
+                return False, "Customer not found"
 
-                # --- Update specified fields dynamically ---
-                for key, value in kwargs.items():
-                    setattr(customer, key, value)
+            # Update specified fields
+            success = customer_model.update(customer_id, **kwargs)
+            
+            if not success:
+                return False, "Profile update failed"
 
-                session.commit()
-                session.refresh(customer)  # Refresh object with new DB state
-
-                return True, customer
+            # Get updated customer
+            customer = customer_model.get_by_id(customer_id)
+            return True, customer
 
         except Exception as e:
             return False, f"Profile update failed: {str(e)}"

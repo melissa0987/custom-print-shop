@@ -1,60 +1,92 @@
 """
-Admin Activity Log Model
+Admin Activity Log Model 
 Tracks all administrative actions for audit purposes
 """
-from sqlalchemy import Column, BigInteger, String, TIMESTAMP, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB, INET
-from app.database import Base
+
+import psycopg2
+import psycopg2.extras
+from datetime import datetime
+from flask import current_app
 
 
-class AdminActivityLog(Base):
-    """Admin activity log table"""
-    
-    __tablename__ = 'admin_activity_log'
-    
-    # Primary key
-    log_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    
-    # Foreign key
-    admin_id = Column(BigInteger, ForeignKey('admin_users.admin_id', ondelete='CASCADE'), nullable=False)
-    
-    # Activity details
-    action = Column(String(50), nullable=False)
-    table_name = Column(String(50), nullable=True)
-    record_id = Column(BigInteger, nullable=True)
-    
-    # Change tracking
-    old_values = Column(JSONB, nullable=True)
-    new_values = Column(JSONB, nullable=True)
-    
-    # Request metadata
-    ip_address = Column(INET, nullable=True)
-    
-    # Timestamp
-    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
-    
-    # Relationships
-    admin = relationship('AdminUser', back_populates='activity_logs')
-    
-    def __repr__(self):
-        return f"<AdminActivityLog(log_id={self.log_id}, admin_id={self.admin_id}, action='{self.action}')>"
-    
-    def get_admin_name(self):
-        """Get name of admin who performed the action"""
-        return self.admin.full_name if self.admin else "Unknown"
-    
-    def get_changes_summary(self):
-        """Get a human-readable summary of changes"""
-        if not self.old_values and not self.new_values:
-            return "No changes recorded"
-        
-        changes = []
-        if self.new_values:
-            for key, new_val in self.new_values.items():
-                old_val = self.old_values.get(key) if self.old_values else None
-                if old_val != new_val:
-                    changes.append(f"{key}: {old_val} → {new_val}")
-        
-        return ", ".join(changes) if changes else "No changes"
+class AdminActivityLog:
+    """Handles admin activity log operations using psycopg2"""
+
+    def __init__(self):
+        self.conn = psycopg2.connect(
+            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
+                "postgresql+psycopg2", "postgresql"
+            ),
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+
+    def __del__(self):
+        """Ensure connection closes"""
+        try:
+            if self.conn:
+                self.conn.close()
+        except Exception:
+            pass
+
+    def create_log(self, admin_id, action, table_name=None, record_id=None,
+                   old_values=None, new_values=None, ip_address=None):
+        """
+        Insert a new admin activity log record.
+        """
+        sql = """
+            INSERT INTO admin_activity_log (
+                admin_id, action, table_name, record_id,
+                old_values, new_values, ip_address, created_at
+            )
+            VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+            RETURNING log_id;
+        """
+        values = (
+            admin_id,
+            action,
+            table_name,
+            record_id,
+            psycopg2.extras.Json(old_values) if old_values else None,
+            psycopg2.extras.Json(new_values) if new_values else None,
+            ip_address,
+            datetime.utcnow()
+        )
+
+        with self.conn.cursor() as cur:
+            cur.execute(sql, values)
+            self.conn.commit()
+            return cur.fetchone()["log_id"]
+
+    def get_all_logs(self, limit=50):
+        """
+        Fetch recent admin activity logs.
+        """
+        sql = """
+            SELECT log_id, admin_id, action, table_name, record_id,
+                   old_values, new_values, ip_address, created_at
+            FROM admin_activity_log
+            ORDER BY created_at DESC
+            LIMIT %s;
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (limit,))
+            return cur.fetchall()
+
+    def get_log_by_id(self, log_id):
+        """
+        Fetch a specific log by ID.
+        """
+        sql = "SELECT * FROM admin_activity_log WHERE log_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (log_id,))
+            return cur.fetchone()
+
+    def delete_log(self, log_id):
+        """
+        Delete a log entry by ID.
+        """
+        sql = "DELETE FROM admin_activity_log WHERE log_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (log_id,))
+            self.conn.commit()
+            return cur.rowcount > 0

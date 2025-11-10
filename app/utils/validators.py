@@ -1,10 +1,14 @@
 """
 Validators Module
 Input validation functions for the custom printing website
+Compatible with psycopg2-based models
 """
 
 import re
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Validators:
@@ -31,6 +35,7 @@ class Validators:
     def validate_username(username):
         """
         Validate username format (3-50 chars, alphanumeric, underscore, hyphen)
+        Matches database constraint: ^[a-z0-9_-]{3,50}$
         
         Args:
             username (str): Username to validate
@@ -97,7 +102,8 @@ class Validators:
     @staticmethod
     def validate_price(price):
         """
-        Validate price (must be positive number)
+        Validate price (must be non-negative number)
+        Matches database constraint: base_price >= 0
         
         Args:
             price: Price value to validate
@@ -110,7 +116,7 @@ class Validators:
             if price_float < 0:
                 return False, "Price must be non-negative"
             if price_float > 999999.99:
-                return False, "Price is too large"
+                return False, "Price is too large (max: 999,999.99)"
             return True, "Price is valid"
         except (ValueError, TypeError):
             return False, "Price must be a valid number"
@@ -119,6 +125,7 @@ class Validators:
     def validate_quantity(quantity):
         """
         Validate quantity (must be positive integer)
+        Matches database constraint: quantity > 0
         
         Args:
             quantity: Quantity value to validate
@@ -152,7 +159,8 @@ class Validators:
             return False
         
         if allowed_extensions is None:
-            allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'ai', 'svg', 'psd'}
+            # Default allowed extensions for custom printing
+            allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'ai', 'svg', 'psd', 'eps'}
         
         if '.' not in filename:
             return False
@@ -184,6 +192,7 @@ class Validators:
     def validate_order_status(status):
         """
         Validate order status
+        Matches database constraint: ('pending', 'processing', 'completed', 'cancelled')
         
         Args:
             status (str): Order status to validate
@@ -191,17 +200,14 @@ class Validators:
         Returns:
             bool: True if valid, False otherwise
         """
-        valid_statuses = {
-            'pending', 'confirmed', 'processing', 
-            'printing', 'shipped', 'delivered', 
-            'cancelled', 'refunded'
-        }
+        valid_statuses = {'pending', 'processing', 'completed', 'cancelled'}
         return status and status.lower() in valid_statuses
     
     @staticmethod
     def validate_role(role):
         """
         Validate admin role
+        Matches database constraint: ('super_admin', 'admin', 'staff')
         
         Args:
             role (str): Role to validate
@@ -227,7 +233,10 @@ class Validators:
         missing_fields = []
         
         for field in required_fields:
-            if field not in data or not data[field]:
+            value = data.get(field)
+            # Check if field is missing or empty (handles None, empty string, empty list, etc.)
+            if value is None or (isinstance(value, str) and not value.strip()) or \
+               (isinstance(value, (list, dict)) and not value):
                 missing_fields.append(field)
         
         return len(missing_fields) == 0, missing_fields
@@ -307,6 +316,154 @@ class Validators:
             return False, "Text contains invalid characters"
         
         return True, "Customization text is valid"
+    
+    @staticmethod
+    def validate_category_name(name):
+        """
+        Validate category name (max 50 chars per schema)
+        
+        Args:
+            name (str): Category name
+            
+        Returns:
+            tuple: (is_valid: bool, message: str)
+        """
+        if not name or not isinstance(name, str):
+            return False, "Category name is required"
+        
+        name = name.strip()
+        
+        if len(name) < 2:
+            return False, "Category name must be at least 2 characters"
+        
+        if len(name) > 50:
+            return False, "Category name must not exceed 50 characters"
+        
+        # Allow letters, numbers, spaces, and common punctuation
+        if not re.match(r'^[a-zA-Z0-9\s\-&]+$', name):
+            return False, "Category name contains invalid characters"
+        
+        return True, "Category name is valid"
+    
+    @staticmethod
+    def validate_product_name(name):
+        """
+        Validate product name (max 100 chars per schema)
+        
+        Args:
+            name (str): Product name
+            
+        Returns:
+            tuple: (is_valid: bool, message: str)
+        """
+        if not name or not isinstance(name, str):
+            return False, "Product name is required"
+        
+        name = name.strip()
+        
+        if len(name) < 2:
+            return False, "Product name must be at least 2 characters"
+        
+        if len(name) > 100:
+            return False, "Product name must not exceed 100 characters"
+        
+        return True, "Product name is valid"
+    
+    @staticmethod
+    def validate_shipping_address(address):
+        """
+        Validate shipping address
+        
+        Args:
+            address (str): Shipping address
+            
+        Returns:
+            tuple: (is_valid: bool, message: str)
+        """
+        if not address or not isinstance(address, str):
+            return False, "Shipping address is required"
+        
+        address = address.strip()
+        
+        if len(address) < 10:
+            return False, "Shipping address is too short (minimum 10 characters)"
+        
+        if len(address) > 500:
+            return False, "Shipping address is too long (maximum 500 characters)"
+        
+        return True, "Shipping address is valid"
+    
+    @staticmethod
+    def validate_order_number(order_number):
+        """
+        Validate order number format (max 50 chars per schema)
+        
+        Args:
+            order_number (str): Order number
+            
+        Returns:
+            tuple: (is_valid: bool, message: str)
+        """
+        if not order_number or not isinstance(order_number, str):
+            return False, "Order number is required"
+        
+        if len(order_number) > 50:
+            return False, "Order number is too long (maximum 50 characters)"
+        
+        # Check if it matches expected format (e.g., ORD-00001)
+        if not re.match(r'^[A-Z0-9\-]+$', order_number):
+            return False, "Order number contains invalid characters"
+        
+        return True, "Order number is valid"
+    
+    @staticmethod
+    def validate_customization_key(key):
+        """
+        Validate customization key (max 100 chars per schema)
+        
+        Args:
+            key (str): Customization key
+            
+        Returns:
+            tuple: (is_valid: bool, message: str)
+        """
+        if not key or not isinstance(key, str):
+            return False, "Customization key is required"
+        
+        key = key.strip()
+        
+        if len(key) < 1:
+            return False, "Customization key cannot be empty"
+        
+        if len(key) > 100:
+            return False, "Customization key is too long (maximum 100 characters)"
+        
+        # Allow lowercase letters, numbers, and underscores (like variable names)
+        if not re.match(r'^[a-z0-9_]+$', key):
+            return False, "Customization key can only contain lowercase letters, numbers, and underscores"
+        
+        return True, "Customization key is valid"
+    
+    @staticmethod
+    def validate_display_order(order):
+        """
+        Validate display order (for categories)
+        
+        Args:
+            order: Display order value
+            
+        Returns:
+            tuple: (is_valid: bool, message: str)
+        """
+        try:
+            order_int = int(order)
+            if order_int < 0:
+                return False, "Display order must be non-negative"
+            if order_int > 9999:
+                return False, "Display order is too large"
+            return True, "Display order is valid"
+        except (ValueError, TypeError):
+            return False, "Display order must be a valid integer"
 
 
 # Convenience functions for backward compatibility
@@ -328,3 +485,13 @@ def validate_password(password):
 def validate_phone_number(phone):
     """Validate phone number format"""
     return Validators.validate_phone_number(phone)
+
+
+def validate_price(price):
+    """Validate price"""
+    return Validators.validate_price(price)
+
+
+def validate_quantity(quantity):
+    """Validate quantity"""
+    return Validators.validate_quantity(quantity)

@@ -1,61 +1,104 @@
 """
-Uploaded File Model
+Uploaded File Model  
 Represents files uploaded by customers for custom designs
 """
-from sqlalchemy import Column, BigInteger, String, Text, TIMESTAMP, ForeignKey, CheckConstraint
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.database import Base
+
+import psycopg2
+import psycopg2.extras
+from datetime import datetime
+from flask import current_app
 
 
-class UploadedFile(Base):
+class UploadedFile:
     """Uploaded files table"""
+
+    def __init__(self):
+        self.conn = psycopg2.connect(
+            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
+                "postgresql+psycopg2", "postgresql"
+            ),
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+
+    def __del__(self):
+        try:
+            if self.conn:
+                self.conn.close()
+        except Exception:
+            pass
+
+    # ---------------------
+    # CREATE
+    # ---------------------
+    def create(self, file_url, original_filename, customer_id=None, session_id=None,
+               order_item_id=None, cart_item_id=None):
+        if (customer_id is None and session_id is None) or (customer_id and session_id):
+            raise ValueError("UploadedFile must have either customer_id or session_id, not both.")
+
+        uploaded_at = datetime.utcnow()
+        sql = """
+            INSERT INTO uploaded_files 
+            (file_url, original_filename, customer_id, session_id, order_item_id, cart_item_id, uploaded_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING file_id;
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (file_url, original_filename, customer_id, session_id,
+                              order_item_id, cart_item_id, uploaded_at))
+            self.conn.commit()
+            return cur.fetchone()["file_id"]
+
+    # ---------------------
+    # READ
+    # ---------------------
+    def get_by_id(self, file_id):
+        sql = "SELECT * FROM uploaded_files WHERE file_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (file_id,))
+            return cur.fetchone()
+
+    def get_by_customer(self, customer_id):
+        sql = "SELECT * FROM uploaded_files WHERE customer_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (customer_id,))
+            return cur.fetchall()
+
+    def get_by_session(self, session_id):
+        sql = "SELECT * FROM uploaded_files WHERE session_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (session_id,))
+            return cur.fetchall()
     
-    __tablename__ = 'uploaded_files'
-    
-    # Primary key
-    file_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    
-    # Owner (either customer or guest session)
-    customer_id = Column(BigInteger, ForeignKey('customers.customer_id', ondelete='CASCADE'), nullable=True)
-    session_id = Column(String(255), nullable=True)
-    
-    # Associated order or cart item
-    order_item_id = Column(BigInteger, ForeignKey('order_items.order_item_id', ondelete='SET NULL'), nullable=True)
-    cart_item_id = Column(BigInteger, ForeignKey('cart_items.cart_item_id', ondelete='SET NULL'), nullable=True)
-    
-    # File details
-    file_url = Column(Text, nullable=False)
-    original_filename = Column(String(255), nullable=False)
-    
-    # Timestamp
-    uploaded_at = Column(TIMESTAMP, server_default=func.current_timestamp())
-    
-    # Relationships
-    customer = relationship('Customer', back_populates='uploaded_files')
-    order_item = relationship('OrderItem', back_populates='uploaded_files')
-    cart_item = relationship('CartItem', back_populates='uploaded_files')
-    
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "(customer_id IS NOT NULL AND session_id IS NULL) OR (customer_id IS NULL AND session_id IS NOT NULL)",
-            name='chk_file_owner'
-        ),
-    )
-    
-    def __repr__(self):
-        return f"<UploadedFile(file_id={self.file_id}, filename='{self.original_filename}')>"
-    
-    def get_file_extension(self):
-        """Get file extension"""
-        return self.original_filename.rsplit('.', 1)[-1].lower() if '.' in self.original_filename else ''
-    
-    def is_image(self):
-        """Check if file is an image"""
+    def get_by_cart_item(self, cart_item_id):
+        sql = "SELECT * FROM uploaded_files WHERE cart_item_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (cart_item_id,))
+            return cur.fetchall()
+
+    # ---------------------
+    # DELETE
+    # ---------------------
+    def delete(self, file_id):
+        sql = "DELETE FROM uploaded_files WHERE file_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (file_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ---------------------
+    # HELPERS
+    # ---------------------
+    @staticmethod
+    def get_file_extension(original_filename):
+        return original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
+
+    @staticmethod
+    def is_image(original_filename):
         image_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
-        return self.get_file_extension() in image_extensions
+        return UploadedFile.get_file_extension(original_filename) in image_extensions
+
+    @staticmethod
+    def is_pdf(original_filename):
+        return UploadedFile.get_file_extension(original_filename) == 'pdf'
     
-    def is_pdf(self):
-        """Check if file is a PDF"""
-        return self.get_file_extension() == 'pdf'
+ 

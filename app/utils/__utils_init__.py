@@ -4,7 +4,7 @@ Utility functions, validators, decorators, and helpers
 """
 
 # Import validators
-from app.utils.validators import (
+from .validators import (
     Validators,
     validate_email,
     validate_username,
@@ -13,7 +13,7 @@ from app.utils.validators import (
 )
 
 # Import decorators
-from app.utils.decorators import (
+from .decorators import (
     login_required,
     admin_required,
     role_required,
@@ -25,7 +25,7 @@ from app.utils.decorators import (
 )
 
 # Import helpers
-from app.utils.helpers import (
+from .helpers import (
     PasswordHelper,
     FileHelper,
     PriceHelper,

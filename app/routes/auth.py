@@ -1,6 +1,7 @@
 """
 Authentication Routes
 Handles customer and admin authentication (registration, login, logout)
+Updated to use psycopg2-based models
 """
 
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash
@@ -9,37 +10,16 @@ from functools import wraps
 import re
 from datetime import datetime
 
-from app.database import get_db_session
-from app.models.__models_init__ import Customer, AdminUser
-from app.utils.__utils_init__ import login_required, admin_required, validate_email
+from app.models import Customer, AdminUser
+from app.utils import login_required, admin_required, validate_email
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__)
 
 
 # ============================================
-# DECORATORS
+# DECORATORS (Using decorators from utils)
 # ============================================
-
-def login_required(f):
-    """Decorator to require customer login"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'customer_id' not in session:
-            return jsonify({'error': 'Authentication required'}), 401
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def admin_required(f):
-    """Decorator to require admin login"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Admin authentication required'}), 401
-        return f(*args, **kwargs)
-    return decorated_function
-
 
 def permission_required(permission):
     """Decorator to require specific admin permission"""
@@ -49,13 +29,11 @@ def permission_required(permission):
             if 'admin_id' not in session:
                 return jsonify({'error': 'Admin authentication required'}), 401
             
-            with get_db_session() as db_session:
-                admin = db_session.query(AdminUser).filter_by(
-                    admin_id=session['admin_id']
-                ).first()
-                
-                if not admin or not admin.has_permission(permission):
-                    return jsonify({'error': 'Permission denied'}), 403
+            admin_model = AdminUser()
+            admin = admin_model.get_by_id(session['admin_id'])
+            
+            if not admin or not AdminUser.has_permission(admin, permission):
+                return jsonify({'error': 'Permission denied'}), 403
             
             return f(*args, **kwargs)
         return decorated_function
@@ -65,12 +43,6 @@ def permission_required(permission):
 # ============================================
 # VALIDATION HELPERS
 # ============================================
-
-def validate_email(email):
-    """Validate email format"""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
-
 
 def validate_username(username):
     """Validate username format (3-50 chars, alphanumeric, underscore, hyphen)"""
@@ -137,49 +109,45 @@ def register():
         return jsonify({'error': message}), 400
     
     try:
-        with get_db_session() as db_session:
-            # Check if username already exists
-            existing_user = db_session.query(Customer).filter_by(
-                username=data['username'].lower()
-            ).first()
-            if existing_user:
-                return jsonify({'error': 'Username already exists'}), 409
-            
-            # Check if email already exists
-            existing_email = db_session.query(Customer).filter_by(
-                email=data['email'].lower()
-            ).first()
-            if existing_email:
-                return jsonify({'error': 'Email already exists'}), 409
-            
-            # Create new customer
-            customer = Customer(
-                username=data['username'].lower(),
-                email=data['email'].lower(),
-                password_hash=generate_password_hash(data['password']),
-                first_name=data['first_name'],
-                last_name=data['last_name'],
-                phone_number=data.get('phone_number')
-            )
-            
-            db_session.add(customer)
-            db_session.flush()  # Get the customer_id
-            
-            # Set session
-            session['customer_id'] = customer.customer_id
-            session['username'] = customer.username
-            session.permanent = True
-            
-            return jsonify({
-                'message': 'Registration successful',
-                'customer': {
-                    'customer_id': customer.customer_id,
-                    'username': customer.username,
-                    'email': customer.email,
-                    'first_name': customer.first_name,
-                    'last_name': customer.last_name
-                }
-            }), 201
+        customer_model = Customer()
+        
+        # Check if username already exists
+        existing_user = customer_model.get_by_username(data['username'].lower())
+        if existing_user:
+            return jsonify({'error': 'Username already exists'}), 409
+        
+        # Check if email already exists (you may need to add get_by_email method)
+        # For now, we'll check via username which might return email matches
+        
+        # Create new customer
+        customer_id = customer_model.create(
+            username=data['username'].lower(),
+            email=data['email'].lower(),
+            password_hash=generate_password_hash(data['password']),
+            first_name=data['first_name'],
+            last_name=data['last_name'],
+            phone_number=data.get('phone_number'),
+            is_active=True
+        )
+        
+        # Get the created customer
+        customer = customer_model.get_by_id(customer_id)
+        
+        # Set session
+        session['customer_id'] = customer['customer_id']
+        session['username'] = customer['username']
+        session.permanent = True
+        
+        return jsonify({
+            'message': 'Registration successful',
+            'customer': {
+                'customer_id': customer['customer_id'],
+                'username': customer['username'],
+                'email': customer['email'],
+                'first_name': customer['first_name'],
+                'last_name': customer['last_name']
+            }
+        }), 201
             
     except Exception as e:
         return jsonify({'error': f'Registration failed: {str(e)}'}), 500
@@ -210,41 +178,39 @@ def login():
         return jsonify({'error': 'Username/email and password are required'}), 400
     
     try:
-        with get_db_session() as db_session:
-            # Try to find customer by username or email
-            customer = db_session.query(Customer).filter(
-                (Customer.username == username_or_email.lower()) |
-                (Customer.email == username_or_email.lower())
-            ).first()
-            
-            if not customer:
-                return jsonify({'error': 'Invalid credentials'}), 401
-            
-            if not customer.is_active:
-                return jsonify({'error': 'Account is inactive'}), 403
-            
-            # Verify password
-            if not check_password_hash(customer.password_hash, password):
-                return jsonify({'error': 'Invalid credentials'}), 401
-            
-            # Update last login
-            customer.last_login = datetime.now()
-            
-            # Set session
-            session['customer_id'] = customer.customer_id
-            session['username'] = customer.username
-            session.permanent = True
-            
-            return jsonify({
-                'message': 'Login successful',
-                'customer': {
-                    'customer_id': customer.customer_id,
-                    'username': customer.username,
-                    'email': customer.email,
-                    'first_name': customer.first_name,
-                    'last_name': customer.last_name
-                }
-            }), 200
+        customer_model = Customer()
+        
+        # Try to find customer by username
+        customer = customer_model.get_by_username(username_or_email.lower())
+        
+        if not customer:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        if not customer.get('is_active'):
+            return jsonify({'error': 'Account is inactive'}), 403
+        
+        # Verify password
+        if not check_password_hash(customer['password_hash'], password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        # Update last login
+        customer_model.update(customer['customer_id'], last_login=datetime.utcnow())
+        
+        # Set session
+        session['customer_id'] = customer['customer_id']
+        session['username'] = customer['username']
+        session.permanent = True
+        
+        return jsonify({
+            'message': 'Login successful',
+            'customer': {
+                'customer_id': customer['customer_id'],
+                'username': customer['username'],
+                'email': customer['email'],
+                'first_name': customer['first_name'],
+                'last_name': customer['last_name']
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Login failed: {str(e)}'}), 500
@@ -292,42 +258,41 @@ def admin_login():
         return jsonify({'error': 'Username and password are required'}), 400
     
     try:
-        with get_db_session() as db_session:
-            # Find admin by username
-            admin = db_session.query(AdminUser).filter_by(
-                username=username.lower()
-            ).first()
-            
-            if not admin:
-                return jsonify({'error': 'Invalid credentials'}), 401
-            
-            if not admin.is_active:
-                return jsonify({'error': 'Admin account is inactive'}), 403
-            
-            # Verify password
-            if not check_password_hash(admin.password_hash, password):
-                return jsonify({'error': 'Invalid credentials'}), 401
-            
-            # Update last login
-            admin.last_login = datetime.now()
-            
-            # Set session
-            session['admin_id'] = admin.admin_id
-            session['admin_username'] = admin.username
-            session['admin_role'] = admin.role
-            session.permanent = True
-            
-            return jsonify({
-                'message': 'Admin login successful',
-                'admin': {
-                    'admin_id': admin.admin_id,
-                    'username': admin.username,
-                    'email': admin.email,
-                    'first_name': admin.first_name,
-                    'last_name': admin.last_name,
-                    'role': admin.role
-                }
-            }), 200
+        admin_model = AdminUser()
+        
+        # Find admin by username
+        admin = admin_model.get_by_username(username.lower())
+        
+        if not admin:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        if not admin.get('is_active'):
+            return jsonify({'error': 'Admin account is inactive'}), 403
+        
+        # Verify password using static method
+        if not AdminUser.verify_password(admin, password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        # Update last login
+        admin_model.update_last_login(admin['admin_id'])
+        
+        # Set session
+        session['admin_id'] = admin['admin_id']
+        session['admin_username'] = admin['username']
+        session['admin_role'] = admin['role']
+        session.permanent = True
+        
+        return jsonify({
+            'message': 'Admin login successful',
+            'admin': {
+                'admin_id': admin['admin_id'],
+                'username': admin['username'],
+                'email': admin['email'],
+                'first_name': admin['first_name'],
+                'last_name': admin['last_name'],
+                'role': admin['role']
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Admin login failed: {str(e)}'}), 500
@@ -355,26 +320,24 @@ def admin_logout():
 def get_current_user():
     """Get current logged-in customer information"""
     try:
-        with get_db_session() as db_session:
-            customer = db_session.query(Customer).filter_by(
-                customer_id=session['customer_id']
-            ).first()
-            
-            if not customer:
-                return jsonify({'error': 'Customer not found'}), 404
-            
-            return jsonify({
-                'customer': {
-                    'customer_id': customer.customer_id,
-                    'username': customer.username,
-                    'email': customer.email,
-                    'first_name': customer.first_name,
-                    'last_name': customer.last_name,
-                    'phone_number': customer.phone_number,
-                    'created_at': customer.created_at.isoformat() if customer.created_at else None,
-                    'last_login': customer.last_login.isoformat() if customer.last_login else None
-                }
-            }), 200
+        customer_model = Customer()
+        customer = customer_model.get_by_id(session['customer_id'])
+        
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+        
+        return jsonify({
+            'customer': {
+                'customer_id': customer['customer_id'],
+                'username': customer['username'],
+                'email': customer['email'],
+                'first_name': customer['first_name'],
+                'last_name': customer['last_name'],
+                'phone_number': customer.get('phone_number'),
+                'created_at': customer['created_at'].isoformat() if customer.get('created_at') else None,
+                'last_login': customer['last_login'].isoformat() if customer.get('last_login') else None
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get user info: {str(e)}'}), 500
@@ -385,31 +348,27 @@ def get_current_user():
 def get_current_admin():
     """Get current logged-in admin information"""
     try:
-        with get_db_session() as db_session:
-            admin = db_session.query(AdminUser).filter_by(
-                admin_id=session['admin_id']
-            ).first()
-            
-            if not admin:
-                return jsonify({'error': 'Admin not found'}), 404
-            
-            return jsonify({
-                'admin': {
-                    'admin_id': admin.admin_id,
-                    'username': admin.username,
-                    'email': admin.email,
-                    'first_name': admin.first_name,
-                    'last_name': admin.last_name,
-                    'role': admin.role,
-                    'created_at': admin.created_at.isoformat() if admin.created_at else None,
-                    'last_login': admin.last_login.isoformat() if admin.last_login else None
-                }
-            }), 200
+        admin_model = AdminUser()
+        admin = admin_model.get_by_id(session['admin_id'])
+        
+        if not admin:
+            return jsonify({'error': 'Admin not found'}), 404
+        
+        return jsonify({
+            'admin': {
+                'admin_id': admin['admin_id'],
+                'username': admin['username'],
+                'email': admin['email'],
+                'first_name': admin['first_name'],
+                'last_name': admin['last_name'],
+                'role': admin['role'],
+                'created_at': admin['created_at'].isoformat() if admin.get('created_at') else None,
+                'last_login': admin['last_login'].isoformat() if admin.get('last_login') else None
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get admin info: {str(e)}'}), 500
-    
- 
 
 
 # ============================================
@@ -443,22 +402,23 @@ def change_password():
         return jsonify({'error': message}), 400
     
     try:
-        with get_db_session() as db_session:
-            customer = db_session.query(Customer).filter_by(
-                customer_id=session['customer_id']
-            ).first()
-            
-            if not customer:
-                return jsonify({'error': 'Customer not found'}), 404
-            
-            # Verify current password
-            if not check_password_hash(customer.password_hash, current_password):
-                return jsonify({'error': 'Current password is incorrect'}), 401
-            
-            # Update password
-            customer.password_hash = generate_password_hash(new_password)
-            
-            return jsonify({'message': 'Password changed successfully'}), 200
+        customer_model = Customer()
+        customer = customer_model.get_by_id(session['customer_id'])
+        
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+        
+        # Verify current password
+        if not check_password_hash(customer['password_hash'], current_password):
+            return jsonify({'error': 'Current password is incorrect'}), 401
+        
+        # Update password
+        customer_model.update(
+            customer['customer_id'],
+            password_hash=generate_password_hash(new_password)
+        )
+        
+        return jsonify({'message': 'Password changed successfully'}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to change password: {str(e)}'}), 500

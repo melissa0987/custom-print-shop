@@ -1,64 +1,122 @@
 """
-Shopping Cart Model
+Shopping Cart Model  
 Represents shopping carts for customers and guest users
 """
-from sqlalchemy import Column, BigInteger, String, TIMESTAMP, ForeignKey, CheckConstraint
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+
+import psycopg2
+import psycopg2.extras
 from datetime import datetime, timedelta
-from app.database import Base
+from flask import current_app
 
 
-class ShoppingCart(Base):
+class ShoppingCart:
     """Shopping carts table"""
-    
-    __tablename__ = 'shopping_carts'
-    
-    # Primary key
-    shopping_cart_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    
-    # Owner (either customer or guest session)
-    customer_id = Column(BigInteger, ForeignKey('customers.customer_id', ondelete='CASCADE'), nullable=True)
-    session_id = Column(String(255), nullable=True)
-    
-    # Timestamps
-    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
-    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
-    expires_at = Column(TIMESTAMP, default=lambda: datetime.now() + timedelta(days=30))
-    
-    # Relationships
-    customer = relationship('Customer', back_populates='shopping_carts')
-    cart_items = relationship('CartItem', back_populates='shopping_cart', cascade='all, delete-orphan')
-    
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "(customer_id IS NOT NULL AND session_id IS NULL) OR (customer_id IS NULL AND session_id IS NOT NULL)",
-            name='chk_cart_owner'
-        ),
-    )
-    
-    def __repr__(self):
-        owner = f"customer_id={self.customer_id}" if self.customer_id else f"session_id={self.session_id}"
-        return f"<ShoppingCart(shopping_cart_id={self.shopping_cart_id}, {owner})>"
-    
-    def is_expired(self):
-        """Check if cart has expired"""
-        return self.expires_at and self.expires_at < datetime.now()
-    
-    def get_total_items(self):
+
+    def __init__(self):
+        self.conn = psycopg2.connect(
+            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
+                "postgresql+psycopg2", "postgresql"
+            ),
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+
+    def __del__(self):
+        try:
+            if self.conn:
+                self.conn.close()
+        except Exception:
+            pass
+
+    # ---------------------
+    # CREATE
+    # ---------------------
+    def create(self, customer_id=None, session_id=None, expires_at=None):
+        if (customer_id is None and session_id is None) or (customer_id and session_id):
+            raise ValueError("Cart must have either a customer_id or session_id, not both.")
+
+        expires_at = expires_at or (datetime.utcnow() + timedelta(days=30))
+        now = datetime.utcnow()
+
+        sql = """
+            INSERT INTO shopping_carts (customer_id, session_id, created_at, updated_at, expires_at)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING shopping_cart_id;
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (customer_id, session_id, now, now, expires_at))
+            self.conn.commit()
+            return cur.fetchone()["shopping_cart_id"]
+
+    # ---------------------
+    # READ
+    # ---------------------
+    def get_by_id(self, cart_id):
+        sql = "SELECT * FROM shopping_carts WHERE shopping_cart_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (cart_id,))
+            return cur.fetchone()
+
+    def get_by_customer(self, customer_id):
+        sql = "SELECT * FROM shopping_carts WHERE customer_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (customer_id,))
+            return cur.fetchall()
+
+    def get_by_session(self, session_id):
+        sql = "SELECT * FROM shopping_carts WHERE session_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (session_id,))
+            return cur.fetchall()
+
+    # ---------------------
+    # UPDATE
+    # ---------------------
+    def update_expires(self, cart_id, expires_at):
+        sql = "UPDATE shopping_carts SET expires_at = %s, updated_at = %s WHERE shopping_cart_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (expires_at, datetime.utcnow(), cart_id))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ---------------------
+    # DELETE
+    # ---------------------
+    def delete(self, cart_id):
+        sql = "DELETE FROM shopping_carts WHERE shopping_cart_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (cart_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ---------------------
+    # HELPERS
+    # ---------------------
+    def is_expired(self, cart):
+        """Check if a cart record is expired"""
+        return cart.get("expires_at") and cart["expires_at"] < datetime.utcnow()
+
+    def get_total_items(self, cart_id):
         """Get total number of items in cart"""
-        return len(self.cart_items)
-    
-    def get_total_quantity(self):
+        sql = "SELECT COUNT(*) AS total_items FROM cart_items WHERE shopping_cart_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (cart_id,))
+            return cur.fetchone()["total_items"]
+
+    def get_total_quantity(self, cart_id):
         """Get total quantity of all items in cart"""
-        return sum(item.quantity for item in self.cart_items)
-    
-    def calculate_total(self):
+        sql = "SELECT COALESCE(SUM(quantity),0) AS total_quantity FROM cart_items WHERE shopping_cart_id = %s;"
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (cart_id,))
+            return cur.fetchone()["total_quantity"]
+
+    def calculate_total(self, cart_id):
         """Calculate total price of all items in cart"""
-        total = sum(item.quantity * item.product.base_price for item in self.cart_items)
-        return float(total)
-    
-    def clear(self):
-        """Remove all items from cart"""
-        self.cart_items.clear()
+        sql = """
+            SELECT COALESCE(SUM(ci.quantity * p.base_price), 0) AS total
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            WHERE ci.shopping_cart_id = %s;
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (cart_id,))
+            return float(cur.fetchone()["total"])

@@ -10,12 +10,17 @@ class Config:
     """Secure configuration class that uses environment variables"""
     
     # Database Configuration (use environment variables with defaults)
-    DATABASE_HOST = os.environ.get('DATABASE_HOST')
-    DATABASE_NAME = os.environ.get('DATABASE_NAME')
-    DATABASE_USER = os.environ.get('DATABASE_USER')
+    DATABASE_HOST = os.environ.get('DATABASE_HOST', 'localhost')
+    DATABASE_NAME = os.environ.get('DATABASE_NAME', 'custom-print')
+    DATABASE_USER = os.environ.get('DATABASE_USER', 'postgres')
     DATABASE_PASSWORD = os.environ.get('DATABASE_PASSWORD')
-    DATABASE_PORT = int(os.environ.get('DATABASE_PORT'))
+    DATABASE_PORT = int(os.environ.get('DATABASE_PORT', '5432'))
     DATABASE_SSLMODE = os.environ.get('DB_SSLMODE', 'disable')
+    
+    # SQLAlchemy Database URI for psycopg2
+    SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}?sslmode={DATABASE_SSLMODE}"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False  # Set to True for SQL query logging in development
     
     # Security Configuration
     SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
@@ -23,9 +28,10 @@ class Config:
     
     # Session Configuration
     SESSION_TIMEOUT = int(os.environ.get('SESSION_TIMEOUT', '7200'))  # 2 hours
-    SESSION_SECURE = True  # Cookies only sent over HTTPS
-    SESSION_HTTPONLY = True  # Cookies not accessible via JavaScript
-    SESSION_SAMESITE = 'Lax'  # CSRF protection
+    SESSION_COOKIE_SECURE = True  # Cookies only sent over HTTPS
+    SESSION_COOKIE_HTTPONLY = True  # Cookies not accessible via JavaScript
+    SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection
+    PERMANENT_SESSION_LIFETIME = timedelta(seconds=SESSION_TIMEOUT)
     
     # SSL/TLS Configuration
     FORCE_HTTPS = os.environ.get('FORCE_HTTPS', 'True').lower() == 'true'
@@ -53,14 +59,10 @@ class Config:
     REQUIRE_NUMBERS = os.environ.get('REQUIRE_NUMBERS', 'True').lower() == 'true'
     REQUIRE_SPECIAL_CHARS = os.environ.get('REQUIRE_SPECIAL_CHARS', 'True').lower() == 'true'
     
-    # File Upload Configuration for Custom Printing
-    UPLOAD_FOLDER = os.path.join('static', os.environ.get('UPLOAD_FOLDER', 'uploads'))
-    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', '16777216'))  # 16MB for design files
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'ai', 'svg', 'psd'}  # Design file formats
-    
-    # Static Files Configuration
-    STATIC_FOLDER = 'static'
-    STATIC_URL_PATH = '/static'
+    # File Upload Security
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', '10485760'))  # 10MB
+    ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'ai', 'svg'}
     
     # CORS Configuration (restrictive by default)
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '').split(',') if os.environ.get('CORS_ORIGINS') else []
@@ -69,12 +71,6 @@ class Config:
     DEBUG = os.environ.get('FLASK_ENV', 'production') == 'development'
     TESTING = os.environ.get('TESTING', 'False').lower() == 'true'
     
-    # Database URL for connection pooling
-    @staticmethod
-    def get_database_url():
-        """Get database URL without exposing credentials in logs"""
-        return f"postgresql://{Config.DATABASE_USER}:{Config.DATABASE_PASSWORD}@{Config.DATABASE_HOST}:{Config.DATABASE_PORT}/{Config.DATABASE_NAME}?sslmode={Config.DATABASE_SSLMODE}"
-
     # Security Headers
     SECURITY_HEADERS = {
         'X-Content-Type-Options': 'nosniff',
@@ -103,10 +99,11 @@ class Config:
         errors = []
         
         # Check required environment variables
-        required_vars = ['DATABASE_PASSWORD', 'SECRET_KEY']
-        for var in required_vars:
-            if not os.environ.get(var):
-                errors.append(f"Missing required environment variable: {var}")
+        if not cls.DATABASE_PASSWORD:
+            errors.append("Missing required environment variable: DATABASE_PASSWORD")
+        
+        if not cls.SECRET_KEY or cls.SECRET_KEY == secrets.token_hex(32):
+            errors.append("SECRET_KEY should be set in environment variables")
         
         # Check password policy
         if cls.MIN_PASSWORD_LENGTH < 8:
@@ -138,44 +135,52 @@ class Config:
             'RATE_LIMITING': cls.RATE_LIMITING,
             'MAX_LOGIN_ATTEMPTS': cls.MAX_LOGIN_ATTEMPTS,
             'MIN_PASSWORD_LENGTH': cls.MIN_PASSWORD_LENGTH,
-            'MAX_TRANSACTION_AMOUNT': cls.MAX_TRANSACTION_AMOUNT
+            'MAX_TRANSACTION_AMOUNT': cls.MAX_TRANSACTION_AMOUNT,
+            'SQLALCHEMY_TRACK_MODIFICATIONS': cls.SQLALCHEMY_TRACK_MODIFICATIONS
         }
+
 
 class ProductionConfig(Config):
     """Production-specific configuration"""
     DEBUG = False
     TESTING = False
     FORCE_HTTPS = True
-    SESSION_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SQLALCHEMY_ECHO = False
     
     # Stricter rate limits in production
     LOGIN_RATE_LIMIT = '5 per minute'
     GENERAL_RATE_LIMIT = '50 per hour'
 
+
 class DevelopmentConfig(Config):
     """Development-specific configuration"""
     DEBUG = True
     FORCE_HTTPS = False  # Allow HTTP in development
-    SESSION_SECURE = False  # Allow non-HTTPS cookies in development
+    SESSION_COOKIE_SECURE = False  # Allow non-HTTPS cookies in development
+    SQLALCHEMY_ECHO = True  # Log SQL queries in development
     
     # More lenient rate limits in development
     LOGIN_RATE_LIMIT = '20 per minute'
     GENERAL_RATE_LIMIT = '200 per hour'
+
 
 class TestingConfig(Config):
     """Testing-specific configuration"""
     TESTING = True
     DEBUG = True
     FORCE_HTTPS = False
-    SESSION_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    SQLALCHEMY_ECHO = False
     
-    # Use test database for testing
-    DATABASE_NAME = 'test_printingdb'
+    # Use test database
+    DATABASE_NAME = 'test_custom_print'
+    SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{Config.DATABASE_USER}:{Config.DATABASE_PASSWORD}@{Config.DATABASE_HOST}:{Config.DATABASE_PORT}/{DATABASE_NAME}?sslmode={Config.DATABASE_SSLMODE}"
     
     # Disable rate limiting for tests
     RATE_LIMITING = False
 
-# Configuration factory
+
 def get_config():
     """Get configuration based on environment"""
     env = os.environ.get('FLASK_ENV', 'production')

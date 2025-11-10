@@ -6,12 +6,12 @@ Registers all Flask blueprints for the application
 from flask import Blueprint
 
 # Import blueprints
-from app.routes.auth import auth_bp
-from app.routes.products import products_bp
-from app.routes.cart import cart_bp
-from app.routes.orders import orders_bp
-from app.routes.admin import admin_bp
-from app.routes.files import files_bp
+from .auth import auth_bp
+from .products import products_bp
+from .cart import cart_bp
+from .orders import orders_bp
+from .admin import admin_bp
+from .files import files_bp
 
 
 def register_blueprints(app):

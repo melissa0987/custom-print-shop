@@ -1,16 +1,16 @@
 """
 Shopping Cart Routes
 Handles shopping cart operations (add, update, remove items)
+Updated to use psycopg2-based models
 """
 
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, timedelta
 import uuid
 
-from app.database import get_db_session
-from app.models.__models_init__ import (
+from app.models import (
     ShoppingCart, CartItem, CartItemCustomization,
-    Product, Customer
+    Product, Category
 )
 
 # Create blueprint
@@ -21,28 +21,32 @@ cart_bp = Blueprint('cart', __name__)
 # HELPER FUNCTIONS
 # ============================================
 
-def get_or_create_cart(db_session):
+def get_or_create_cart():
     """
     Get or create shopping cart for current user/session
     
     Returns:
-        ShoppingCart object
+        dict: Cart data or None
     """
+    cart_model = ShoppingCart()
+    
     # Check if customer is logged in
     if 'customer_id' in session:
         # Get or create customer cart
-        cart = db_session.query(ShoppingCart).filter(
-            ShoppingCart.customer_id == session['customer_id'],
-            ShoppingCart.expires_at > datetime.now()
-        ).first()
+        carts = cart_model.get_by_customer(session['customer_id'])
+        now = datetime.now()
         
-        if not cart:
-            cart = ShoppingCart(
-                customer_id=session['customer_id'],
-                expires_at=datetime.now() + timedelta(days=30)
-            )
-            db_session.add(cart)
-            db_session.flush()
+        # Find non-expired cart
+        for cart in carts:
+            if cart.get('expires_at') and cart['expires_at'] > now:
+                return cart
+        
+        # Create new cart if none found
+        cart_id = cart_model.create(
+            customer_id=session['customer_id'],
+            expires_at=now + timedelta(days=30)
+        )
+        return cart_model.get_by_id(cart_id)
     else:
         # Guest user - use session ID
         if 'session_id' not in session:
@@ -50,55 +54,70 @@ def get_or_create_cart(db_session):
             session.permanent = True
         
         # Get or create guest cart
-        cart = db_session.query(ShoppingCart).filter(
-            ShoppingCart.session_id == session['session_id'],
-            ShoppingCart.expires_at > datetime.now()
-        ).first()
+        carts = cart_model.get_by_session(session['session_id'])
+        now = datetime.now()
         
-        if not cart:
-            cart = ShoppingCart(
-                session_id=session['session_id'],
-                expires_at=datetime.now() + timedelta(days=30)
-            )
-            db_session.add(cart)
-            db_session.flush()
-    
-    return cart
+        # Find non-expired cart
+        for cart in carts:
+            if cart.get('expires_at') and cart['expires_at'] > now:
+                return cart
+        
+        # Create new cart
+        cart_id = cart_model.create(
+            session_id=session['session_id'],
+            expires_at=now + timedelta(days=30)
+        )
+        return cart_model.get_by_id(cart_id)
 
 
 def format_cart_response(cart):
     """Format cart data for JSON response"""
+    cart_item_model = CartItem()
+    product_model = Product()
+    category_model = Category()
+    cart_model = ShoppingCart()
+    
+    cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
+    
     items = []
-    for cart_item in cart.cart_items:
+    for cart_item in cart_items:
+        product = product_model.get_by_id(cart_item['product_id'])
+        category = category_model.get_by_id(product['category_id'])
+        
         # Get customizations
-        customizations = {
-            c.customization_key: c.customization_value
-            for c in cart_item.customizations
-        }
+        customizations = {}
+        if cart_item.get('customizations'):
+            customizations = {
+                c['customization_key']: c['customization_value']
+                for c in cart_item['customizations']
+            }
+        
+        # Calculate line total
+        line_total = float(product['base_price']) * cart_item['quantity']
         
         items.append({
-            'cart_item_id': cart_item.cart_item_id,
+            'cart_item_id': cart_item['cart_item_id'],
             'product': {
-                'product_id': cart_item.product.product_id,
-                'product_name': cart_item.product.product_name,
-                'description': cart_item.product.description,
-                'base_price': float(cart_item.product.base_price),
-                'category_name': cart_item.product.category.category_name
+                'product_id': product['product_id'],
+                'product_name': product['product_name'],
+                'description': product.get('description'),
+                'base_price': float(product['base_price']),
+                'category_name': category['category_name']
             },
-            'quantity': cart_item.quantity,
-            'design_file_url': cart_item.design_file_url,
+            'quantity': cart_item['quantity'],
+            'design_file_url': cart_item.get('design_file_url'),
             'customizations': customizations,
-            'line_total': cart_item.get_line_total(),
-            'added_at': cart_item.added_at.isoformat() if cart_item.added_at else None
+            'line_total': line_total,
+            'added_at': cart_item['added_at'].isoformat() if cart_item.get('added_at') else None
         })
     
     return {
-        'shopping_cart_id': cart.shopping_cart_id,
+        'shopping_cart_id': cart['shopping_cart_id'],
         'items': items,
-        'total_items': cart.get_total_items(),
-        'total_quantity': cart.get_total_quantity(),
-        'cart_total': cart.calculate_total(),
-        'expires_at': cart.expires_at.isoformat() if cart.expires_at else None
+        'total_items': cart_model.get_total_items(cart['shopping_cart_id']),
+        'total_quantity': cart_model.get_total_quantity(cart['shopping_cart_id']),
+        'cart_total': cart_model.calculate_total(cart['shopping_cart_id']),
+        'expires_at': cart['expires_at'].isoformat() if cart.get('expires_at') else None
     }
 
 
@@ -116,9 +135,8 @@ def view_cart():
         JSON cart data with items
     """
     try:
-        with get_db_session() as db_session:
-            cart = get_or_create_cart(db_session)
-            return jsonify({'cart': format_cart_response(cart)}), 200
+        cart = get_or_create_cart()
+        return jsonify({'cart': format_cart_response(cart)}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get cart: {str(e)}'}), 500
@@ -153,64 +171,64 @@ def add_to_cart():
         return jsonify({'error': 'quantity must be a positive integer'}), 400
     
     try:
-        with get_db_session() as db_session:
-            # Verify product exists and is active
-            product = db_session.query(Product).filter_by(
+        # Verify product exists and is active
+        product_model = Product()
+        product = product_model.get_by_id(product_id)
+        
+        if not product or not product.get('is_active'):
+            return jsonify({'error': 'Product not found or inactive'}), 404
+        
+        # Get or create cart
+        cart = get_or_create_cart()
+        
+        # Check if product already in cart
+        cart_item_model = CartItem()
+        cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
+        
+        existing_item = None
+        for item in cart_items:
+            if item['product_id'] == product_id:
+                existing_item = item
+                break
+        
+        if existing_item:
+            # Update quantity
+            new_quantity = existing_item['quantity'] + quantity
+            cart_item_model.update(existing_item['cart_item_id'], quantity=new_quantity)
+            cart_item_id = existing_item['cart_item_id']
+        else:
+            # Create new cart item
+            cart_item_id = cart_item_model.create(
+                shopping_cart_id=cart['shopping_cart_id'],
                 product_id=product_id,
-                is_active=True
-            ).first()
+                quantity=quantity,
+                design_file_url=design_file_url
+            )
+        
+        # Add or update customizations
+        if customizations:
+            customization_model = CartItemCustomization()
             
-            if not product:
-                return jsonify({'error': 'Product not found or inactive'}), 404
+            # Remove existing customizations
+            existing_customizations = customization_model.get_by_cart_item(cart_item_id)
+            for cust in existing_customizations:
+                customization_model.delete(cust['customization_id'])
             
-            # Get or create cart
-            cart = get_or_create_cart(db_session)
-            
-            # Check if product already in cart
-            existing_item = db_session.query(CartItem).filter_by(
-                shopping_cart_id=cart.shopping_cart_id,
-                product_id=product_id
-            ).first()
-            
-            if existing_item:
-                # Update quantity
-                existing_item.quantity += quantity
-                existing_item.updated_at = datetime.now()
-                cart_item = existing_item
-            else:
-                # Create new cart item
-                cart_item = CartItem(
-                    shopping_cart_id=cart.shopping_cart_id,
-                    product_id=product_id,
-                    quantity=quantity,
-                    design_file_url=design_file_url
+            # Add new customizations
+            for key, value in customizations.items():
+                customization_model.create(
+                    cart_item_id=cart_item_id,
+                    customization_key=key,
+                    customization_value=str(value)
                 )
-                db_session.add(cart_item)
-                db_session.flush()
-            
-            # Add or update customizations
-            if customizations:
-                # Remove existing customizations
-                db_session.query(CartItemCustomization).filter_by(
-                    cart_item_id=cart_item.cart_item_id
-                ).delete()
-                
-                # Add new customizations
-                for key, value in customizations.items():
-                    customization = CartItemCustomization(
-                        cart_item_id=cart_item.cart_item_id,
-                        customization_key=key,
-                        customization_value=str(value)
-                    )
-                    db_session.add(customization)
-            
-            # Update cart timestamp
-            cart.updated_at = datetime.now()
-            
-            return jsonify({
-                'message': 'Item added to cart',
-                'cart': format_cart_response(cart)
-            }), 201
+        
+        # Refresh cart
+        cart = get_or_create_cart()
+        
+        return jsonify({
+            'message': 'Item added to cart',
+            'cart': format_cart_response(cart)
+        }), 201
             
     except Exception as e:
         return jsonify({'error': f'Failed to add to cart: {str(e)}'}), 500
@@ -239,51 +257,50 @@ def update_cart_item(cart_item_id):
         return jsonify({'error': 'quantity must be a positive integer'}), 400
     
     try:
-        with get_db_session() as db_session:
-            # Get cart
-            cart = get_or_create_cart(db_session)
+        # Get cart
+        cart = get_or_create_cart()
+        
+        # Get cart item
+        cart_item_model = CartItem()
+        cart_item = cart_item_model.get_by_id(cart_item_id)
+        
+        if not cart_item or cart_item['shopping_cart_id'] != cart['shopping_cart_id']:
+            return jsonify({'error': 'Cart item not found'}), 404
+        
+        # Update cart item
+        update_data = {}
+        if quantity is not None:
+            update_data['quantity'] = quantity
+        if design_file_url is not None:
+            update_data['design_file_url'] = design_file_url
+        
+        if update_data:
+            cart_item_model.update(cart_item_id, **update_data)
+        
+        # Update customizations
+        if customizations is not None:
+            customization_model = CartItemCustomization()
             
-            # Get cart item
-            cart_item = db_session.query(CartItem).filter_by(
-                cart_item_id=cart_item_id,
-                shopping_cart_id=cart.shopping_cart_id
-            ).first()
+            # Remove existing customizations
+            existing = customization_model.get_by_cart_item(cart_item_id)
+            for cust in existing:
+                customization_model.delete(cust['customization_id'])
             
-            if not cart_item:
-                return jsonify({'error': 'Cart item not found'}), 404
-            
-            # Update quantity
-            if quantity is not None:
-                cart_item.quantity = quantity
-            
-            # Update design file URL
-            if design_file_url is not None:
-                cart_item.design_file_url = design_file_url
-            
-            # Update customizations
-            if customizations is not None:
-                # Remove existing customizations
-                db_session.query(CartItemCustomization).filter_by(
-                    cart_item_id=cart_item_id
-                ).delete()
-                
-                # Add new customizations
-                for key, value in customizations.items():
-                    customization = CartItemCustomization(
-                        cart_item_id=cart_item_id,
-                        customization_key=key,
-                        customization_value=str(value)
-                    )
-                    db_session.add(customization)
-            
-            # Update timestamps
-            cart_item.updated_at = datetime.now()
-            cart.updated_at = datetime.now()
-            
-            return jsonify({
-                'message': 'Cart item updated',
-                'cart': format_cart_response(cart)
-            }), 200
+            # Add new customizations
+            for key, value in customizations.items():
+                customization_model.create(
+                    cart_item_id=cart_item_id,
+                    customization_key=key,
+                    customization_value=str(value)
+                )
+        
+        # Refresh cart
+        cart = get_or_create_cart()
+        
+        return jsonify({
+            'message': 'Cart item updated',
+            'cart': format_cart_response(cart)
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to update cart item: {str(e)}'}), 500
@@ -298,28 +315,25 @@ def remove_cart_item(cart_item_id):
         JSON cart data
     """
     try:
-        with get_db_session() as db_session:
-            # Get cart
-            cart = get_or_create_cart(db_session)
-            
-            # Get and delete cart item
-            cart_item = db_session.query(CartItem).filter_by(
-                cart_item_id=cart_item_id,
-                shopping_cart_id=cart.shopping_cart_id
-            ).first()
-            
-            if not cart_item:
-                return jsonify({'error': 'Cart item not found'}), 404
-            
-            db_session.delete(cart_item)
-            
-            # Update cart timestamp
-            cart.updated_at = datetime.now()
-            
-            return jsonify({
-                'message': 'Item removed from cart',
-                'cart': format_cart_response(cart)
-            }), 200
+        # Get cart
+        cart = get_or_create_cart()
+        
+        # Get and delete cart item
+        cart_item_model = CartItem()
+        cart_item = cart_item_model.get_by_id(cart_item_id)
+        
+        if not cart_item or cart_item['shopping_cart_id'] != cart['shopping_cart_id']:
+            return jsonify({'error': 'Cart item not found'}), 404
+        
+        cart_item_model.delete(cart_item_id)
+        
+        # Refresh cart
+        cart = get_or_create_cart()
+        
+        return jsonify({
+            'message': 'Item removed from cart',
+            'cart': format_cart_response(cart)
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to remove cart item: {str(e)}'}), 500
@@ -334,22 +348,23 @@ def clear_cart():
         JSON success message
     """
     try:
-        with get_db_session() as db_session:
-            # Get cart
-            cart = get_or_create_cart(db_session)
-            
-            # Delete all cart items
-            db_session.query(CartItem).filter_by(
-                shopping_cart_id=cart.shopping_cart_id
-            ).delete()
-            
-            # Update cart timestamp
-            cart.updated_at = datetime.now()
-            
-            return jsonify({
-                'message': 'Cart cleared',
-                'cart': format_cart_response(cart)
-            }), 200
+        # Get cart
+        cart = get_or_create_cart()
+        
+        # Delete all cart items
+        cart_item_model = CartItem()
+        cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
+        
+        for item in cart_items:
+            cart_item_model.delete(item['cart_item_id'])
+        
+        # Refresh cart
+        cart = get_or_create_cart()
+        
+        return jsonify({
+            'message': 'Cart cleared',
+            'cart': format_cart_response(cart)
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to clear cart: {str(e)}'}), 500
@@ -364,13 +379,13 @@ def get_cart_count():
         JSON with cart counts
     """
     try:
-        with get_db_session() as db_session:
-            cart = get_or_create_cart(db_session)
-            
-            return jsonify({
-                'total_items': cart.get_total_items(),
-                'total_quantity': cart.get_total_quantity()
-            }), 200
+        cart = get_or_create_cart()
+        cart_model = ShoppingCart()
+        
+        return jsonify({
+            'total_items': cart_model.get_total_items(cart['shopping_cart_id']),
+            'total_quantity': cart_model.get_total_quantity(cart['shopping_cart_id'])
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to get cart count: {str(e)}'}), 500
@@ -395,59 +410,77 @@ def merge_guest_cart():
         return jsonify({'message': 'No guest cart to merge'}), 200
     
     try:
-        with get_db_session() as db_session:
-            # Get guest cart
-            guest_cart = db_session.query(ShoppingCart).filter(
-                ShoppingCart.session_id == session['session_id'],
-                ShoppingCart.expires_at > datetime.now()
-            ).first()
+        cart_model = ShoppingCart()
+        cart_item_model = CartItem()
+        now = datetime.now()
+        
+        # Get guest cart
+        guest_carts = cart_model.get_by_session(session['session_id'])
+        guest_cart = None
+        
+        for cart in guest_carts:
+            if cart.get('expires_at') and cart['expires_at'] > now:
+                guest_cart = cart
+                break
+        
+        if not guest_cart:
+            return jsonify({'message': 'No guest cart to merge'}), 200
+        
+        guest_cart_items = cart_item_model.get_by_cart(guest_cart['shopping_cart_id'])
+        
+        if not guest_cart_items:
+            return jsonify({'message': 'No guest cart items to merge'}), 200
+        
+        # Get or create customer cart
+        customer_carts = cart_model.get_by_customer(session['customer_id'])
+        customer_cart = None
+        
+        for cart in customer_carts:
+            if cart.get('expires_at') and cart['expires_at'] > now:
+                customer_cart = cart
+                break
+        
+        if not customer_cart:
+            cart_id = cart_model.create(
+                customer_id=session['customer_id'],
+                expires_at=now + timedelta(days=30)
+            )
+            customer_cart = cart_model.get_by_id(cart_id)
+        
+        # Move items from guest cart to customer cart
+        customer_cart_items = cart_item_model.get_by_cart(customer_cart['shopping_cart_id'])
+        
+        for guest_item in guest_cart_items:
+            # Check if product already in customer cart
+            existing_item = None
+            for customer_item in customer_cart_items:
+                if customer_item['product_id'] == guest_item['product_id']:
+                    existing_item = customer_item
+                    break
             
-            if not guest_cart or guest_cart.get_total_items() == 0:
-                return jsonify({'message': 'No guest cart items to merge'}), 200
-            
-            # Get or create customer cart
-            customer_cart = db_session.query(ShoppingCart).filter(
-                ShoppingCart.customer_id == session['customer_id'],
-                ShoppingCart.expires_at > datetime.now()
-            ).first()
-            
-            if not customer_cart:
-                customer_cart = ShoppingCart(
-                    customer_id=session['customer_id'],
-                    expires_at=datetime.now() + timedelta(days=30)
+            if existing_item:
+                # Add quantities
+                new_quantity = existing_item['quantity'] + guest_item['quantity']
+                cart_item_model.update(existing_item['cart_item_id'], quantity=new_quantity)
+            else:
+                # Create new item in customer cart
+                cart_item_model.create(
+                    shopping_cart_id=customer_cart['shopping_cart_id'],
+                    product_id=guest_item['product_id'],
+                    quantity=guest_item['quantity'],
+                    design_file_url=guest_item.get('design_file_url')
                 )
-                db_session.add(customer_cart)
-                db_session.flush()
-            
-            # Move items from guest cart to customer cart
-            for guest_item in guest_cart.cart_items:
-                # Check if product already in customer cart
-                existing_item = db_session.query(CartItem).filter_by(
-                    shopping_cart_id=customer_cart.shopping_cart_id,
-                    product_id=guest_item.product_id
-                ).first()
-                
-                if existing_item:
-                    # Add quantities
-                    existing_item.quantity += guest_item.quantity
-                    existing_item.updated_at = datetime.now()
-                else:
-                    # Move item to customer cart
-                    guest_item.shopping_cart_id = customer_cart.shopping_cart_id
-            
-            # Delete guest cart
-            db_session.delete(guest_cart)
-            
-            # Update customer cart timestamp
-            customer_cart.updated_at = datetime.now()
-            
-            # Clear guest session ID
-            session.pop('session_id', None)
-            
-            return jsonify({
-                'message': 'Guest cart merged successfully',
-                'cart': format_cart_response(customer_cart)
-            }), 200
+        
+        # Delete guest cart
+        cart_model.delete(guest_cart['shopping_cart_id'])
+        
+        # Clear guest session ID
+        session.pop('session_id', None)
+        
+        return jsonify({
+            'message': 'Guest cart merged successfully',
+            'cart': format_cart_response(customer_cart)
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to merge cart: {str(e)}'}), 500

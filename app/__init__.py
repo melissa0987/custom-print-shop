@@ -1,45 +1,71 @@
 """
-Flask Application Factory
-Creates and configures the Flask application
+Flask Application Factory for Custom Printing Website
 """
 
-from flask import Flask, render_template, session
+from flask import Flask, g
 from flask_cors import CORS
+import logging
 import os
-from datetime import timedelta
+from datetime import datetime
 
-from app.config import Config
-from app.database import init_db
+# Import configuration
+from app.config import get_config
+
+# Import database initialization
+from app.database import (
+    db, migrate, init_db, test_connection, 
+    close_connection_pool, get_db_connection, release_db_connection
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 
-def create_app(config_class=Config):
+def create_app(config_class=None):
     """
-    Application factory pattern
+    Application factory function.
     
     Args:
-        config_class: Configuration class (default: Config)
+        config_class: Configuration class to use (optional)
     
     Returns:
         Flask application instance
     """
-    # Create Flask app
     app = Flask(__name__)
     
     # Load configuration
+    if config_class is None:
+        config_class = get_config()
+    
     app.config.from_object(config_class)
     
-    # Set secret key for sessions
-    app.secret_key = app.config['SECRET_KEY']
+    # Validate configuration
+    config_errors = config_class.validate_config()
+    if config_errors:
+        logger.error("Configuration validation failed:")
+        for error in config_errors:
+            logger.error(f"  - {error}")
+        raise ValueError("Invalid configuration. Check logs for details.")
     
-    # Configure session
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+    logger.info(f"Application starting with {config_class.__name__}")
+    logger.info(f"Database: {app.config['DATABASE_NAME']} on {app.config['DATABASE_HOST']}")
     
-    # Enable CORS if needed
-    if app.config.get('ENABLE_CORS', False):
-        CORS(app)
+    # Initialize extensions
+    init_extensions(app)
     
-    # Initialize database
-    init_db(app)
+    # Test database connection
+    if not test_connection(app):
+        logger.error("Failed to connect to database!")
+        raise ConnectionError("Database connection failed")
     
     # Register blueprints
     register_blueprints(app)
@@ -47,37 +73,58 @@ def create_app(config_class=Config):
     # Register error handlers
     register_error_handlers(app)
     
-    # Register template filters
-    register_template_filters(app)
+    # Register request handlers
+    register_request_handlers(app)
     
-    # Register context processors
-    register_context_processors(app)
+    # Register CLI commands
+    register_cli_commands(app)
+    
+    # Apply security headers
+    apply_security_headers(app)
+    
+    logger.info("Application initialization complete")
     
     return app
 
 
+def init_extensions(app):
+    """Initialize Flask extensions"""
+    
+    # Initialize database
+    init_db(app)
+    
+    # Initialize CORS if needed
+    if app.config.get('CORS_ORIGINS'):
+        CORS(app, origins=app.config['CORS_ORIGINS'])
+        logger.info(f"CORS enabled for origins: {app.config['CORS_ORIGINS']}")
+    
+    logger.info("Extensions initialized")
+
+
 def register_blueprints(app):
     """Register Flask blueprints"""
-    from app.routes.auth import auth_bp
-    from app.routes.products import products_bp
-    from app.routes.cart import cart_bp
-    from app.routes.orders import orders_bp
-    from app.routes.admin import admin_bp
-    from app.routes.files import files_bp
     
-    # Register blueprints with URL prefixes
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(products_bp, url_prefix='/products')
-    app.register_blueprint(cart_bp, url_prefix='/cart')
-    app.register_blueprint(orders_bp, url_prefix='/orders')
-    app.register_blueprint(files_bp, url_prefix='/files')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-    
-    # Register home route
-    @app.route('/')
-    def index():
-        """Homepage"""
-        return render_template('index.html')
+    # Import blueprints here to avoid circular imports
+    try:
+        # Example: Import your route blueprints
+        # from app.routes.main import main_bp
+        # from app.routes.auth import auth_bp
+        # from app.routes.admin import admin_bp
+        # from app.routes.products import products_bp
+        # from app.routes.cart import cart_bp
+        # from app.routes.orders import orders_bp
+        
+        # Register blueprints
+        # app.register_blueprint(main_bp)
+        # app.register_blueprint(auth_bp, url_prefix='/auth')
+        # app.register_blueprint(admin_bp, url_prefix='/admin')
+        # app.register_blueprint(products_bp, url_prefix='/products')
+        # app.register_blueprint(cart_bp, url_prefix='/cart')
+        # app.register_blueprint(orders_bp, url_prefix='/orders')
+        
+        logger.info("Blueprints registered (add your blueprints here)")
+    except ImportError as e:
+        logger.warning(f"Could not import blueprints: {e}")
 
 
 def register_error_handlers(app):
@@ -85,90 +132,127 @@ def register_error_handlers(app):
     
     @app.errorhandler(404)
     def not_found_error(error):
-        """Handle 404 errors"""
-        # Check if request expects JSON
-        from flask import request
-        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-            return {'error': 'Resource not found'}, 404
-        return render_template('errors/404.html'), 404
+        logger.warning(f"404 error: {error}")
+        return {"error": "Resource not found"}, 404
     
     @app.errorhandler(500)
     def internal_error(error):
-        """Handle 500 errors"""
-        from flask import request
-        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-            return {'error': 'Internal server error'}, 500
-        return render_template('errors/500.html'), 500
+        logger.error(f"500 error: {error}")
+        db.session.rollback()
+        return {"error": "Internal server error"}, 500
     
     @app.errorhandler(403)
     def forbidden_error(error):
-        """Handle 403 errors"""
-        from flask import request
-        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-            return {'error': 'Access forbidden'}, 403
-        return render_template('errors/403.html'), 403
+        logger.warning(f"403 error: {error}")
+        return {"error": "Forbidden"}, 403
+    
+    @app.errorhandler(401)
+    def unauthorized_error(error):
+        logger.warning(f"401 error: {error}")
+        return {"error": "Unauthorized"}, 401
+    
+    logger.info("Error handlers registered")
 
 
-def register_template_filters(app):
-    """Register custom Jinja2 filters"""
+def register_request_handlers(app):
+    """Register before/after request handlers"""
     
-    @app.template_filter('currency')
-    def currency_filter(value):
-        """Format value as currency"""
-        try:
-            return f"${float(value):.2f}"
-        except (ValueError, TypeError):
-            return "$0.00"
+    @app.before_request
+    def before_request():
+        """Log request and setup request context"""
+        g.request_start_time = datetime.utcnow()
+        logger.debug(f"Request started: {g.request_start_time}")
     
-    @app.template_filter('datetime')
-    def datetime_filter(value, format='%B %d, %Y'):
-        """Format datetime"""
-        if value is None:
-            return ""
-        return value.strftime(format)
-    
-    @app.template_filter('truncate_text')
-    def truncate_text_filter(text, length=50):
-        """Truncate text to specified length"""
-        if text is None:
-            return ""
-        if len(text) <= length:
-            return text
-        return text[:length] + '...'
-
-
-def register_context_processors(app):
-    """Register context processors to inject variables into templates"""
-    
-    @app.context_processor
-    def inject_user():
-        """Inject current user info into all templates"""
-        user_info = {
-            'is_authenticated': 'customer_id' in session or 'admin_id' in session,
-            'is_admin': 'admin_id' in session,
-            'customer_id': session.get('customer_id'),
-            'admin_id': session.get('admin_id'),
-            'username': session.get('username'),
-        }
-        return {'current_user': user_info}
-    
-    @app.context_processor
-    def inject_cart_count():
-        """Inject cart item count into all templates"""
-        from app.services.cart_service import CartService
+    @app.after_request
+    def after_request(response):
+        """Log response and add security headers"""
+        if hasattr(g, 'request_start_time'):
+            elapsed = (datetime.utcnow() - g.request_start_time).total_seconds()
+            logger.debug(f"Request completed in {elapsed:.3f}s")
         
-        cart_count = 0
-        try:
-            if 'customer_id' in session:
-                cart_count = CartService.get_cart_item_count(
-                    customer_id=session['customer_id']
-                )
-            elif 'session_id' in session:
-                cart_count = CartService.get_cart_item_count(
-                    session_id=session['session_id']
-                )
-        except Exception:
-            # If there's an error getting cart count, just return 0
-            cart_count = 0
+        return response
+    
+    @app.teardown_appcontext
+    def teardown_db(exception=None):
+        """Clean up database connections"""
+        if exception:
+            logger.error(f"Request teardown with exception: {exception}")
         
-        return {'cart_count': cart_count}
+        # Release any psycopg2 connections stored in g
+        if hasattr(g, 'db_conn'):
+            release_db_connection(g.db_conn)
+            delattr(g, 'db_conn')
+    
+    logger.info("Request handlers registered")
+
+
+def apply_security_headers(app):
+    """Apply security headers to all responses"""
+    
+    @app.after_request
+    def set_security_headers(response):
+        """Add security headers to response"""
+        for header, value in app.config['SECURITY_HEADERS'].items():
+            response.headers[header] = value
+        return response
+    
+    logger.info("Security headers configured")
+
+
+def register_cli_commands(app):
+    """Register custom CLI commands"""
+    
+    @app.cli.command()
+    def test_db():
+        """Test database connection"""
+        if test_connection(app):
+            print("✓ Database connection successful")
+        else:
+            print("✗ Database connection failed")
+    
+    @app.cli.command()
+    def init_database():
+        """Initialize database tables (for SQLAlchemy models)"""
+        from app.database import create_tables
+        create_tables(app)
+        print("✓ Database tables created")
+    
+    @app.cli.command()
+    def show_config():
+        """Show safe configuration"""
+        from app.config import Config
+        print("\nCurrent Configuration:")
+        print("-" * 50)
+        for key, value in Config.get_safe_config().items():
+            print(f"{key}: {value}")
+        print("-" * 50)
+    
+    logger.info("CLI commands registered")
+
+
+# Create application instance (for development server)
+app = create_app()
+
+
+# Application shutdown handler
+import atexit
+
+@atexit.register
+def shutdown():
+    """Clean up on application shutdown"""
+    logger.info("Application shutting down...")
+    close_connection_pool()
+    logger.info("Application shutdown complete")
+
+
+if __name__ == '__main__':
+    # This is for development only
+    # Use a proper WSGI server like Gunicorn for production
+    port = int(os.environ.get('PORT', 5000))
+    
+    if app.config['DEBUG']:
+        logger.warning("Running in DEBUG mode - DO NOT use in production!")
+        app.run(host='0.0.0.0', port=port, debug=True)
+    else:
+        logger.info(f"Starting production server on port {port}")
+        app.run(host='0.0.0.0', port=port, debug=False)
