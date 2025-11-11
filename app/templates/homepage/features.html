@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Features - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="features-section">
+    <div class="container">
+        <h1>Our Features</h1>
+        <p>Everything you need to create, customize, and print your designs effortlessly.</p>
+
+        <div class="features-grid">
+            {% for feature in features %}
+            <div class="feature-card">
+                <div class="feature-icon">🔹</div>
+                <h3>{{ feature.title }}</h3>
+                <p>{{ feature.description }}</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="cta-section">
+            <h2>Start Designing Today</h2>
+            <button class="cta-button" onclick="alert('Design tool coming soon!')">Try It Now</button>
+        </div>
+    </div>
+</section>
+{% endblock %}

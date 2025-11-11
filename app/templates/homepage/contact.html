@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Contact Us - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="contact-section">
+    <div class="container">
+        <h1>Contact Us</h1>
+        <p>We’d love to hear from you! Reach out with any questions or requests.</p>
+
+        <div class="contact-info">
+            <div class="contact-item">
+                <strong>Email:</strong> <a href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+            </div>
+            <div class="contact-item">
+                <strong>Phone:</strong> <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+            </div>
+            <div class="contact-item">
+                <strong>Address:</strong>
+                <p>{{ contact.address }}</p>
+            </div>
+        </div>
+
+        <div class="business-hours">
+            <h2>Business Hours</h2>
+            <ul>
+                <li>Mon - Fri: {{ contact.business_hours.monday_friday }}</li>
+                <li>Saturday: {{ contact.business_hours.saturday }}</li>
+                <li>Sunday: {{ contact.business_hours.sunday }}</li>
+            </ul>
+        </div>
+
+        <div class="social-media">
+            <h2>Connect with Us</h2>
+            <ul>
+                <li><a href="https://{{ contact.social_media.facebook }}" target="_blank">Facebook</a></li>
+                <li><a href="https://instagram.com/{{ contact.social_media.instagram | replace('@', '') }}" target="_blank">Instagram</a></li>
+                <li><a href="https://twitter.com/{{ contact.social_media.twitter | replace('@', '') }}" target="_blank">Twitter</a></li>
+            </ul>
+        </div>
+
+        <button class="cta-button" onclick="alert('Contact form coming soon!')">Send a Message</button>
+    </div>
+</section>
+{% endblock %}

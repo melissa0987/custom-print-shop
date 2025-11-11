@@ -3,224 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}PrintCraft - Custom Printing{% endblock %}</title>
+    <title>{% block title %}PrintCraft{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/about.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
     
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    
-    <!-- Custom CSS -->
-    <style>
-        :root {
-            --primary-color: #667eea;
-            --secondary-color: #764ba2;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .navbar-brand {
-            font-size: 1.5rem;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-        
-        .nav-link {
-            color: rgba(255,255,255,0.9) !important;
-            transition: color 0.3s;
-        }
-        
-        .nav-link:hover {
-            color: white !important;
-        }
-        
-        .badge-cart {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: var(--danger-color);
-            border-radius: 50%;
-            padding: 2px 6px;
-            font-size: 0.7rem;
-        }
-        
-        main {
-            flex: 1;
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }
-        
-        footer {
-            background: #2d3748;
-            color: white;
-            padding: 2rem 0;
-            margin-top: auto;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            border: none;
-        }
-        
-        .btn-primary:hover {
-            opacity: 0.9;
-        }
-        
-        .card {
-            border: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-        }
-        
-        .alert {
-            border-radius: 8px;
-        }
-        
-        .hero {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            padding: 4rem 0;
-            margin-bottom: 2rem;
-        }
-        
-        .product-image {
-            height: 200px;
-            object-fit: cover;
-            border-radius: 8px;
-        }
-        
-        .price-tag {
-            font-size: 1.5rem;
-            color: var(--primary-color);
-            font-weight: bold;
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
-    
-    {% block extra_css %}{% endblock %}
+
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-printer"></i> PrintCraft
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/products">Products</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/products/categories">Categories</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#about">About</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#contact">Contact</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <!-- Cart -->
-                    <li class="nav-item position-relative">
-                        <a class="nav-link" href="/cart">
-                            <i class="bi bi-cart3"></i> Cart
-                            <span class="badge badge-cart" id="cart-count">0</span>
-                        </a>
-                    </li>
-                    
-                    {% if session.get('customer_id') %}
-                    <!-- Logged in Customer -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i> {{ session.get('username', 'Account') }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/orders"><i class="bi bi-box-seam"></i> My Orders</a></li>
-                            <li><a class="dropdown-item" href="/files"><i class="bi bi-file-earmark"></i> My Files</a></li>
-                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person"></i> Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/auth/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
-                        </ul>
-                    </li>
-                    {% elif session.get('admin_id') %}
-                    <!-- Logged in Admin -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-shield-lock"></i> Admin
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/admin/dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                            <li><a class="dropdown-item" href="/admin/orders"><i class="bi bi-box-seam"></i> Orders</a></li>
-                            <li><a class="dropdown-item" href="/admin/products"><i class="bi bi-grid"></i> Products</a></li>
-                            <li><a class="dropdown-item" href="/admin/customers"><i class="bi bi-people"></i> Customers</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/auth/admin/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
-                        </ul>
-                    </li>
-                    {% else %}
-                    <!-- Not logged in -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="/auth/login"><i class="bi bi-box-arrow-in-right"></i> Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/auth/register"><i class="bi bi-person-plus"></i> Register</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="container mt-3">
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
+    <!-- Header / Navigation -->
+    <header>
+        <nav>
+            <div class="logo"><a href="{{ url_for('main.homepage') }}">PrintCraft</a></div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('main.homepage') }}">Home</a></li>
+                <li><a href="{{ url_for('main.homepage') }}#products">Products</a></li>
+                <li><a href="{{ url_for('main.features') }}">Features</a></li>
+                <li><a href="{{ url_for('main.contact') }}">Contact</a></li>
+                <li><a href="{{ url_for('main.faq') }}">FAQ</a></li>
+                <!-- <li><a class="button-link" href="{{ url_for('auth.login') }}">Login</a></li>
+                <li><a class="button-link register" href="{{ url_for('auth.register') }}">Register</a></li> -->
+                <li>
+                    <a href="{{ url_for('cart.view_cart') }}" class="cart-link">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cart4" viewBox="0 0 16 16">
+                        <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5M3.14 5l.5 2H5V5zM6 5v2h2V5zm3 0v2h2V5zm3 0v2h1.36l.5-2zm1.11 3H12v2h.61zM11 8H9v2h2zM8 8H6v2h2zM5 8H3.89l.5 2H5zm0 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2m-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0m9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2m-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0"/>
+                        </svg>
+                        {% if session.get('cart_count') %}
+                            <span class="cart-count">{{ session.get('cart_count') }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
 
     <!-- Main Content -->
     <main>
@@ -229,115 +45,68 @@
 
     <!-- Footer -->
     <footer>
-        <div class="container">
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <h5><i class="bi bi-printer"></i> PrintCraft</h5>
-                    <p class="text-muted">Premium custom printing on mugs, tumblers, bags, and t-shirts.</p>
+        <div class="footer-container">
+            <div class="footer-grid">
+                <!-- Contact Info -->
+                <div class="footer-column">
+                    <h3>Contact Us</h3>
+                    <p><strong>Email:</strong> <a href="mailto:info@customprintshop.com">info@customprintshop.com</a></p>
+                    <p><strong>Phone:</strong> <a href="tel:+15551234567">+1 (555) 123-4567</a></p>
+                    <p><strong>Address:</strong> 123 Print Street, Design City, DC 12345</p>
+                    <p><strong>Hours:</strong> Mon-Fri 9am-6pm, Sat 10am-4pm, Sun Closed</p>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <h5>Quick Links</h5>
-                    <ul class="list-unstyled">
-                        <li><a href="/products" class="text-white-50">Products</a></li>
-                        <li><a href="#about" class="text-white-50">About Us</a></li>
-                        <li><a href="#contact" class="text-white-50">Contact</a></li>
-                        <li><a href="#" class="text-white-50">Terms & Conditions</a></li>
+
+                <!-- Quick Links -->
+                <div class="footer-column">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="{{ url_for('main.homepage') }}">Home</a></li>
+                        <li><a href="{{ url_for('main.features') }}">Features</a></li>
+                        <li><a href="{{ url_for('main.contact') }}">Contact</a></li>
+                        <li><a href="{{ url_for('main.faq') }}">FAQ</a></li> 
+                        <li><a href="{{ url_for('main.terms') }}">Terms of Service</a></li>
+                    </ul>
+                </div> 
+
+
+                <!-- Social Media -->
+                <div class="footer-column">
+                    <h3>Follow Us</h3>
+                    <ul class="social-media">
+                        <li>
+                            <a href="https://facebook.com/" target="_blank" class="social-icon facebook">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-facebook" viewBox="0 0 16 16">
+                                    <path d="M16 8.049c0-4.446-3.582-8.05-8-8.05C3.58 0-.002 3.603-.002 8.05c0 4.017 2.926 7.347 6.75 7.951v-5.625h-2.03V8.05H6.75V6.275c0-2.017 1.195-3.131 3.022-3.131.876 0 1.791.157 1.791.157v1.98h-1.009c-.993 0-1.303.621-1.303 1.258v1.51h2.218l-.354 2.326H9.25V16c3.824-.604 6.75-3.934 6.75-7.951"/>
+                                </svg>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://instagram.com/" target="_blank" class="social-icon instagram">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-instagram" viewBox="0 0 16 16">
+                                <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.9 3.9 0 0 0-1.417.923A3.9 3.9 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.9 3.9 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.9 3.9 0 0 0-.923-1.417A3.9 3.9 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599s.453.546.598.92c.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.5 2.5 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.5 2.5 0 0 1-.92-.598 2.5 2.5 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233s.008-2.388.046-3.231c.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92s.546-.453.92-.598c.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92m-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217m0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334"/>
+                                </svg>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://twitter.com/" target="_blank" class="social-icon twitter">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-twitter-x" viewBox="0 0 16 16">
+                                <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865z"/>
+                                </svg>
+                            </a>
+                        </li>
                     </ul>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <h5>Contact</h5>
-                    <p class="text-muted">
-                        <i class="bi bi-envelope"></i> info@printcraft.com<br>
-                        <i class="bi bi-phone"></i> (555) 123-4567<br>
-                        <i class="bi bi-geo-alt"></i> 123 Print Street, Design City
-                    </p>
-                </div>
+
+
+
             </div>
-            <hr class="bg-light">
-            <div class="text-center text-muted">
-                <p>&copy; 2025 PrintCraft. All rights reserved.</p>
+
+            <div class="footer-bottom">
+                <p>&copy; {{ current_year|default(2025) }} PrintCraft. All rights reserved.</p>
             </div>
         </div>
     </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    
-    <!-- Custom JS -->
-    <script>
-        // Update cart count on page load
-        function updateCartCount() {
-            fetch('/cart/count')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.total_items > 0) {
-                        document.getElementById('cart-count').textContent = data.total_items;
-                        document.getElementById('cart-count').style.display = 'inline-block';
-                    } else {
-                        document.getElementById('cart-count').style.display = 'none';
-                    }
-                })
-                .catch(error => console.error('Error fetching cart count:', error));
-        }
-        
-        // Update cart count on page load
-        updateCartCount();
-        
-        // Add to cart function
-        function addToCart(productId, quantity = 1, customizations = {}) {
-            return fetch('/cart/add', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    product_id: productId,
-                    quantity: quantity,
-                    customizations: customizations
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.cart) {
-                    updateCartCount();
-                    return data;
-                } else if (data.error) {
-                    throw new Error(data.error);
-                }
-            });
-        }
-        
-        // Show toast notification
-        function showToast(message, type = 'success') {
-            const toastHtml = `
-                <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-                    <div class="toast show" role="alert">
-                        <div class="toast-header bg-${type} text-white">
-                            <strong class="me-auto">
-                                <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-                                ${type === 'success' ? 'Success' : 'Error'}
-                            </strong>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-                        </div>
-                        <div class="toast-body">
-                            ${message}
-                        </div>
-                    </div>
-                </div>
-            `;
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = toastHtml;
-            document.body.appendChild(tempDiv);
-            
-            setTimeout(() => {
-                tempDiv.remove();
-            }, 3000);
-        }
-    </script>
-    
-    {% block extra_js %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

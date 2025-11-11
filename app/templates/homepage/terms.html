@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Terms of Service - Custom Print Shop{% endblock %}
+{% block content %}
+<section class="terms container flex flex-col">
+    <header>
+        <h1>Terms of Service</h1>
+        <p>Last Updated: {{ terms.last_updated }}</p>
+    </header>
+
+    <div class="terms-sections flex flex-col">
+        {% for section in terms.sections %}
+        <article class="terms-section">
+            <h2>{{ section.title }}</h2>
+            <p>{{ section.content }}</p>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

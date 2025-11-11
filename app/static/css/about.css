@@ -1,0 +1,95 @@
+/* ==========================
+   About Section
+========================== */
+.about-section {
+    padding: 100px 2rem 60px; /* adjust top padding to avoid fixed header overlap */
+    background: #f8f9fa;
+    color: #333;
+}
+
+.about-section .container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.about-section h1 {
+    font-size: 2.8rem;
+    color: #667eea;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.about-section .tagline {
+    font-size: 1.2rem;
+    text-align: center;
+    color: #555;
+    margin-bottom: 1.5rem;
+}
+
+.about-section .description {
+    font-size: 1rem;
+    color: #666;
+    line-height: 1.7;
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.about-stats {
+    display: flex;
+    justify-content: center;
+    gap: 5rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+}
+
+.about-stats .stat h3 {
+    font-size: 2rem;
+    color: #764ba2;
+    margin-bottom: 0.3rem;
+    text-align: center;
+}
+
+.about-stats .stat p {
+    font-size: 0.9rem;
+    color: #555;
+    text-align: center;
+}
+
+.about-columns {
+    display: flex;
+    gap: 4rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.about-left, .about-right {
+    flex: 1 1 400px;
+}
+
+.about-left h2, .about-right h2 {
+    font-size: 1.8rem;
+    color: #667eea;
+    margin-bottom: 1rem;
+}
+
+.about-left ul, .about-right ul {
+    list-style: disc inside;
+    padding-left: 0;
+    color: #555;
+}
+
+.about-left ul li, .about-right ul li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .about-columns {
+        flex-direction: column;
+    }
+
+    .about-stats {
+        gap: 2rem;
+    }
+}

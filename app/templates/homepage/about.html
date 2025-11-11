@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}About Us - PrintCraft{% endblock %}
+
+
+{% block content %}
+<section class="about-section">
+    <div class="container">
+        <h1>{{ about.company_name }}</h1>
+        <p class="tagline">{{ about.tagline }}</p>
+        <p class="description">{{ about.description }}</p>
+
+        <div class="about-stats">
+            <div class="stat">
+                <h3>{{ about.years_in_business }}</h3>
+                <p>Years in Business</p>
+            </div>
+            <div class="stat">
+                <h3>{{ about.orders_completed }}</h3>
+                <p>Orders Completed</p>
+            </div>
+        </div>
+
+        <div class="about-columns">
+            <div class="about-left">
+                <h2>Our Services</h2>
+                <ul>
+                    {% for service in about.services %}
+                    <li>{{ service }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="about-right">
+                <h2>Why Choose Us</h2>
+                <ul>
+                    {% for reason in about.why_choose_us %}
+                    <li>{{ reason }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

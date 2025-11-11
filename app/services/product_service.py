@@ -139,21 +139,18 @@ class ProductService:
     #  Get popular products (most ordered)
     @staticmethod
     def get_popular_products(limit=10):
-        
         try:
             product_model = Product()
             products = product_model.get_all(active_only=True)
-            
-            # Get order counts for each product
-            product_stats = []
-            for product in products:
-                order_count = product_model.get_total_orders(product['product_id'])
-                product_stats.append((product, order_count))
-            
+
+            # Add order count into each product dict
+            for p in products:
+                p["order_count"] = product_model.get_total_orders(p["product_id"])
+
             # Sort by order count descending
-            product_stats.sort(key=lambda x: x[1], reverse=True)
-            
-            return product_stats[:limit]
+            products.sort(key=lambda x: x.get("order_count", 0), reverse=True)
+
+            return products[:limit]
         except Exception:
             return []
     

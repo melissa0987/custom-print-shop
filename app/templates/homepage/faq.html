@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}FAQ - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="faq-section">
+    <h1 class="section-title">Frequently Asked Questions</h1>
+    <p>Find answers to the most common questions about our products and services.</p>
+
+    <div class="faq-container">
+        <div class="faq-item">
+            <button class="faq-question">What types of products can I customize?</button>
+            <div class="faq-answer">
+                <p>You can customize mugs, tumblers, t-shirts, tote bags, backpacks, business cards, and more.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">How long does it take to receive my order?</button>
+            <div class="faq-answer">
+                <p>Most orders ship within 2-3 business days. Larger or bulk orders may take longer. We always provide estimated delivery times at checkout.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">Can I upload my own design?</button>
+            <div class="faq-answer">
+                <p>Yes! Our online designer allows you to upload PNG, JPG, PDF, AI, or SVG files. You can also add text and customize colors.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">What if my order is damaged or incorrect?</button>
+            <div class="faq-answer">
+                <p>We offer a 100% satisfaction guarantee. If there is a problem with your order, contact us within 7 days and we’ll resolve it or replace your items.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">Do you offer bulk discounts?</button>
+            <div class="faq-answer">
+                <p>Yes! Orders of 10 or more items qualify for bulk pricing. Discounts are automatically applied at checkout.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    // FAQ collapse/expand functionality
+    document.querySelectorAll('.faq-question').forEach(button => {
+        button.addEventListener('click', () => {
+            const answer = button.nextElementSibling;
+            const isOpen = answer.style.maxHeight && answer.style.maxHeight !== '0px';
+
+            // Close all answers
+            document.querySelectorAll('.faq-answer').forEach(a => a.style.maxHeight = null);
+
+            if (!isOpen) {
+                answer.style.maxHeight = answer.scrollHeight + "px";
+            }
+        });
+    });
+</script>
+ 
+{% endblock %}
