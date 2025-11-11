@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Shopping Cart - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="cart-page">
+    <div class="container">
+        <h1>Shopping Cart</h1>
+        
+        {% if session.get('customer_id') %}
+            <p class="user-info">Logged in as: <strong>{{ session.get('username') }}</strong></p>
+        {% elif session.get('session_id') %}
+            <p class="user-info">Shopping as Guest | <a href="{{ url_for('auth.login') }}">Login</a> to save your cart</p>
+        {% endif %}
+
+        {% if cart.items %}
+            <div class="cart-items">
+                {% for item in cart.items %}
+                <div class="cart-item">
+                    <div class="item-image">
+                        {% if item.design_file_url %}
+                            <img src="{{ item.design_file_url }}" alt="{{ item.product.product_name }}">
+                        {% else %}
+                            <div class="placeholder-image">📦</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="item-details">
+                        <h3>{{ item.product.product_name }}</h3>
+                        <p class="category">{{ item.product.category_name }}</p>
+                        
+                        {% if item.customizations %}
+                            <div class="customizations">
+                                <strong>Customizations:</strong>
+                                <ul>
+                                    {% for key, value in item.customizations.items() %}
+                                        <li>{{ key }}: {{ value }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        
+                        <p class="price">{{ item.product.base_price_formatted }} each</p>
+                    </div>
+                    
+                    <div class="item-quantity">
+                        <label>Quantity:</label>
+                        <input type="number" value="{{ item.quantity }}" min="1" 
+                               data-item-id="{{ item.cart_item_id }}" class="quantity-input">
+                    </div>
+                    
+                    <div class="item-total">
+                        <p class="line-total">{{ item.line_total_formatted }}</p>
+                    </div>
+                    
+                    <div class="item-actions">
+                        <form method="POST" action="{{ url_for('cart.remove_cart_item', cart_item_id=item.cart_item_id) }}">
+                            <button type="submit" class="btn-remove">Remove</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span>Subtotal ({{ cart.total_items }} items):</span>
+                    <span>{{ cart.subtotal_formatted }}</span>
+                </div>
+                <div class="summary-row">
+                    <span>Tax (13%):</span>
+                    <span>{{ cart.tax_formatted }}</span>
+                </div>
+                <div class="summary-row total">
+                    <span><strong>Total:</strong></span>
+                    <span><strong>{{ cart.cart_total_formatted }}</strong></span>
+                </div>
+                
+                <div class="cart-actions">
+                    <form method="POST" action="{{ url_for('cart.clear_cart') }}" 
+                          onsubmit="return confirm('Clear all items from cart?')">
+                        <button type="submit" class="btn-secondary">Clear Cart</button>
+                    </form>
+                    
+                    {% if session.get('customer_id') %}
+                        <a href="{{ url_for('orders.checkout') }}" class="btn-primary">Proceed to Checkout</a>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}?next={{ url_for('orders.checkout') }}" class="btn-primary">
+                            Login to Checkout
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-cart">
+                <p>Your cart is empty</p>
+                <a href="{{ url_for('products.get_products') }}" class="btn-primary">Continue Shopping</a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<style>
+.cart-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+}
+
+.cart-page .container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.user-info {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.cart-items {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.cart-item {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid #eee;
+    align-items: center;
+}
+
+.cart-item:last-child {
+    border-bottom: none;
+}
+
+.item-image img,
+.placeholder-image {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.placeholder-image {
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+}
+
+.item-details {
+    flex: 1;
+}
+
+.item-details h3 {
+    margin-bottom: 0.5rem;
+}
+
+.category {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.customizations {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.customizations ul {
+    margin: 0.5rem 0 0 1rem;
+}
+
+.quantity-input {
+    width: 80px;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.btn-remove {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.cart-summary {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+}
+
+.summary-row.total {
+    border-top: 2px solid #333;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    font-size: 1.2rem;
+}
+
+.cart-actions {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.empty-cart {
+    background: white;
+    padding: 4rem;
+    text-align: center;
+    border-radius: 8px;
+}
+
+.empty-cart p {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+</style>
+{% endblock %}

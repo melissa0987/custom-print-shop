@@ -1,17 +1,17 @@
 
 -- Insert Sample Admin Users 
 INSERT INTO admin_users (username, email, password_hash, first_name, last_name, role, is_active) VALUES
-    ('superadmin', 'superadmin@printcraft.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Super', 'Admin', 'super_admin', TRUE),
-    ('admin_john', 'john.admin@printcraft.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'John', 'Administrator', 'admin', TRUE),
-    ('staff_jane', 'jane.staff@printcraft.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Jane', 'Staff', 'staff', TRUE);
+    ('superadmin', 'superadmin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Super', 'Admin', 'super_admin', TRUE),
+    ('admin_john', 'john.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Administrator', 'admin', TRUE),
+    ('staff_jane', 'jane.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Staff', 'staff', TRUE);
 
 -- Insert Sample Customers
 INSERT INTO customers (username, email, password_hash, first_name, last_name, phone_number) VALUES
-    ('johndoe', 'john.doe@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'John', 'Doe', '514-555-0101'),
-    ('janesmith', 'jane.smith@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Jane', 'Smith', '514-555-0102'),
-    ('bobwilson', 'bob.wilson@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Bob', 'Wilson', '514-555-0103'),
-    ('alicebrown', 'alice.brown@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Alice', 'Brown', '514-555-0104'),
-    ('charliedavis', 'charlie.davis@email.com', '$2a$06$L2s.dzicmhNs4unAFZP1ZOKqTxAqOsw.tkKBLDfq8TDDr8SjQb9ta', 'Charlie', 'Davis', '514-555-0105');
+    ('johndoe', 'john.doe@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Doe', '514-555-0101'),
+    ('janesmith', 'jane.smith@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Smith', '514-555-0102'),
+    ('bobwilson', 'bob.wilson@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Bob', 'Wilson', '514-555-0103'),
+    ('alicebrown', 'alice.brown@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Alice', 'Brown', '514-555-0104'),
+    ('charliedavis', 'charlie.davis@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Charlie', 'Davis', '514-555-0105');
 
 -- Insert Categories (created by admin_john with admin_id = 2)
 INSERT INTO categories (category_name, description, is_active, display_order, created_by, updated_by) VALUES

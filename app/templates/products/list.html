@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Products - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="products-page">
+    <div class="container">
+        <h1>Our Products</h1>
+        
+        <!-- Filter Section -->
+        <div class="filters">
+            <form method="GET" action="{{ url_for('products.get_products') }}">
+                <div class="filter-group">
+                    <label>Category:</label>
+                    <select name="category_id">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                            <option value="{{ category.category_id }}" 
+                                    {% if current_category == category.category_id %}selected{% endif %}>
+                                {{ category.category_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Search:</label>
+                    <input type="text" name="search" value="{{ search_term or '' }}" placeholder="Search products...">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Sort by:</label>
+                    <select name="sort_by">
+                        <option value="name">Name</option>
+                        <option value="price">Price</option>
+                        <option value="newest">Newest</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn-primary">Apply Filters</button>
+            </form>
+        </div>
+
+        <!-- Products Grid -->
+        {% if products %}
+            <div class="products-grid">
+                {% for product in products %}
+                <div class="product-card">
+                    <div class="product-image">
+                        <div class="placeholder">🖨️</div>
+                    </div>
+                    
+                    <div class="product-info">
+                        <h3>{{ product.product_name }}</h3>
+                        <p class="category">{{ product.category.category_name if product.category else 'Uncategorized' }}</p>
+                        <p class="description">{{ product.description }}</p>
+                        <p class="price">{{ product.base_price_formatted }}</p>
+                    </div>
+                    
+                    <div class="product-actions">
+                        <a href="{{ url_for('products.get_product', product_id=product.product_id) }}" 
+                           class="btn-view">View Details</a>
+                        
+                        <form method="POST" action="{{ url_for('cart.add_to_cart') }}" class="add-to-cart-form">
+                            <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                            <input type="number" name="quantity" value="1" min="1" max="100" class="quantity-input">
+                            <button type="submit" class="btn-add-cart">Add to Cart</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.total_pages > 1 %}
+            <div class="pagination">
+                {% if pagination.page > 1 %}
+                    <a href="?page={{ pagination.page - 1 }}&category_id={{ current_category or '' }}&search={{ search_term or '' }}" 
+                       class="page-link">Previous</a>
+                {% endif %}
+                
+                <span class="page-info">Page {{ pagination.page }} of {{ pagination.total_pages }}</span>
+                
+                {% if pagination.page < pagination.total_pages %}
+                    <a href="?page={{ pagination.page + 1 }}&category_id={{ current_category or '' }}&search={{ search_term or '' }}" 
+                       class="page-link">Next</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="no-products">
+                <p>No products found</p>
+                <a href="{{ url_for('products.get_products') }}" class="btn-primary">View All Products</a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<style>
+.products-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+}
+
+.products-page .container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.filters {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.filters form {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-group select,
+.filter-group input {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.product-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.product-image {
+    margin-bottom: 1rem;
+}
+
+.product-image .placeholder {
+    width: 100%;
+    height: 200px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+}
+
+.product-info h3 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.category {
+    color: #667eea;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.description {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.price {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 1rem;
+}
+
+.product-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.add-to-cart-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.quantity-input {
+    width: 60px;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.btn-view,
+.btn-add-cart {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    text-align: center;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-view {
+    background: #f8f9fa;
+    color: #667eea;
+    border: 2px solid #667eea;
+}
+
+.btn-add-cart {
+    background: #667eea;
+    color: white;
+    flex: 1;
+}
+
+.btn-add-cart:hover {
+    background: #5a67d8;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+}
+
+.page-link {
+    padding: 0.5rem 1rem;
+    background: #667eea;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+}
+
+.page-info {
+    font-weight: bold;
+}
+
+.no-products {
+    background: white;
+    padding: 4rem;
+    text-align: center;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

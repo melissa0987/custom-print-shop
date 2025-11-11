@@ -20,6 +20,8 @@ class PasswordHelper:
     # Verify a password against its hash
     @staticmethod
     def verify_password(password_hash, password):
+        if not password_hash:
+            return False
         return check_password_hash(password_hash, password)
 
 

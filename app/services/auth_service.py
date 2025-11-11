@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
  
 from app.models import Customer, AdminUser
-from app.utils.validators import Validators
+from app.utils import Validators, PasswordHelper
 
 
 class AuthService: 
@@ -88,7 +88,10 @@ class AuthService:
                 return False, "Account is inactive"
 
             # Verify password
-            if not check_password_hash(customer['password_hash'], password):
+            if not customer or not customer.get('password_hash'):
+                return False, "Invalid credentials"
+            
+            if not PasswordHelper.verify_password(customer['password_hash'], password):
                 return False, "Invalid credentials"
 
             # Update last login timestamp

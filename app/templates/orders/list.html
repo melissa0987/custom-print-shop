@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}My Orders - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="orders-page">
+    <div class="container">
+        <h1>My Orders</h1>
+        
+        {% if not session.get('customer_id') %}
+            <div class="login-required">
+                <p>Please <a href="{{ url_for('auth.login') }}?next={{ url_for('orders.get_orders') }}">login</a> to view your orders.</p>
+            </div>
+        {% else %}
+            <!-- Filter Section -->
+            <div class="orders-filter">
+                <form method="GET">
+                    <label for="status">Filter by status:</label>
+                    <select name="status" id="status" onchange="this.form.submit()">
+                        <option value="">All Orders</option>
+                        <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="processing" {% if request.args.get('status') == 'processing' %}selected{% endif %}>Processing</option>
+                        <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>Completed</option>
+                        <option value="cancelled" {% if request.args.get('status') == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                    </select>
+                </form>
+            </div>
+
+            <!-- Orders List -->
+            {% if orders %}
+                <div class="orders-list">
+                    {% for order in orders %}
+                    <div class="order-card">
+                        <div class="order-header">
+                            <div class="order-info">
+                                <h3>Order #{{ order.order_number }}</h3>
+                                <p class="order-date">{{ order.created_at }}</p>
+                            </div>
+                            <div class="order-status">
+                                <span class="status-badge status-{{ order.order_status }}">
+                                    {{ order.order_status | capitalize }}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="order-body">
+                            <div class="order-details">
+                                <p><strong>Items:</strong> {{ order.total_items }}</p>
+                                <p><strong>Total:</strong> ${{ "%.2f"|format(order.total_amount) }}</p>
+                            </div>
+                            
+                            <div class="order-actions">
+                                <a href="{{ url_for('orders.get_order', order_id=order.order_id) }}" 
+                                   class="btn-view">View Details</a>
+                                
+                                {% if order.order_status in ['pending', 'processing'] %}
+                                    <form method="POST" 
+                                          action="{{ url_for('orders.cancel_order', order_id=order.order_id) }}"
+                                          onsubmit="return confirm('Are you sure you want to cancel this order?')">
+                                        <button type="submit" class="btn-cancel">Cancel Order</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if pagination.total_pages > 1 %}
+                <div class="pagination">
+                    {% if pagination.has_prev %}
+                        <a href="?page={{ pagination.page - 1 }}{% if request.args.get('status') %}&status={{ request.args.get('status') }}{% endif %}" 
+                           class="page-link">Previous</a>
+                    {% endif %}
+                    
+                    <span class="page-info">
+                        Page {{ pagination.page }} of {{ pagination.total_pages }}
+                    </span>
+                    
+                    {% if pagination.has_next %}
+                        <a href="?page={{ pagination.page + 1 }}{% if request.args.get('status') %}&status={{ request.args.get('status') }}{% endif %}" 
+                           class="page-link">Next</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="no-orders">
+                    <p>You haven't placed any orders yet.</p>
+                    <a href="{{ url_for('products.get_products') }}" class="btn-primary">Start Shopping</a>
+                </div>
+            {% endif %}
+
+            <!-- Order Statistics -->
+            {% if stats %}
+            <div class="order-stats">
+                <h2>Order Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.total_orders }}</div>
+                        <div class="stat-label">Total Orders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.completed_orders }}</div>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${{ "%.2f"|format(stats.total_spent) }}</div>
+                        <div class="stat-label">Total Spent</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.pending_orders }}</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</section>
+
+<style>
+.orders-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 200px);
+}
+
+.orders-page .container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.login-required {
+    background: white;
+    padding: 3rem;
+    text-align: center;
+    border-radius: 12px;
+}
+
+.orders-filter {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.orders-filter form {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.orders-filter select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.order-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: box-shadow 0.3s;
+}
+
+.order-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.order-info h3 {
+    margin-bottom: 0.25rem;
+    color: #333;
+}
+
+.order-date {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-processing {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-cancelled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.order-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.order-details p {
+    margin: 0.5rem 0;
+}
+
+.order-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-view,
+.btn-cancel {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-view {
+    background: #667eea;
+    color: white;
+}
+
+.btn-view:hover {
+    background: #5a67d8;
+}
+
+.btn-cancel {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-cancel:hover {
+    background: #c82333;
+}
+
+.no-orders {
+    background: white;
+    padding: 4rem;
+    text-align: center;
+    border-radius: 12px;
+}
+
+.no-orders p {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+
+.order-stats {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin-top: 2rem;
+}
+
+.order-stats h2 {
+    margin-bottom: 1.5rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    color: white;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+}
+
+.page-link {
+    padding: 0.5rem 1rem;
+    background: #667eea;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+.page-link:hover {
+    background: #5a67d8;
+}
+
+.page-info {
+    font-weight: 600;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Checkout - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="checkout-page">
+    <div class="container">
+        <h1>Checkout</h1>
+        
+        {% if not session.get('customer_id') %}
+            <div class="login-notice">
+                <p><strong>Notice:</strong> You are checking out as a guest. 
+                    <a href="{{ url_for('auth.login') }}?next={{ url_for('orders.checkout') }}">Login</a> 
+                    or <a href="{{ url_for('auth.register') }}">Register</a> to track your order history.
+                </p>
+            </div>
+        {% else %}
+            <div class="user-info">
+                <p>Logged in as: <strong>{{ session.get('username') }}</strong></p>
+            </div>
+        {% endif %}
+
+        <div class="checkout-grid">
+            <!-- Order Form -->
+            <div class="checkout-form">
+                <h2>Shipping Information</h2>
+                
+                <form method="POST" action="{{ url_for('orders.checkout') }}">
+                    <div class="form-group">
+                        <label for="shipping_address">Shipping Address *</label>
+                        <textarea id="shipping_address" name="shipping_address" 
+                                  rows="3" required 
+                                  placeholder="Enter your full shipping address"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contact_phone">Contact Phone</label>
+                        <input type="tel" id="contact_phone" name="contact_phone" 
+                               placeholder="(555) 123-4567">
+                    </div>
+                    
+                    {% if not session.get('customer_id') %}
+                    <div class="form-group">
+                        <label for="contact_email">Contact Email *</label>
+                        <input type="email" id="contact_email" name="contact_email" 
+                               required placeholder="your@email.com">
+                        <small>Required for guest checkout to receive order updates</small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="form-group">
+                        <label for="notes">Order Notes (Optional)</label>
+                        <textarea id="notes" name="notes" rows="2" 
+                                  placeholder="Special instructions or requests"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary btn-checkout">
+                        Place Order
+                    </button>
+                </form>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="order-summary">
+                <h2>Order Summary</h2>
+                
+                {% if cart and cart.items %}
+                    <div class="summary-items">
+                        {% for item in cart.items %}
+                        <div class="summary-item">
+                            <div class="item-info">
+                                <h4>{{ item.product.product_name }}</h4>
+                                <p class="item-quantity">Qty: {{ item.quantity }}</p>
+                                {% if item.customizations %}
+                                    <div class="item-customizations">
+                                        {% for key, value in item.customizations.items() %}
+                                            <small>{{ key }}: {{ value }}</small><br>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="item-price">
+                                {{ item.line_total_formatted }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="summary-totals">
+                        <div class="total-row">
+                            <span>Subtotal:</span>
+                            <span>{{ cart.subtotal_formatted }}</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Tax (13%):</span>
+                            <span>{{ cart.tax_formatted }}</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span><strong>Total:</strong></span>
+                            <span><strong>{{ cart.cart_total_formatted }}</strong></span>
+                        </div>
+                    </div>
+                {% else %}
+                    <p>Your cart is empty.</p>
+                    <a href="{{ url_for('products.get_products') }}" class="btn-primary">
+                        Continue Shopping
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.checkout-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 200px);
+}
+
+.checkout-page .container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.login-notice,
+.user-info {
+    background: #fff3cd;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    border-left: 4px solid #ffc107;
+}
+
+.user-info {
+    background: #d4edda;
+    border-left-color: #28a745;
+}
+
+.checkout-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+}
+
+.checkout-form,
+.order-summary {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.checkout-form h2,
+.order-summary h2 {
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.25rem;
+    color: #666;
+    font-size: 0.875rem;
+}
+
+.btn-checkout {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-checkout:hover {
+    background: #5a67d8;
+}
+
+.summary-items {
+    margin-bottom: 1.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+.item-info h4 {
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+}
+
+.item-quantity {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0.25rem 0;
+}
+
+.item-customizations {
+    margin-top: 0.5rem;
+    color: #666;
+}
+
+.item-price {
+    font-weight: bold;
+    color: #667eea;
+    white-space: nowrap;
+}
+
+.summary-totals {
+    border-top: 2px solid #eee;
+    padding-top: 1rem;
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+}
+
+.grand-total {
+    border-top: 2px solid #333;
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    font-size: 1.2rem;
+}
+
+@media (max-width: 768px) {
+    .checkout-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .order-summary {
+        order: -1;
+    }
+}
+</style>
+{% endblock %}

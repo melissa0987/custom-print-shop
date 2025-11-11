@@ -3,8 +3,7 @@ app/routes/products.py
 Products Routes
 Handles product browsing, searching, and category management
 """
-# TODO: use render_template for html
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template, session
 
 from app.models import Product, Category
 from app.utils import PriceHelper, StringHelper, PaginationHelper
@@ -45,7 +44,11 @@ def get_categories():
                 'created_at': category['created_at'].isoformat() if category.get('created_at') else None
             })
 
-        return jsonify({'categories': result}), 200
+        # Check if user wants JSON or HTML
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({'categories': result}), 200
+        
+        return render_template('products/categories.html', categories=result)
 
     except Exception as e:
         return jsonify({'error': f'Failed to get categories: {str(e)}'}), 500
@@ -59,7 +62,9 @@ def get_category(category_id):
         category = category_model.get_by_id(category_id)
 
         if not category:
-            return jsonify({'error': 'Category not found'}), 404
+            if request.accept_mimetypes.accept_json:
+                return jsonify({'error': 'Category not found'}), 404
+            return render_template('errors/404.html'), 404
 
         product_model = Product()
         products_list = product_model.get_by_category(category_id)
@@ -78,17 +83,20 @@ def get_category(category_id):
             for p in products_list
         ]
 
-        return jsonify({
-            'category': {
-                'category_id': category['category_id'],
-                'category_name': category['category_name'],
-                'description': StringHelper.truncate_text(category.get('description')),
-                'slug': StringHelper.slugify(category['category_name']),
-                'is_active': category.get('is_active'),
-                'product_count': len(products),
-                'products': products
-            }
-        }), 200
+        category_data = {
+            'category_id': category['category_id'],
+            'category_name': category['category_name'],
+            'description': category.get('description'),
+            'slug': StringHelper.slugify(category['category_name']),
+            'is_active': category.get('is_active'),
+            'product_count': len(products),
+            'products': products
+        }
+
+        if request.accept_mimetypes.accept_json:
+            return jsonify({'category': category_data}), 200
+        
+        return render_template('products/category_detail.html', category=category_data)
 
     except Exception as e:
         return jsonify({'error': f'Failed to get category: {str(e)}'}), 500
@@ -169,15 +177,29 @@ def get_products():
                 'created_at': product['created_at'].isoformat() if product.get('created_at') else None
             })
 
-        return jsonify({
-            'products': result,
-            'pagination': {
-                'page': paginated['page'],
-                'per_page': paginated['per_page'],
-                'total_items': paginated['total_items'],
-                'total_pages': paginated['total_pages']
-            }
-        }), 200
+        pagination_data = {
+            'page': paginated['page'],
+            'per_page': paginated['per_page'],
+            'total_items': paginated['total_items'],
+            'total_pages': paginated['total_pages']
+        }
+
+        if request.accept_mimetypes.accept_json:
+            return jsonify({
+                'products': result,
+                'pagination': pagination_data
+            }), 200
+
+        # Get all categories for filter
+        all_categories = category_model.get_all()
+        all_categories = [c for c in all_categories if c.get('is_active')]
+
+        return render_template('products/list.html', 
+                             products=result, 
+                             pagination=pagination_data,
+                             categories=all_categories,
+                             current_category=category_id,
+                             search_term=search_term)
 
     except Exception as e:
         return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
@@ -195,29 +217,34 @@ def get_product(product_id):
         product = product_model.get_by_id(product_id)
 
         if not product or not product.get('is_active'):
-            return jsonify({'error': 'Product not found'}), 404
+            if request.accept_mimetypes.accept_json:
+                return jsonify({'error': 'Product not found'}), 404
+            return render_template('errors/404.html'), 404
 
         category_model = Category()
         category = category_model.get_by_id(product['category_id'])
 
-        return jsonify({
-            'product': {
-                'product_id': product['product_id'],
-                'product_name': product['product_name'],
-                'slug': StringHelper.slugify(product['product_name']),
-                'description': StringHelper.truncate_text(product.get('description')),
-                'base_price': float(product['base_price']),
-                'base_price_formatted': PriceHelper.format_currency(product['base_price']),
-                'category': {
-                    'category_id': category['category_id'],
-                    'category_name': category['category_name'],
-                    'description': StringHelper.truncate_text(category.get('description'))
-                } if category else None,
-                'is_active': product.get('is_active'),
-                'created_at': product['created_at'].isoformat() if product.get('created_at') else None,
-                'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
-            }
-        }), 200
+        product_data = {
+            'product_id': product['product_id'],
+            'product_name': product['product_name'],
+            'slug': StringHelper.slugify(product['product_name']),
+            'description': product.get('description'),
+            'base_price': float(product['base_price']),
+            'base_price_formatted': PriceHelper.format_currency(product['base_price']),
+            'category': {
+                'category_id': category['category_id'],
+                'category_name': category['category_name'],
+                'description': StringHelper.truncate_text(category.get('description'))
+            } if category else None,
+            'is_active': product.get('is_active'),
+            'created_at': product['created_at'].isoformat() if product.get('created_at') else None,
+            'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
+        }
+
+        if request.accept_mimetypes.accept_json:
+            return jsonify({'product': product_data}), 200
+
+        return render_template('products/detail.html', product=product_data)
 
     except Exception as e:
         return jsonify({'error': f'Failed to get product: {str(e)}'}), 500

@@ -976,3 +976,6 @@ LEFT JOIN order_items oi ON p.product_id = oi.product_id
 LEFT JOIN orders o ON oi.order_id = o.order_id AND o.order_status = 'completed'
 GROUP BY p.product_id, p.product_name, c.category_name, c.category_id
 ORDER BY revenue_rank;
+
+
+SELECT username, password_hash FROM customers WHERE username='johndoe';
