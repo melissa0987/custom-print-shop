@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Admin Login - PrintCraft{% endblock %}
+
+{% block content %}
+<main class="auth-page">
+    <section class="auth-form-section">
+        <h1>Admin Login</h1>
+        <form id="admin-login-form" method="POST" action="{{ url_for('auth.admin_login') }}">
+            <label for="username">Username</label>
+            <input type="text" name="username" id="username" required>
+
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required>
+
+            <button type="submit">Login</button>
+        </form>
+    </section>
+</main>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Register - PrintCraft{% endblock %}
+
+{% block content %}
+<main class="auth-page">
+    <section class="auth-form-section">
+        <h1>Register</h1>
+        <form id="register-form" method="POST" action="{{ url_for('auth.register') }}">
+            <label for="username">Username</label>
+            <input type="text" name="username" id="username" required>
+
+            <label for="email">Email</label>
+            <input type="email" name="email" id="email" required>
+
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required>
+
+            <label for="first_name">First Name</label>
+            <input type="text" name="first_name" id="first_name" required>
+
+            <label for="last_name">Last Name</label>
+            <input type="text" name="last_name" id="last_name" required>
+
+            <label for="phone_number">Phone Number (optional)</label>
+            <input type="tel" name="phone_number" id="phone_number">
+
+            <button type="submit">Register</button>
+        </form>
+        <p>Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
+    </section>
+</main>
+{% endblock %}

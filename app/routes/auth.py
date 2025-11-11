@@ -40,22 +40,35 @@ def register():
     required_fields = ['username', 'email', 'password', 'first_name', 'last_name']
     for field in required_fields:
         if not data.get(field):
-            return jsonify({'error': f'{field} is required'}), 400
+            error_msg = f'{field} is required'
+            if request.is_json:
+                return jsonify({'error': error_msg}), 400
+            flash(error_msg, 'error')
+            return redirect(url_for('auth.register'))
     
     # Validate username format
     if not Validators.validate_username(data['username']):
-        return jsonify({
-            'error': 'Username must be 3-50 characters and contain only letters, numbers, underscores, and hyphens'
-        }), 400
+        error_msg = 'Username must be 3-50 characters and contain only letters, numbers, underscores, and hyphens'
+        if request.is_json:
+            return jsonify({'error': error_msg}), 400
+        flash(error_msg, 'error')
+        return redirect(url_for('auth.register'))
     
     # Validate email format
     if not Validators.validate_email(data['email']):
-        return jsonify({'error': 'Invalid email format'}), 400
+        error_msg = 'Invalid email format'
+        if request.is_json:
+            return jsonify({'error': error_msg}), 400
+        flash(error_msg, 'error')
+        return redirect(url_for('auth.register'))
     
     # Validate password strength
     is_valid, message = Validators.validate_password_strength(data['password'])
     if not is_valid:
-        return jsonify({'error': message}), 400
+        if request.is_json:
+            return jsonify({'error': message}), 400
+        flash(message, 'error')
+        return redirect(url_for('auth.register'))
     
     try:
         customer_model = Customer()
@@ -63,10 +76,11 @@ def register():
         # Check if username already exists
         existing_user = customer_model.get_by_username(data['username'].lower())
         if existing_user:
-            return jsonify({'error': 'Username already exists'}), 409
-        
-        # Check if email already exists 
-        # For now, we'll check via username which might return email matches
+            error_msg = 'Username already exists'
+            if request.is_json:
+                return jsonify({'error': error_msg}), 409
+            flash(error_msg, 'error')
+            return redirect(url_for('auth.register'))
         
         # Create new customer
         customer_id = customer_model.create(
@@ -87,19 +101,21 @@ def register():
         session['username'] = customer['username']
         session.permanent = True
         
-        return jsonify({
-            'message': 'Registration successful',
-            'customer': {
-                'customer_id': customer['customer_id'],
-                'username': customer['username'],
-                'email': customer['email'],
-                'first_name': customer['first_name'],
-                'last_name': customer['last_name']
-            }
-        }), 201
+        if request.is_json:
+            return jsonify({
+                'message': 'Registration successful',
+                'customer': customer
+            }), 201
+        flash('Registration successful! You are now logged in.', 'success')
+        return redirect(url_for('main.home'))
             
     except Exception as e:
-        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
+        error_msg = f'Registration failed: {str(e)}'
+        if request.is_json:
+            return jsonify({'error': error_msg}), 500
+        flash(error_msg, 'error')
+        return redirect(url_for('auth.register'))
+    
 
 # Customer login
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -107,30 +123,34 @@ def login():
     if request.method == 'GET':
         return render_template('auth/login.html')
     
-    # POST request - handle login
     data = request.get_json() or request.form.to_dict()
-    
     username_or_email = data.get('username_or_email')
     password = data.get('password')
     
     if not username_or_email or not password:
-        return jsonify({'error': 'Username/email and password are required'}), 400
+        error_msg = 'Username/email and password are required'
+        if request.is_json:
+            return jsonify({'error': error_msg}), 400
+        flash(error_msg, 'error')
+        return redirect(url_for('auth.login'))
     
     try:
         customer_model = Customer()
-        
-        # Try to find customer by username
         customer = customer_model.get_by_username(username_or_email.lower())
         
-        if not customer:
-            return jsonify({'error': 'Invalid credentials'}), 401
+        if not customer or not check_password_hash(customer['password_hash'], password):
+            error_msg = 'Invalid credentials'
+            if request.is_json:
+                return jsonify({'error': error_msg}), 401
+            flash(error_msg, 'error')
+            return redirect(url_for('auth.login'))
         
         if not customer.get('is_active'):
-            return jsonify({'error': 'Account is inactive'}), 403
-        
-        # Verify password
-        if not check_password_hash(customer['password_hash'], password):
-            return jsonify({'error': 'Invalid credentials'}), 401
+            error_msg = 'Account is inactive'
+            if request.is_json:
+                return jsonify({'error': error_msg}), 403
+            flash(error_msg, 'error')
+            return redirect(url_for('auth.login'))
         
         # Update last login
         customer_model.update(customer['customer_id'], last_login=datetime.now())
@@ -140,19 +160,20 @@ def login():
         session['username'] = customer['username']
         session.permanent = True
         
-        return jsonify({
-            'message': 'Login successful',
-            'customer': {
-                'customer_id': customer['customer_id'],
-                'username': customer['username'],
-                'email': customer['email'],
-                'first_name': customer['first_name'],
-                'last_name': customer['last_name']
-            }
-        }), 200
-            
+        if request.is_json:
+            return jsonify({
+                'message': 'Login successful',
+                'customer': customer
+            }), 200
+        flash('Login successful!', 'success')
+        return redirect(url_for('main.home'))
+    
     except Exception as e:
-        return jsonify({'error': f'Login failed: {str(e)}'}), 500
+        error_msg = f'Login failed: {str(e)}'
+        if request.is_json:
+            return jsonify({'error': error_msg}), 500
+        flash(error_msg, 'error')
+        return redirect(url_for('auth.login'))
 
 # Customer logout
 @auth_bp.route('/logout', methods=['POST', 'GET'])

@@ -1,99 +1,100 @@
 {% extends "base.html" %}
 {% block title %}PrintCraft - Custom Printing Made Easy{% endblock %}
 
-{% block content %}
-
-<!-- Hero Section -->
-<section class="hero">
-    <div class="hero-content">
-        <h1>Bring Your Designs to Life</h1>
-        <p>Premium custom printing on mugs, tumblers, bags, and t-shirts. Fast turnaround, exceptional quality.</p>
-        <button class="cta-button" onclick="alert('Start designing feature coming soon!')">Start Designing Now</button>
-    </div>
-</section>
-
-<!-- Categories Section -->
-<section class="features" id="categories">
-    <h2 class="section-title">Categories</h2>
-    <div class="features-grid">
-        {% for category in categories %}
-        <div class="feature-item">
-            <div class="feature-icon">📦</div>
-            <h3>{{ category.name }}</h3>
-            <p>{{ category.description }}</p>
+{% block content %} 
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Bring Your Designs to Life</h1>
+            <p>Premium custom printing on mugs, tumblers, bags, and t-shirts. Fast turnaround, exceptional quality.</p>
+            <button class="cta-button" onclick="alert('Start designing feature coming soon!')">Start Designing Now</button>
         </div>
-        {% endfor %}
-    </div>
-</section>
+    </section>
 
-<!-- Featured Products Section -->
-<section class="products" id="products">
-    <h2 class="section-title">Featured Products</h2>
-    <div class="product-grid">
-        {% for product in featured_products %}
-        <div class="product-card">
-            <div class="product-icon">🖨️</div>
-            <h3>{{ product.product_name }}</h3>
-            <p>{{ product.description | truncate(100) }}</p>
-            <p><strong>${{ "%.2f"|format(product.base_price) }}</strong></p>
+    <!-- Categories Section -->
+    <section class="products-section" id="categories">
+        <h2 class="section-title">Categories</h2> 
+        <div class="products-grid">
+            {% for category in categories %}
+            <article class="product-item">
+                <div class="product-icon">📦</div>
+                <h3>{{ category.name }}</h3>
+                <p>{{ category.description }}</p>
+            </article>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-</section>
+    </section>
 
-<!-- Popular Products Section -->
-<section class="products" id="popular">
-    <h2 class="section-title">Popular Products</h2>
-    <div class="product-grid">
-        {% for product in popular_products %}
-        <div class="product-card">
-            <div class="product-icon">🔥</div>
-            <h3>{{ product.product_name }}</h3>
-            <p>{{ product.description | truncate(100) }}</p>
-            <p><strong>${{ "%.2f"|format(product.base_price) }}</strong></p>
+    <!-- Featured Products Section -->
+    <section class="products-section" id="products">
+        <h2 class="section-title">Featured Products</h2>
+        <div class="products-grid">
+            {% for product in featured_products %}
+            <article class="product-card">
+                <div class="product-icon">🖨️</div>
+                <h3>{{ product.product_name }}</h3>
+                <p>{{ product.description | truncate(100) }}</p>
+                <p><strong>${{ "%.2f"|format(product.base_price) }}</strong></p>
+            </article>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-</section>
+    </section>
 
-<!-- About Section -->
-<section class="about-section">
-    <div class="container">
-        <h1>{{ about.company_name }}</h1>
-        <p class="tagline">{{ about.tagline }}</p>
-        <p class="description">{{ about.description }}</p>
-
-        <div class="about-stats">
-            <div class="stat">
-                <h3>{{ about.years_in_business }}</h3>
-                <p>Years in Business</p>
-            </div>
-            <div class="stat">
-                <h3>{{ about.orders_completed }}</h3>
-                <p>Orders Completed</p>
-            </div>
+    <!-- Popular Products Section -->
+    <section class="products-section" id="popular">
+        <h2 class="section-title">Popular Products</h2>
+        <div class="products-grid">
+            {% for product in popular_products %}
+            <article class="product-card">
+                <div class="product-icon">🔥</div>
+                <h3>{{ product.product_name }}</h3>
+                <p>{{ product.description | truncate(100) }}</p>
+                <p><strong>${{ "%.2f"|format(product.base_price) }}</strong></p>
+            </article>
+            {% endfor %}
         </div>
+    </section>
 
-        <div class="about-columns">
-            <div class="about-left">
-                <h2>Our Services</h2>
-                <ul>
-                    {% for service in about.services %}
-                    <li>{{ service }}</li>
-                    {% endfor %}
-                </ul>
+    <!-- About Section -->
+    <section class="about-section">
+        <div class="container">
+            <h1>{{ about.company_name }}</h1>
+            <p class="tagline">{{ about.tagline }}</p>
+            <p class="description">{{ about.description }}</p>
+
+            <div class="about-stats">
+                <div class="stat">
+                    <h3>{{ about.years_in_business }}</h3>
+                    <p>Years in Business</p>
+                </div>
+                <div class="stat">
+                    <h3>{{ about.orders_completed }}</h3>
+                    <p>Orders Completed</p>
+                </div>
             </div>
 
-            <div class="about-right">
-                <h2>Why Choose Us</h2>
-                <ul>
-                    {% for reason in about.why_choose_us %}
-                    <li>{{ reason }}</li>
-                    {% endfor %}
-                </ul>
+            <div class="about-columns">
+                <div class="about-left">
+                    <h2>Our Services</h2>
+                    <ul>
+                        {% for service in about.services %}
+                        <li>{{ service }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="about-right">
+                    <h2>Why Choose Us</h2>
+                    <ul>
+                        {% for reason in about.why_choose_us %}
+                        <li>{{ reason }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
+
+</main>
 
 {% endblock %}

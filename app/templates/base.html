@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}PrintCraft{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/about.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 
     
@@ -22,8 +23,8 @@
                 <li><a href="{{ url_for('main.features') }}">Features</a></li>
                 <li><a href="{{ url_for('main.contact') }}">Contact</a></li>
                 <li><a href="{{ url_for('main.faq') }}">FAQ</a></li>
-                <!-- <li><a class="button-link" href="{{ url_for('auth.login') }}">Login</a></li>
-                <li><a class="button-link register" href="{{ url_for('auth.register') }}">Register</a></li> -->
+                <li><a class="button-link" href="{{ url_for('auth.login') }}">Login</a></li>
+                <li><a class="button-link register" href="{{ url_for('auth.register') }}">Register</a></li>
                 <li>
                     <a href="{{ url_for('cart.view_cart') }}" class="cart-link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cart4" viewBox="0 0 16 16">
