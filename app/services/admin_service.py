@@ -1,10 +1,12 @@
 """
+app/services/admin_service.py
 Admin Service
 Business logic for admin operations
-Updated to use psycopg2-based models
+
 """
 
 from datetime import datetime, timedelta
+ 
 from werkzeug.security import generate_password_hash
 
 from app.models import (
@@ -15,17 +17,11 @@ from app.utils.validators import Validators
 from app.utils.helpers import PasswordHelper, DateHelper
 
 
-class AdminService:
-    """Service class for admin operations"""
+class AdminService: 
     
+    # Get admin dashboard statistics
     @staticmethod
-    def get_dashboard_stats():
-        """
-        Get admin dashboard statistics
-        
-        Returns:
-            dict: Dashboard statistics
-        """
+    def get_dashboard_stats(): 
         try:
             order_model = Order()
             customer_model = Customer()
@@ -34,16 +30,8 @@ class AdminService:
             # Get date ranges
             today = datetime.now().date()
             week_ago = today - timedelta(days=7)
-            month_ago = today - timedelta(days=30)
-            
-            # Get all orders
-            # Note: This is inefficient for large datasets
-            # Consider adding date filtering methods to Order model
-            all_orders = []
-            # You'll need a way to get all orders - may need to add to model
-            
-            # For now, return basic stats
-            # This needs proper implementation based on your Order model capabilities
+            month_ago = today - timedelta(days=30) 
+            all_orders = []  
             
             return {
                 'orders': {
@@ -72,70 +60,76 @@ class AdminService:
             print(f"Error getting dashboard stats: {str(e)}")
             return {}
     
+
+    # Get all orders with filtering 
     @staticmethod
     def get_all_orders(status_filter=None, start_date=None, end_date=None,
-                      page=1, per_page=20):
-        """
-        Get all orders with filtering
-        
-        Args:
-            status_filter (str, optional): Filter by order status
-            start_date (str, optional): Start date (ISO format)
-            end_date (str, optional): End date (ISO format)
-            page (int): Page number
-            per_page (int): Items per page
-            
-        Returns:
-            tuple: (orders_list, total_count, total_pages)
-        """
+                    page=1, per_page=20): 
         try:
-            # Note: This implementation is limited by the Order model capabilities
-            # You may need to add methods to get all orders
+            order_model = Order()
+            orders = order_model.get_all()
             
-            return [], 0, 0
+            # Filter by status
+            if status_filter:
+                orders = [o for o in orders if o.get('order_status') == status_filter]
+            
+            # Filter by date range
+            if start_date:
+                start = DateHelper.parse_date(start_date) if isinstance(start_date, str) else start_date
+                orders = [o for o in orders if o.get('created_at') and o['created_at'].date() >= start]
+            
+            if end_date:
+                end = DateHelper.parse_date(end_date) if isinstance(end_date, str) else end_date
+                orders = [o for o in orders if o.get('created_at') and o['created_at'].date() <= end]
+            
+            # Pagination
+            total_count = len(orders)
+            total_pages = (total_count + per_page - 1) // per_page
+            offset = (page - 1) * per_page
+            orders = orders[offset:offset + per_page]
+            
+            return orders, total_count, total_pages
                 
         except Exception as e:
             print(f"Error getting orders: {str(e)}")
             return [], 0, 0
     
+
+    # Get all customers
     @staticmethod
-    def get_all_customers(page=1, per_page=20, search_query=None):
-        """
-        Get all customers
-        
-        Args:
-            page (int): Page number
-            per_page (int): Items per page
-            search_query (str, optional): Search in username/email
-            
-        Returns:
-            tuple: (customers_list, total_count, total_pages)
-        """
+    def get_all_customers(page=1, per_page=20, search_query=None): 
         try:
-            # Note: This requires a method to get all customers
-            # Your Customer model doesn't have get_all() method
+            customer_model = Customer()
+            customers = customer_model.get_all()
             
-            return [], 0, 0
+            # Search filter
+            if search_query:
+                search_lower = search_query.lower()
+                customers = [
+                    c for c in customers
+                    if search_lower in c.get('username', '').lower() or
+                    search_lower in c.get('email', '').lower() or
+                    search_lower in c.get('first_name', '').lower() or
+                    search_lower in c.get('last_name', '').lower()
+                ]
+            
+            # Pagination
+            total_count = len(customers)
+            total_pages = (total_count + per_page - 1) // per_page
+            offset = (page - 1) * per_page
+            customers = customers[offset:offset + per_page]
+            
+            return customers, total_count, total_pages
                 
         except Exception as e:
             print(f"Error getting customers: {str(e)}")
             return [], 0, 0
     
+
+    # Get all products (admin view)
     @staticmethod
-    def get_all_products_admin(page=1, per_page=20, category_id=None, 
-                               include_inactive=False):
-        """
-        Get all products (admin view)
+    def get_all_products_admin(page=1, per_page=20, category_id=None,  include_inactive=False): 
         
-        Args:
-            page (int): Page number
-            per_page (int): Items per page
-            category_id (int, optional): Filter by category
-            include_inactive (bool): Include inactive products
-            
-        Returns:
-            tuple: (products_list, total_count, total_pages)
-        """
         try:
             product_model = Product()
             category_model = Category()
@@ -179,19 +173,11 @@ class AdminService:
             print(f"Error getting products: {str(e)}")
             return [], 0, 0
     
+
+    # Update product (admin only)
     @staticmethod
     def update_product_admin(product_id, admin_id, **kwargs):
-        """
-        Update product (admin only)
         
-        Args:
-            product_id (int): Product ID
-            admin_id (int): Admin ID making the change
-            **kwargs: Fields to update
-            
-        Returns:
-            tuple: (success: bool, message)
-        """
         allowed_fields = ['product_name', 'description', 'base_price', 
                          'is_active', 'category_id']
         
@@ -247,24 +233,11 @@ class AdminService:
         except Exception as e:
             return False, f"Failed to update product: {str(e)}"
     
+
+    # Create new admin user (super_admin only)
     @staticmethod
-    def create_admin_user(super_admin_id, username, email, password,
-                         first_name, last_name, role='staff'):
-        """
-        Create new admin user (super_admin only)
+    def create_admin_user(super_admin_id, username, email, password, first_name, last_name, role='staff'): 
         
-        Args:
-            super_admin_id (int): Super admin creating the user
-            username (str): Admin username
-            email (str): Admin email
-            password (str): Admin password
-            first_name (str): First name
-            last_name (str): Last name
-            role (str): Admin role (super_admin, admin, staff)
-            
-        Returns:
-            tuple: (success: bool, admin or error_message)
-        """
         # Validate inputs
         if not Validators.validate_username(username):
             return False, "Invalid username format"
@@ -284,10 +257,7 @@ class AdminService:
             
             # Check if username exists
             if admin_model.get_by_username(username.lower()):
-                return False, "Username already exists"
-            
-            # Check if email exists (you may need to add get_by_email method)
-            # For now, skip email check
+                return False, "Username already exists" 
             
             # Create admin user
             admin_id = admin_model.create(
@@ -318,26 +288,35 @@ class AdminService:
         except Exception as e:
             return False, f"Failed to create admin user: {str(e)}"
     
+
+    # Get sales report 
     @staticmethod
-    def get_sales_report(start_date=None, end_date=None):
-        """
-        Get sales report
-        
-        Args:
-            start_date (str, optional): Start date (ISO format)
-            end_date (str, optional): End date (ISO format)
-            
-        Returns:
-            dict: Sales statistics
-        """
+    def get_sales_report(start_date=None, end_date=None): 
         try:
-            # This requires filtering orders by date
-            # Your Order model may not support this yet
+            order_model = Order()
+            orders = order_model.get_all()
+            
+            # Filter by date range
+            if start_date:
+                start = DateHelper.parse_date(start_date) if isinstance(start_date, str) else start_date
+                orders = [o for o in orders if o.get('created_at') and o['created_at'].date() >= start]
+            
+            if end_date:
+                end = DateHelper.parse_date(end_date) if isinstance(end_date, str) else end_date
+                orders = [o for o in orders if o.get('created_at') and o['created_at'].date() <= end]
+            
+            # Calculate metrics
+            completed_orders = [o for o in orders if o.get('order_status') == 'completed']
+            total_revenue = sum(float(o.get('total_amount', 0)) for o in completed_orders)
+            total_orders = len(orders)
+            average_order_value = total_revenue / len(completed_orders) if completed_orders else 0.0
             
             return {
-                'total_revenue': 0.0,
-                'total_orders': 0,
-                'average_order_value': 0.0,
+                'total_revenue': total_revenue,
+                'total_orders': total_orders,
+                'average_order_value': average_order_value,
+                'completed_orders': len(completed_orders),
+                'pending_orders': sum(1 for o in orders if o.get('order_status') == 'pending'),
                 'start_date': start_date,
                 'end_date': end_date
             }
@@ -346,14 +325,9 @@ class AdminService:
             print(f"Error generating sales report: {str(e)}")
             return {}
     
+    # Get product performance report
     @staticmethod
-    def get_product_report():
-        """
-        Get product performance report
-        
-        Returns:
-            dict: Product statistics
-        """
+    def get_product_report(): 
         try:
             product_model = Product()
             category_model = Category()
@@ -385,23 +359,11 @@ class AdminService:
             print(f"Error generating product report: {str(e)}")
             return {}
     
+
+    # Log admin activity
     @staticmethod
-    def log_admin_activity(admin_id, action, table_name=None, 
-                          record_id=None, old_values=None, new_values=None):
-        """
-        Log admin activity
+    def log_admin_activity(admin_id, action, table_name=None,  record_id=None, old_values=None, new_values=None): 
         
-        Args:
-            admin_id (int): Admin ID
-            action (str): Action performed
-            table_name (str, optional): Table affected
-            record_id (int, optional): Record ID affected
-            old_values (str, optional): Old values
-            new_values (str, optional): New values
-            
-        Returns:
-            bool: Success status
-        """
         try:
             activity_log_model = AdminActivityLog()
             activity_log_model.create_log(

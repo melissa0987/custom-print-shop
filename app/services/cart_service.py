@@ -1,10 +1,11 @@
 """
+app/services/cart_service.py
 Cart Service
 Business logic for shopping cart management
-Updated to use psycopg2-based models
+
 """
 
-from datetime import datetime, timedelta
+ 
 from app.models import (
     ShoppingCart, CartItem, CartItemCustomization,
     Product
@@ -16,26 +17,16 @@ from app.utils import (
     StringHelper,
     SessionHelper,
     generate_unique_filename,
-    format_currency,
-    truncate_text,
+    format_currency
 )
 
 
-class CartService:
-    """Service class for shopping cart operations"""
+class CartService: 
     
-    @staticmethod
-    def get_or_create_cart(customer_id=None, session_id=None):
-        """
-        Get or create shopping cart
+    # Get or create shopping cart
         
-        Args:
-            customer_id (int, optional): Customer ID
-            session_id (str, optional): Session ID for guest
-            
-        Returns:
-            dict or None: Cart data
-        """
+    @staticmethod
+    def get_or_create_cart(customer_id=None, session_id=None): 
         if not customer_id and not session_id:
             return None
         
@@ -68,43 +59,13 @@ class CartService:
             return cart_model.get_by_id(cart_id)
 
         except Exception as e:
-            print(f"Error getting/creating cart: {truncate_text(str(e), 120)}")
+            print(f"Error getting/creating cart: {StringHelper.truncate_text(str(e), 120)}")
             return None
-    
+     
+    # Add item to cart
     @staticmethod
-    def get_cart(shopping_cart_id):
-        """
-        Get cart by ID
-        
-        Args:
-            shopping_cart_id (int): Shopping cart ID
-            
-        Returns:
-            dict or None: Cart data
-        """
-        try:
-            cart_model = ShoppingCart()
-            return cart_model.get_by_id(shopping_cart_id)
-        except Exception:
-            return None
+    def add_to_cart(customer_id, session_id, product_id, quantity, design_file_url=None, customizations=None): 
 
-    @staticmethod
-    def add_to_cart(customer_id, session_id, product_id, quantity,
-                    design_file_url=None, customizations=None):
-        """
-        Add item to cart
-        
-        Args:
-            customer_id (int or None): Customer ID
-            session_id (str or None): Session ID
-            product_id (int): Product ID
-            quantity (int): Quantity
-            design_file_url (str, optional): Design file URL
-            customizations (dict, optional): Customization key-value pairs
-            
-        Returns:
-            tuple: (success: bool, cart or error_message)
-        """
         if quantity < 1:
             return False, "Quantity must be at least 1"
         
@@ -168,9 +129,8 @@ class CartService:
                         customization_value=StringHelper.clean(str(value))
                     )
 
-            # Update cart timestamp (note: may need to add update method to ShoppingCart model)
-            cart_model = ShoppingCart()
-            # cart_model.update(cart['shopping_cart_id'], updated_at=now)
+             
+            cart_model = ShoppingCart() 
 
             # Calculate total
             cart = cart_model.get_by_id(cart['shopping_cart_id'])
@@ -180,25 +140,13 @@ class CartService:
             return True, {"cart": cart, "formatted_total": formatted_total}
 
         except Exception as e:
-            return False, f"Failed to add to cart: {truncate_text(str(e), 120)}"
+            return False, f"Failed to add to cart: {StringHelper.truncate_text(str(e), 120)}"
      
+
+    #  Update cart item
     @staticmethod
     def update_cart_item(cart_item_id, quantity=None, design_file_url=None,
-                         customizations=None, customer_id=None, session_id=None):
-        """
-        Update cart item
-        
-        Args:
-            cart_item_id (int): Cart item ID
-            quantity (int, optional): New quantity
-            design_file_url (str, optional): Design file URL
-            customizations (dict, optional): Customizations
-            customer_id (int, optional): Customer ID for ownership check
-            session_id (str, optional): Session ID for ownership check
-            
-        Returns:
-            tuple: (success: bool, message)
-        """
+                         customizations=None, customer_id=None, session_id=None): 
         if quantity is not None and quantity < 1:
             return False, "Quantity must be at least 1"
         
@@ -253,21 +201,12 @@ class CartService:
             return True, "Cart item updated"
 
         except Exception as e:
-            return False, f"Failed to update cart item: {truncate_text(str(e), 120)}"
+            return False, f"Failed to update cart item: {StringHelper.truncate_text(str(e), 120)}"
     
+
+    # Remove item from cart
     @staticmethod
-    def remove_from_cart(cart_item_id, customer_id=None, session_id=None):
-        """
-        Remove item from cart
-        
-        Args:
-            cart_item_id (int): Cart item ID
-            customer_id (int, optional): Customer ID for ownership check
-            session_id (str, optional): Session ID for ownership check
-            
-        Returns:
-            tuple: (success: bool, message)
-        """
+    def remove_from_cart(cart_item_id, customer_id=None, session_id=None): 
         try:
             cart_item_model = CartItem()
             cart_item = cart_item_model.get_by_id(cart_item_id)
@@ -293,20 +232,12 @@ class CartService:
             return True, "Item removed from cart"
 
         except Exception as e:
-            return False, f"Failed to remove item: {truncate_text(str(e), 120)}"
+            return False, f"Failed to remove item: {StringHelper.truncate_text(str(e), 120)}"
 
+
+    # Clear all items from cart
     @staticmethod
-    def clear_cart(customer_id=None, session_id=None):
-        """
-        Clear all items from cart
-        
-        Args:
-            customer_id (int, optional): Customer ID
-            session_id (str, optional): Session ID
-            
-        Returns:
-            tuple: (success: bool, message)
-        """
+    def clear_cart(customer_id=None, session_id=None): 
         try:
             cart_model = ShoppingCart()
             
@@ -332,20 +263,12 @@ class CartService:
             return True, "Cart cleared"
 
         except Exception as e:
-            return False, f"Failed to clear cart: {truncate_text(str(e), 120)}"
+            return False, f"Failed to clear cart: {StringHelper.truncate_text(str(e), 120)}"
 
+
+    #  Merge guest cart into customer cart
     @staticmethod
-    def merge_guest_cart_to_customer(guest_session_id, customer_id):
-        """
-        Merge guest cart into customer cart
-        
-        Args:
-            guest_session_id (str): Guest session ID
-            customer_id (int): Customer ID
-            
-        Returns:
-            tuple: (success: bool, message)
-        """
+    def merge_guest_cart_to_customer(guest_session_id, customer_id): 
         try:
             cart_model = ShoppingCart()
             cart_item_model = CartItem()
@@ -401,37 +324,22 @@ class CartService:
             return True, "Cart merged successfully"
 
         except Exception as e:
-            return False, f"Failed to merge cart: {truncate_text(str(e), 120)}"
+            return False, f"Failed to merge cart: {StringHelper.truncate_text(str(e), 120)}"
 
+
+    # Calculate cart total
     @staticmethod
-    def calculate_cart_total(shopping_cart_id):
-        """
-        Calculate cart total
-        
-        Args:
-            shopping_cart_id (int): Shopping cart ID
-            
-        Returns:
-            float: Total amount
-        """
+    def calculate_cart_total(shopping_cart_id): 
         try:
             cart_model = ShoppingCart()
             return cart_model.calculate_total(shopping_cart_id)
         except Exception:
             return 0.0
     
+
+    # Get cart item counts
     @staticmethod
-    def get_cart_count(customer_id=None, session_id=None):
-        """
-        Get cart item counts
-        
-        Args:
-            customer_id (int, optional): Customer ID
-            session_id (str, optional): Session ID
-            
-        Returns:
-            dict: {'total_items': int, 'total_quantity': int}
-        """
+    def get_cart_count(customer_id=None, session_id=None): 
         try:
             cart = CartService.get_or_create_cart(customer_id, session_id)
             if not cart:
@@ -445,18 +353,18 @@ class CartService:
         except Exception:
             return {'total_items': 0, 'total_quantity': 0}
     
+
+    # Remove expired carts (should be run periodically)
     @staticmethod
-    def cleanup_expired_carts():
-        """
-        Remove expired carts (should be run periodically)
-        
-        Returns:
-            int: Number of carts deleted
-        """
+    def cleanup_expired_carts(): 
+        """Remove expired carts (should be run periodically as a background job)"""
         try:
-            # This would require a method to get all expired carts
-            # For now, return 0 as a placeholder
-            return 0
+            cart_model = ShoppingCart()
+            deleted_count = cart_model.delete_expired_carts()
+            
+            print(f"Cleaned up {deleted_count} expired carts")
+            return deleted_count
+            
         except Exception as e:
-            print(f"Error cleaning up carts: {truncate_text(str(e), 120)}")
+            print(f"Error cleaning up carts: {StringHelper.truncate_text(str(e), 120)}")
             return 0

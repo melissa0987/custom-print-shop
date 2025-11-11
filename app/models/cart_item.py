@@ -1,34 +1,37 @@
 """
+app/models/cart_item.py
 Cart Item Model  
 Represents individual items in shopping carts
 """
 
-import psycopg2
-import psycopg2.extras
-from datetime import datetime
-from flask import current_app
+from app.database import get_cursor
+from datetime import datetime  
+ 
 from .cart_item_customization import CartItemCustomization
 from .uploaded_file import UploadedFile
 
 
-class CartItem:
-    """Handles cart items using psycopg2"""
+class CartItem: 
+    def __init__( self, cart_item_id=None, shopping_cart_id=None, product_id=None, quantity=1, design_file_url=None, added_at=None, updated_at=None ):
+        
+        self.cart_item_id = cart_item_id
+        self.shopping_cart_id = shopping_cart_id
+        self.product_id = product_id
+        self.quantity = quantity
+        self.design_file_url = design_file_url
+        self.added_at = added_at or datetime.now()
+        self.updated_at = updated_at or datetime.now()
 
-    def __init__(self):
-        self.conn = psycopg2.connect(
-            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
-                "postgresql+psycopg2", "postgresql"
-            ),
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
-
-    def __del__(self):
-        try:
-            if self.conn:
-                self.conn.close()
-        except Exception:
-            pass
-
+    def to_dict(self):
+        return {
+            'cart_item_id': self.cart_item_id,
+            'shopping_cart_id': self.shopping_cart_id,
+            'product_id': self.product_id,
+            'quantity': self.quantity,
+            'design_file_url': self.design_file_url,
+            'added_at': self.added_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
     # ---------------------
     # CREATE
     # ---------------------
@@ -39,11 +42,11 @@ class CartItem:
             ) VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING cart_item_id;
         """
-        now = datetime.utcnow()
+        now = datetime.now()
         values = (shopping_cart_id, product_id, quantity, design_file_url, now, now)
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, values)
-            self.conn.commit()
+             
             return cur.fetchone()["cart_item_id"]
 
     # ---------------------
@@ -51,7 +54,7 @@ class CartItem:
     # ---------------------
     def get_by_id(self, cart_item_id):
         sql = "SELECT * FROM cart_items WHERE cart_item_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (cart_item_id,))
             item = cur.fetchone()
             if item:
@@ -65,7 +68,7 @@ class CartItem:
 
     def get_by_cart(self, shopping_cart_id):
         sql = "SELECT * FROM cart_items WHERE shopping_cart_id = %s ORDER BY added_at ASC;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (shopping_cart_id,))
             items = cur.fetchall()
             cust_model = CartItemCustomization()
@@ -94,13 +97,13 @@ class CartItem:
 
         # Update timestamp
         updates.append("updated_at = %s")
-        values.append(datetime.utcnow())
+        values.append(datetime.now())
         values.append(cart_item_id)
 
         sql = f"UPDATE cart_items SET {', '.join(updates)} WHERE cart_item_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, tuple(values))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------
@@ -108,16 +111,17 @@ class CartItem:
     # ---------------------
     def delete(self, cart_item_id):
         sql = "DELETE FROM cart_items WHERE cart_item_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, (cart_item_id,))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------
     # UTILITY METHODS
     # ---------------------
-    def get_line_total(self, cart_item):
-        """Calculate line total: quantity * product price"""
+
+    # Calculate line total: quantity * product price
+    def get_line_total(self, cart_item): 
         return float(cart_item['quantity'] * cart_item['product']['base_price'])
 
     def add_customization(self, cart_item_id, key, value):

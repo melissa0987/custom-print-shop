@@ -1,86 +1,35 @@
 """
+app/routes/auth.py
 Authentication Routes
 Handles customer and admin authentication (registration, login, logout)
-Updated to use psycopg2-based models
+
 """
+# TODO: use render_template for html
 
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash
 from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
-import re
 from datetime import datetime
+ 
 
 from app.models import Customer, AdminUser
-from app.utils import login_required, admin_required, validate_email
+from app.utils import (
+    login_required, 
+    admin_required, 
+    permission_required,
+    Validators
+)
+from app.services.auth_service import AuthService
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__)
 
 
 # ============================================
-# DECORATORS (Using decorators from utils)
-# ============================================
-
-def permission_required(permission):
-    """Decorator to require specific admin permission"""
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if 'admin_id' not in session:
-                return jsonify({'error': 'Admin authentication required'}), 401
-            
-            admin_model = AdminUser()
-            admin = admin_model.get_by_id(session['admin_id'])
-            
-            if not admin or not AdminUser.has_permission(admin, permission):
-                return jsonify({'error': 'Permission denied'}), 403
-            
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
-
-
-# ============================================
-# VALIDATION HELPERS
-# ============================================
-
-def validate_username(username):
-    """Validate username format (3-50 chars, alphanumeric, underscore, hyphen)"""
-    pattern = r'^[a-z0-9_-]{3,50}$'
-    return re.match(pattern, username, re.IGNORECASE) is not None
-
-
-def validate_password(password):
-    """Validate password strength (min 8 chars, at least 1 letter and 1 number)"""
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
-    if not re.search(r'[a-zA-Z]', password):
-        return False, "Password must contain at least one letter"
-    if not re.search(r'\d', password):
-        return False, "Password must contain at least one number"
-    return True, "Valid"
-
-
-# ============================================
 # CUSTOMER AUTHENTICATION ROUTES
 # ============================================
-
+# Customer registration
 @auth_bp.route('/register', methods=['GET', 'POST'])
-def register():
-    """
-    Customer registration
-    
-    POST JSON:
-        - username: string (required)
-        - email: string (required)
-        - password: string (required)
-        - first_name: string (required)
-        - last_name: string (required)
-        - phone_number: string (optional)
-    
-    Returns:
-        JSON with customer data or error message
-    """
+def register(): 
     if request.method == 'GET':
         return render_template('auth/register.html')
     
@@ -94,17 +43,17 @@ def register():
             return jsonify({'error': f'{field} is required'}), 400
     
     # Validate username format
-    if not validate_username(data['username']):
+    if not Validators.validate_username(data['username']):
         return jsonify({
             'error': 'Username must be 3-50 characters and contain only letters, numbers, underscores, and hyphens'
         }), 400
     
     # Validate email format
-    if not validate_email(data['email']):
+    if not Validators.validate_email(data['email']):
         return jsonify({'error': 'Invalid email format'}), 400
     
     # Validate password strength
-    is_valid, message = validate_password(data['password'])
+    is_valid, message = Validators.validate_password_strength(data['password'])
     if not is_valid:
         return jsonify({'error': message}), 400
     
@@ -116,7 +65,7 @@ def register():
         if existing_user:
             return jsonify({'error': 'Username already exists'}), 409
         
-        # Check if email already exists (you may need to add get_by_email method)
+        # Check if email already exists 
         # For now, we'll check via username which might return email matches
         
         # Create new customer
@@ -152,19 +101,9 @@ def register():
     except Exception as e:
         return jsonify({'error': f'Registration failed: {str(e)}'}), 500
 
-
+# Customer login
 @auth_bp.route('/login', methods=['GET', 'POST'])
-def login():
-    """
-    Customer login
-    
-    POST JSON:
-        - username_or_email: string (required)
-        - password: string (required)
-    
-    Returns:
-        JSON with customer data or error message
-    """
+def login(): 
     if request.method == 'GET':
         return render_template('auth/login.html')
     
@@ -194,7 +133,7 @@ def login():
             return jsonify({'error': 'Invalid credentials'}), 401
         
         # Update last login
-        customer_model.update(customer['customer_id'], last_login=datetime.utcnow())
+        customer_model.update(customer['customer_id'], last_login=datetime.now())
         
         # Set session
         session['customer_id'] = customer['customer_id']
@@ -215,11 +154,10 @@ def login():
     except Exception as e:
         return jsonify({'error': f'Login failed: {str(e)}'}), 500
 
-
+# Customer logout
 @auth_bp.route('/logout', methods=['POST', 'GET'])
 @login_required
-def logout():
-    """Customer logout"""
+def logout(): 
     session.clear()
     
     if request.is_json:
@@ -233,18 +171,9 @@ def logout():
 # ADMIN AUTHENTICATION ROUTES
 # ============================================
 
+# Admin login
 @auth_bp.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    """
-    Admin login
-    
-    POST JSON:
-        - username: string (required)
-        - password: string (required)
-    
-    Returns:
-        JSON with admin data or error message
-    """
+def admin_login(): 
     if request.method == 'GET':
         return render_template('auth/admin_login.html')
     
@@ -298,6 +227,7 @@ def admin_login():
         return jsonify({'error': f'Admin login failed: {str(e)}'}), 500
 
 
+# Admin logout
 @auth_bp.route('/admin/logout', methods=['POST', 'GET'])
 @admin_required
 def admin_logout():
@@ -315,10 +245,11 @@ def admin_logout():
 # USER INFO ROUTES
 # ============================================
 
+
+# Get current logged-in customer information
 @auth_bp.route('/me', methods=['GET'])
 @login_required
-def get_current_user():
-    """Get current logged-in customer information"""
+def get_current_user(): 
     try:
         customer_model = Customer()
         customer = customer_model.get_by_id(session['customer_id'])
@@ -342,11 +273,10 @@ def get_current_user():
     except Exception as e:
         return jsonify({'error': f'Failed to get user info: {str(e)}'}), 500
 
-
+# Get current logged-in admin information
 @auth_bp.route('/admin/me', methods=['GET'])
 @admin_required
-def get_current_admin():
-    """Get current logged-in admin information"""
+def get_current_admin(): 
     try:
         admin_model = AdminUser()
         admin = admin_model.get_by_id(session['admin_id'])
@@ -375,19 +305,10 @@ def get_current_admin():
 # PASSWORD CHANGE
 # ============================================
 
+# Change customer password
 @auth_bp.route('/change-password', methods=['POST'])
 @login_required
-def change_password():
-    """
-    Change customer password
-    
-    POST JSON:
-        - current_password: string (required)
-        - new_password: string (required)
-    
-    Returns:
-        JSON success message or error
-    """
+def change_password(): 
     data = request.get_json()
     
     current_password = data.get('current_password')
@@ -397,7 +318,7 @@ def change_password():
         return jsonify({'error': 'Current and new password are required'}), 400
     
     # Validate new password strength
-    is_valid, message = validate_password(new_password)
+    is_valid, message = Validators.validate_password(new_password)
     if not is_valid:
         return jsonify({'error': message}), 400
     
@@ -428,9 +349,9 @@ def change_password():
 # SESSION CHECK
 # ============================================
 
+# Check if user is logged in
 @auth_bp.route('/check-session', methods=['GET'])
-def check_session():
-    """Check if user is logged in"""
+def check_session(): 
     if 'customer_id' in session:
         return jsonify({
             'logged_in': True,

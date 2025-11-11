@@ -1,34 +1,34 @@
 """
+app/models/order_status_history.py
 Order Status History Model  
 Tracks all status changes for orders
 """
 
-import psycopg2
-import psycopg2.extras
-from datetime import datetime
-from flask import current_app
+from app.database import get_cursor
+from datetime import datetime  
+ 
 
+class OrderStatusHistory: 
+    VALID_STATUSES = ['pending', 'processing', 'completed', 'cancelled']
+    def __init__( self, history_id=None, order_id=None, status=None, changed_at=None, changed_by=None, notes=None ):
+        
 
-class OrderStatusHistory:
-    """Order status history table"""
+        self.history_id = history_id
+        self.order_id = order_id
+        self.status = status
+        self.changed_at = changed_at or datetime.now()
+        self.changed_by = changed_by
+        self.notes = notes
 
-    VALID_STATUSES = ('pending', 'processing', 'completed', 'cancelled')
-
-    def __init__(self):
-        self.conn = psycopg2.connect(
-            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
-                "postgresql+psycopg2", "postgresql"
-            ),
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
-
-    def __del__(self):
-        try:
-            if self.conn:
-                self.conn.close()
-        except Exception:
-            pass
-
+    def to_dict(self):
+        return {
+            'history_id': self.history_id,
+            'order_id': self.order_id,
+            'status': self.status,
+            'changed_at': self.changed_at.isoformat(),
+            'changed_by': self.changed_by,
+            'notes': self.notes
+        }
     # ---------------------
     # CREATE
     # ---------------------
@@ -43,10 +43,10 @@ class OrderStatusHistory:
             ) VALUES (%s, %s, %s, %s, %s)
             RETURNING history_id;
         """
-        now = datetime.utcnow()
-        with self.conn.cursor() as cur:
+        now = datetime.now()
+        with get_cursor() as cur:
             cur.execute(sql, (order_id, status, changed_by, notes, now))
-            self.conn.commit()
+             
             return cur.fetchone()["history_id"]
 
     # ---------------------
@@ -54,13 +54,13 @@ class OrderStatusHistory:
     # ---------------------
     def get_by_id(self, history_id):
         sql = "SELECT * FROM order_status_history WHERE history_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (history_id,))
             return cur.fetchone()
 
     def get_by_order(self, order_id):
         sql = "SELECT * FROM order_status_history WHERE order_id = %s ORDER BY changed_at ASC;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (order_id,))
             return cur.fetchall()
 
@@ -88,9 +88,9 @@ class OrderStatusHistory:
         sql = f"UPDATE order_status_history SET {', '.join(updates)} WHERE history_id = %s;"
         values.append(history_id)
 
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, tuple(values))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------
@@ -98,9 +98,9 @@ class OrderStatusHistory:
     # ---------------------
     def delete(self, history_id):
         sql = "DELETE FROM order_status_history WHERE history_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, (history_id,))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------

@@ -1,142 +1,55 @@
 """
+app/routes/files.py
 Files Routes
 Handles file uploads for custom designs
-Updated to use psycopg2-based models
+
 """
+# TODO: use render_template for html
 
-from flask import Blueprint, request, jsonify, session, send_from_directory, current_app
-from werkzeug.utils import secure_filename
 import os
-import uuid
-from datetime import datetime
-
-from app.models import UploadedFile, CartItem, OrderItem
+from flask import Blueprint, request, jsonify, session, send_from_directory, current_app
+from app.models import UploadedFile
+from app.services.file_service import FileService
+from app.utils import guest_or_customer
 
 # Create blueprint
 files_bp = Blueprint('files', __name__)
-
-
-# ============================================
-# HELPER FUNCTIONS
-# ============================================
-
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'ai', 'svg', 'psd'}
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def get_file_path(filename, folder='general'):
-    """
-    Generate file path for uploaded file
-    
-    Args:
-        filename: Original filename
-        folder: Subfolder (customer_id, session_id, or 'general')
-    
-    Returns:
-        Relative file path
-    """
-    # Create unique filename with timestamp
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    name, ext = os.path.splitext(secure_filename(filename))
-    unique_filename = f"{name}_{timestamp}_{uuid.uuid4().hex[:8]}{ext}"
-    
-    # Construct path: uploads/folder/filename
-    return os.path.join('uploads', folder, unique_filename)
-
-
-def ensure_upload_directory(directory):
-    """Create upload directory if it doesn't exist"""
-    full_path = os.path.join(current_app.root_path, 'static', directory)
-    os.makedirs(full_path, exist_ok=True)
-    return full_path
-
 
 # ============================================
 # FILE UPLOAD
 # ============================================
 
 @files_bp.route('/upload', methods=['POST'])
+@guest_or_customer
 def upload_file():
     """
     Upload design file
-    
-    Form Data:
-        - file: file (required)
-        - cart_item_id: int (optional) - associate with cart item
-        - order_item_id: int (optional) - associate with order item
-    
-    Returns:
-        JSON with file info
     """
-    # Check if file is in request
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
+    if 'file' not in request.files or request.files['file'].filename == '':
+        return jsonify({'error': 'No file provided or selected'}), 400
     
     file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed'}), 400
-    
-    # Get optional parameters
     cart_item_id = request.form.get('cart_item_id', type=int)
     order_item_id = request.form.get('order_item_id', type=int)
     
     try:
-        uploaded_file_model = UploadedFile()
-        cart_item_model = CartItem()
-        order_item_model = OrderItem()
+        customer_id = session.get('customer_id')
+        session_id = session.get('session_id')
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
         
-        # Determine owner (customer or guest session)
-        if 'customer_id' in session:
-            customer_id = session['customer_id']
-            session_id = None
-            folder = f"customer_{customer_id}"
-        elif 'session_id' in session:
-            customer_id = None
-            session_id = session['session_id']
-            folder = f"guest_{session_id}"
-        else:
-            return jsonify({'error': 'Authentication required'}), 401
-        
-        # Generate file path
-        file_path = get_file_path(file.filename, folder)
-        
-        # Ensure directory exists
-        directory = os.path.dirname(file_path)
-        full_directory = ensure_upload_directory(directory)
-        
-        # Save file
-        full_file_path = os.path.join(current_app.root_path, 'static', file_path)
-        file.save(full_file_path)
-        
-        # Create database record
-        file_id = uploaded_file_model.create(
-            file_url=f"/static/{file_path}",
-            original_filename=file.filename,
+        success, result = FileService.save_file(
+            file=file,
             customer_id=customer_id,
             session_id=session_id,
             cart_item_id=cart_item_id,
-            order_item_id=order_item_id
+            order_item_id=order_item_id,
+            upload_folder=upload_folder
         )
         
-        # Update cart item or order item with file URL
-        if cart_item_id:
-            cart_item = cart_item_model.get_by_id(cart_item_id)
-            if cart_item:
-                cart_item_model.update(cart_item_id, design_file_url=f"/static/{file_path}")
+        if not success:
+            return jsonify({'error': result}), 400
         
-        if order_item_id:
-            order_item = order_item_model.get_by_id(order_item_id)
-            if order_item:
-                order_item_model.update(order_item_id, design_file_url=f"/static/{file_path}")
-        
-        # Get the uploaded file record
-        uploaded_file = uploaded_file_model.get_by_id(file_id)
+        uploaded_file = result
         
         return jsonify({
             'message': 'File uploaded successfully',
@@ -147,22 +60,15 @@ def upload_file():
                 'uploaded_at': uploaded_file['uploaded_at'].isoformat() if uploaded_file.get('uploaded_at') else None
             }
         }), 201
-            
+        
     except Exception as e:
         return jsonify({'error': f'Failed to upload file: {str(e)}'}), 500
 
 
+# Upload multiple design files
 @files_bp.route('/upload-multiple', methods=['POST'])
-def upload_multiple_files():
-    """
-    Upload multiple design files
-    
-    Form Data:
-        - files: file[] (required) - multiple files
-    
-    Returns:
-        JSON with uploaded files info
-    """
+@guest_or_customer
+def upload_multiple_files(): 
     # Check if files are in request
     if 'files' not in request.files:
         return jsonify({'error': 'No files provided'}), 400
@@ -177,97 +83,57 @@ def upload_multiple_files():
         return jsonify({'error': 'Maximum 10 files allowed'}), 400
     
     try:
-        uploaded_file_model = UploadedFile()
+        # Get customer/session info from session
+        customer_id = session.get('customer_id')
+        session_id = session.get('session_id')
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
         
-        # Determine owner
-        if 'customer_id' in session:
-            customer_id = session['customer_id']
-            session_id = None
-            folder = f"customer_{customer_id}"
-        elif 'session_id' in session:
-            customer_id = None
-            session_id = session['session_id']
-            folder = f"guest_{session_id}"
-        else:
-            return jsonify({'error': 'Authentication required'}), 401
+        # Use FileService to handle bulk upload
+        uploaded_files, errors = FileService.save_multiple_files(
+            files=files,
+            customer_id=customer_id,
+            session_id=session_id,
+            upload_folder=upload_folder
+        )
         
-        uploaded_files = []
-        errors = []
-        
-        for file in files:
-            if file.filename == '':
-                continue
-            
-            if not allowed_file(file.filename):
-                errors.append(f"{file.filename}: File type not allowed")
-                continue
-            
-            try:
-                # Generate file path
-                file_path = get_file_path(file.filename, folder)
-                
-                # Ensure directory exists
-                directory = os.path.dirname(file_path)
-                ensure_upload_directory(directory)
-                
-                # Save file
-                full_file_path = os.path.join(current_app.root_path, 'static', file_path)
-                file.save(full_file_path)
-                
-                # Create database record
-                file_id = uploaded_file_model.create(
-                    file_url=f"/static/{file_path}",
-                    original_filename=file.filename,
-                    customer_id=customer_id,
-                    session_id=session_id
-                )
-                
-                uploaded_file = uploaded_file_model.get_by_id(file_id)
-                
-                uploaded_files.append({
-                    'file_id': uploaded_file['file_id'],
-                    'file_url': uploaded_file['file_url'],
-                    'original_filename': uploaded_file['original_filename']
-                })
-                
-            except Exception as e:
-                errors.append(f"{file.filename}: {str(e)}")
+        # Format response
+        formatted_files = [
+            {
+                'file_id': f['file_id'],
+                'file_url': f['file_url'],
+                'original_filename': f['original_filename']
+            }
+            for f in uploaded_files
+        ]
         
         return jsonify({
             'message': f'{len(uploaded_files)} files uploaded successfully',
-            'files': uploaded_files,
+            'files': formatted_files,
             'errors': errors if errors else None
         }), 201
             
     except Exception as e:
         return jsonify({'error': f'Failed to upload files: {str(e)}'}), 500
 
-
 # ============================================
 # FILE RETRIEVAL
 # ============================================
 
+# Get uploaded files for current user
 @files_bp.route('/', methods=['GET'])
 @files_bp.route('/list', methods=['GET'])
-def get_files():
-    """
-    Get uploaded files for current user
-    
-    Returns:
-        JSON list of files
-    """
+@guest_or_customer
+def get_files(): 
     try:
-        uploaded_file_model = UploadedFile()
+        # Get customer/session info from session
+        customer_id = session.get('customer_id')
+        session_id = session.get('session_id')
         
-        if 'customer_id' in session:
-            files = uploaded_file_model.get_by_customer(session['customer_id'])
-        elif 'session_id' in session:
-            files = uploaded_file_model.get_by_session(session['session_id'])
-        else:
-            return jsonify({'error': 'Authentication required'}), 401
-        
-        # Sort by uploaded_at descending
-        files.sort(key=lambda x: x.get('uploaded_at') or datetime.min, reverse=True)
+        # Use FileService to get files
+        files = FileService.get_user_files(
+            customer_id=customer_id,
+            session_id=session_id
+        )
         
         result = [
             {
@@ -287,14 +153,9 @@ def get_files():
         return jsonify({'error': f'Failed to get files: {str(e)}'}), 500
 
 
+# Get file details by file_id
 @files_bp.route('/<int:file_id>', methods=['GET'])
-def get_file(file_id):
-    """
-    Get file details
-    
-    Returns:
-        JSON file info
-    """
+def get_file(file_id): 
     try:
         uploaded_file_model = UploadedFile()
         file = uploaded_file_model.get_by_id(file_id)
@@ -328,54 +189,42 @@ def get_file(file_id):
     except Exception as e:
         return jsonify({'error': f'Failed to get file: {str(e)}'}), 500
 
-
 # ============================================
 # FILE DELETION
 # ============================================
 
+# Delete uploaded file
 @files_bp.route('/<int:file_id>', methods=['DELETE'])
-def delete_file(file_id):
-    """
-    Delete uploaded file
-    
-    Returns:
-        JSON success message
-    """
+@guest_or_customer
+def delete_file(file_id): 
     try:
-        uploaded_file_model = UploadedFile()
-        file = uploaded_file_model.get_by_id(file_id)
+        # Get customer/session info from session
+        customer_id = session.get('customer_id')
+        session_id = session.get('session_id')
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
         
-        if not file:
-            return jsonify({'error': 'File not found'}), 404
+        # Use FileService to delete file
+        success, message = FileService.delete_file(
+            file_id=file_id,
+            customer_id=customer_id,
+            session_id=session_id,
+            upload_folder=upload_folder
+        )
         
-        # Check ownership
-        if 'customer_id' in session:
-            if file.get('customer_id') != session['customer_id']:
-                return jsonify({'error': 'Access denied'}), 403
-        elif 'session_id' in session:
-            if file.get('session_id') != session['session_id']:
-                return jsonify({'error': 'Access denied'}), 403
-        else:
-            return jsonify({'error': 'Authentication required'}), 401
+        if not success:
+            # Determine appropriate status code
+            if 'not found' in message.lower():
+                status_code = 404
+            elif 'denied' in message.lower():
+                status_code = 403
+            elif 'cannot delete' in message.lower():
+                status_code = 400
+            else:
+                status_code = 500
+            
+            return jsonify({'error': message}), status_code
         
-        # Don't allow deletion if file is attached to an order
-        if file.get('order_item_id'):
-            return jsonify({'error': 'Cannot delete file attached to an order'}), 400
-        
-        # Delete physical file
-        try:
-            file_path = file['file_url'].replace('/static/', '')
-            full_path = os.path.join(current_app.root_path, 'static', file_path)
-            if os.path.exists(full_path):
-                os.remove(full_path)
-        except Exception as e:
-            # Log error but continue with database deletion
-            print(f"Error deleting physical file: {str(e)}")
-        
-        # Delete database record
-        uploaded_file_model.delete(file_id)
-        
-        return jsonify({'message': 'File deleted successfully'}), 200
+        return jsonify({'message': message}), 200
             
     except Exception as e:
         return jsonify({'error': f'Failed to delete file: {str(e)}'}), 500
@@ -385,14 +234,9 @@ def delete_file(file_id):
 # FILE DOWNLOAD
 # ============================================
 
+# Download file
 @files_bp.route('/<int:file_id>/download', methods=['GET'])
-def download_file(file_id):
-    """
-    Download file
-    
-    Returns:
-        File download
-    """
+def download_file(file_id): 
     try:
         uploaded_file_model = UploadedFile()
         file = uploaded_file_model.get_by_id(file_id)
@@ -432,15 +276,9 @@ def download_file(file_id):
 # ============================================
 # FILE INFO
 # ============================================
-
+# Get upload configuration info
 @files_bp.route('/info', methods=['GET'])
-def get_upload_info():
-    """
-    Get upload configuration info
-    
-    Returns:
-        JSON with allowed file types and size limits
-    """
+def get_upload_info(): 
     return jsonify({
         'upload_info': {
             'allowed_extensions': ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'ai', 'svg', 'psd'],

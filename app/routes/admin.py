@@ -1,11 +1,12 @@
-"""
+""".
+app/routes/admin.py
 Admin Routes
 Handles admin panel operations (orders, products, customers, reports)
-Updated to use psycopg2-based models
-"""
 
-from flask import Blueprint, request, jsonify, session
-from datetime import datetime, timedelta
+"""
+# TODO: use render_template for html
+
+from flask import Blueprint, request, jsonify, session 
 
 from app.models import (
     Order, OrderItem, OrderStatusHistory, Product, Category,
@@ -13,13 +14,13 @@ from app.models import (
 )
 from app.utils import admin_required
 
-# Create blueprint
+ 
 admin_bp = Blueprint('admin', __name__)
 
 
 # Helper decorator for permissions
+# Decorator to require specific admin permission
 def permission_required(permission):
-    """Decorator to require specific admin permission"""
     from functools import wraps
     def decorator(f):
         @wraps(f)
@@ -41,23 +42,14 @@ def permission_required(permission):
 # ============================================
 # DASHBOARD
 # ============================================
-
+# Get admin dashboard statistics 
 @admin_bp.route('/dashboard', methods=['GET'])
 @admin_required
-def get_dashboard():
-    """
-    Get admin dashboard statistics
-    
-    Returns:
-        JSON with key metrics
-    """
+def get_dashboard(): 
     try:
         order_model = Order()
         customer_model = Customer()
-        product_model = Product()
-        
-        # Note: This is a simplified version
-        # You may need to add methods to your models for better filtering
+        product_model = Product() 
         
         return jsonify({
             'dashboard': {
@@ -90,22 +82,10 @@ def get_dashboard():
 # ORDER MANAGEMENT
 # ============================================
 
+# Get all orders with filtering  
 @admin_bp.route('/orders', methods=['GET'])
 @permission_required('view_orders')
 def get_all_orders():
-    """
-    Get all orders with filtering
-    
-    Query Parameters:
-        - status: string (optional)
-        - start_date: string (optional, ISO format)
-        - end_date: string (optional, ISO format)
-        - page: int (optional, default=1)
-        - per_page: int (optional, default=20)
-    
-    Returns:
-        JSON list of orders
-    """
     status_filter = request.args.get('status')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
@@ -129,16 +109,11 @@ def get_all_orders():
     except Exception as e:
         return jsonify({'error': f'Failed to get orders: {str(e)}'}), 500
 
-
+ # Get order details 
 @admin_bp.route('/orders/<int:order_id>', methods=['GET'])
 @permission_required('view_orders')
 def get_order_details(order_id):
-    """
-    Get order details
-    
-    Returns:
-        JSON order details with items and history
-    """
+
     try:
         order_model = Order()
         order_item_model = OrderItem()
@@ -214,20 +189,11 @@ def get_order_details(order_id):
     except Exception as e:
         return jsonify({'error': f'Failed to get order details: {str(e)}'}), 500
 
-
+# Update order status 
 @admin_bp.route('/orders/<int:order_id>/status', methods=['PUT'])
 @permission_required('update_order_status')
 def update_order_status(order_id):
-    """
-    Update order status
     
-    PUT JSON:
-        - status: string (required) - pending, processing, completed, cancelled
-        - notes: string (optional)
-    
-    Returns:
-        JSON success message
-    """
     data = request.get_json()
     new_status = data.get('status')
     notes = data.get('notes', '')
@@ -283,21 +249,10 @@ def update_order_status(order_id):
 # PRODUCT MANAGEMENT
 # ============================================
 
+#   Get all products 
 @admin_bp.route('/products', methods=['GET'])
 @permission_required('view_products')
 def get_all_products():
-    """
-    Get all products
-    
-    Query Parameters:
-        - category_id: int (optional)
-        - is_active: boolean (optional)
-        - page: int (optional, default=1)
-        - per_page: int (optional, default=20)
-    
-    Returns:
-        JSON list of products
-    """
     category_id = request.args.get('category_id', type=int)
     is_active_str = request.args.get('is_active')
     page = request.args.get('page', 1, type=int)
@@ -354,22 +309,11 @@ def get_all_products():
     except Exception as e:
         return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
 
-
+#  Update product 
 @admin_bp.route('/products/<int:product_id>', methods=['PUT'])
 @permission_required('update_product')
 def update_product(product_id):
-    """
-    Update product
-    
-    PUT JSON:
-        - product_name: string (optional)
-        - description: string (optional)
-        - base_price: float (optional)
-        - is_active: boolean (optional)
-    
-    Returns:
-        JSON success message
-    """
+
     data = request.get_json()
     
     try:
@@ -422,26 +366,15 @@ def update_product(product_id):
 # CUSTOMER MANAGEMENT
 # ============================================
 
+# Get all customers 
 @admin_bp.route('/customers', methods=['GET'])
 @permission_required('view_customers')
 def get_all_customers():
-    """
-    Get all customers
     
-    Query Parameters:
-        - page: int (optional, default=1)
-        - per_page: int (optional, default=20)
-    
-    Returns:
-        JSON list of customers
-    """
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 20, type=int), 100)
     
-    try:
-        # Note: You need a get_all() method in Customer model
-        # This is a placeholder
-        
+    try:  
         return jsonify({
             'customers': [],
             'pagination': {
@@ -459,27 +392,15 @@ def get_all_customers():
 # REPORTS
 # ============================================
 
+# Get sales report 
 @admin_bp.route('/reports/sales', methods=['GET'])
 @permission_required('view_reports')
 def get_sales_report():
-    """
-    Get sales report
-    
-    Query Parameters:
-        - start_date: string (optional, ISO format)
-        - end_date: string (optional, ISO format)
-        - group_by: string (optional) - day, week, month
-    
-    Returns:
-        JSON sales statistics
-    """
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     group_by = request.args.get('group_by', 'day')
     
-    try:
-        # Note: This requires date filtering in Order model
-        # Placeholder implementation
+    try: 
         
         return jsonify({
             'sales_report': {
@@ -494,16 +415,10 @@ def get_sales_report():
     except Exception as e:
         return jsonify({'error': f'Failed to generate sales report: {str(e)}'}), 500
 
-
+# Get product performance report 
 @admin_bp.route('/reports/products', methods=['GET'])
 @permission_required('view_reports')
 def get_product_report():
-    """
-    Get product performance report
-    
-    Returns:
-        JSON product statistics
-    """
     try:
         product_model = Product()
         category_model = Category()

@@ -1,31 +1,37 @@
 """
+app/models/order_item_customization.py
 Order Item Customization Model  
 Represents customizations for order items
 """
 
-import psycopg2
-import psycopg2.extras
-from datetime import datetime
-from flask import current_app 
+from app.database import get_cursor
+from datetime import datetime  
+ 
 
 
-class OrderItemCustomization:
-    """Order item customizations table"""
+class OrderItemCustomization: 
+    def __init__(
+        self,
+        customization_id=None,
+        order_item_id=None,
+        customization_key=None,
+        customization_value=None,
+        created_at=None
+    ):
+        self.customization_id = customization_id
+        self.order_item_id = order_item_id
+        self.customization_key = customization_key
+        self.customization_value = customization_value
+        self.created_at = created_at or datetime.now() 
 
-    def __init__(self):
-        self.conn = psycopg2.connect(
-            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
-                "postgresql+psycopg2", "postgresql"
-            ),
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
-
-    def __del__(self):
-        try:
-            if self.conn:
-                self.conn.close()
-        except Exception:
-            pass
+    def to_dict(self):
+        return {
+            'customization_id': self.customization_id,
+            'order_item_id': self.order_item_id,
+            'customization_key': self.customization_key,
+            'customization_value': self.customization_value,
+            'created_at': self.created_at.isoformat()
+        }
 
     # ---------------------
     # CREATE
@@ -37,10 +43,9 @@ class OrderItemCustomization:
             ) VALUES (%s, %s, %s, %s)
             RETURNING customization_id;
         """
-        now = datetime.utcnow()
-        with self.conn.cursor() as cur:
-            cur.execute(sql, (order_item_id, customization_key, customization_value, now))
-            self.conn.commit()
+        now = datetime.now()
+        with get_cursor() as cur:
+            cur.execute(sql, (order_item_id, customization_key, customization_value, now)) 
             return cur.fetchone()["customization_id"]
 
     # ---------------------
@@ -48,13 +53,13 @@ class OrderItemCustomization:
     # ---------------------
     def get_by_id(self, customization_id):
         sql = "SELECT * FROM order_item_customizations WHERE customization_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (customization_id,))
             return cur.fetchone()
 
     def get_by_order_item(self, order_item_id):
         sql = "SELECT * FROM order_item_customizations WHERE order_item_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (order_item_id,))
             return cur.fetchall()
 
@@ -78,9 +83,9 @@ class OrderItemCustomization:
         sql = f"UPDATE order_item_customizations SET {', '.join(updates)} WHERE customization_id = %s;"
         values.append(customization_id)
 
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, tuple(values))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------
@@ -88,7 +93,7 @@ class OrderItemCustomization:
     # ---------------------
     def delete(self, customization_id):
         sql = "DELETE FROM order_item_customizations WHERE customization_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, (customization_id,))
-            self.conn.commit()
+             
             return cur.rowcount > 0

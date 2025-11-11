@@ -1,4 +1,5 @@
 """
+app/utils/decorators.py
 Decorators Module
 Authentication and authorization decorators for route protection 
 """
@@ -9,17 +10,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-def login_required(f):
-    """
-    Decorator to require customer authentication
-    
-    Usage:
-        @app.route('/profile')
-        @login_required
-        def profile():
-            return "User profile"
-    """
+# Decorator to require customer authentication
+def login_required(f): 
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'customer_id' not in session:
@@ -34,17 +26,8 @@ def login_required(f):
     
     return decorated_function
 
-
-def admin_required(f):
-    """
-    Decorator to require admin authentication
-    
-    Usage:
-        @app.route('/admin/dashboard')
-        @admin_required
-        def admin_dashboard():
-            return "Admin dashboard"
-    """
+#  Decorator to require admin authentication
+def admin_required(f): 
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'admin_id' not in session:
@@ -59,20 +42,9 @@ def admin_required(f):
     
     return decorated_function
 
-
+#  Decorator to require specific admin roles
 def role_required(*roles):
-    """
-    Decorator to require specific admin roles
-    
-    Args:
-        *roles: One or more role names ('super_admin', 'admin', 'staff')
-    
-    Usage:
-        @app.route('/admin/users')
-        @role_required('super_admin', 'admin')
-        def manage_users():
-            return "User management"
-    """
+     
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -119,36 +91,12 @@ def role_required(*roles):
     
     return decorator
 
-
+# Decorator to require super admin role
 def super_admin_required(f):
-    """
-    Decorator to require super admin role
-    Shorthand for @role_required('super_admin')
-    
-    Usage:
-        @app.route('/admin/create-admin')
-        @super_admin_required
-        def create_admin():
-            return "Create new admin"
-    """
     return role_required('super_admin')(f)
 
-
+#  Decorator to require specific admin permission
 def permission_required(permission):
-    """
-    Decorator to require specific admin permission
-    
-    Args:
-        permission (str): Permission name (e.g., 'add_product', 'update_order_status')
-    
-    Usage:
-        @app.route('/admin/products/delete/<int:id>')
-        @permission_required('add_product')
-        def delete_product(id):
-            return "Delete product"
-    
-    Note: Uses the has_permission() static method from AdminUser model
-    """
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -195,19 +143,8 @@ def permission_required(permission):
     
     return decorator
 
-
+# Decorator that allows both guest and authenticated customers
 def guest_or_customer(f):
-    """
-    Decorator that allows both guest and authenticated customers
-    Creates a session ID for guests if not present
-    
-    Usage:
-        @app.route('/cart/add')
-        @guest_or_customer
-        def add_to_cart():
-            # Can use session['customer_id'] or session['session_id']
-            return "Add to cart"
-    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         import uuid
@@ -221,18 +158,8 @@ def guest_or_customer(f):
     
     return decorated_function
 
-
-def json_required(f):
-    """
-    Decorator to require JSON content type
-    
-    Usage:
-        @app.route('/api/data', methods=['POST'])
-        @json_required
-        def api_endpoint():
-            data = request.get_json()
-            return jsonify(data)
-    """
+# Decorator to require JSON content type
+def json_required(f): 
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not request.is_json:
@@ -242,25 +169,9 @@ def json_required(f):
     
     return decorated_function
 
-
-def rate_limit(max_requests=10, window_seconds=60):
-    """
-    Simple rate limiting decorator (basic implementation)
-    For production, use Flask-Limiter or Redis-based solution
-    
-    Args:
-        max_requests (int): Maximum requests allowed
-        window_seconds (int): Time window in seconds
-    
-    Usage:
-        @app.route('/api/sensitive')
-        @rate_limit(max_requests=5, window_seconds=60)
-        def sensitive_endpoint():
-            return "Limited endpoint"
-    
-    Note: This is a simple in-memory implementation. For production with 
-    multiple workers, use Flask-Limiter with Redis backend.
-    """
+# Simple rate limiting decorator (basic implementation)
+# For production, use Flask-Limiter or Redis-based solution
+def rate_limit(max_requests=10, window_seconds=60): 
     def decorator(f):
         # Store request timestamps per user/IP
         request_history = {}
@@ -268,11 +179,11 @@ def rate_limit(max_requests=10, window_seconds=60):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             from datetime import datetime, timedelta
-            
+            from zoneinfo import ZoneInfo
             # Get identifier (user_id or IP address)
             identifier = session.get('customer_id') or session.get('admin_id') or request.remote_addr
             
-            current_time = datetime.now()
+            current_time = datetime.now(tz=ZoneInfo("America/Toronto"))
             
             # Initialize history for this identifier
             if identifier not in request_history:
@@ -305,19 +216,8 @@ def rate_limit(max_requests=10, window_seconds=60):
     
     return decorator
 
-
-def validate_cart_access(f):
-    """
-    Decorator to validate user has access to the cart
-    Expects cart_id in route parameters
-    
-    Usage:
-        @app.route('/cart/<int:cart_id>/update')
-        @guest_or_customer
-        @validate_cart_access
-        def update_cart(cart_id):
-            return "Update cart"
-    """
+# Decorator to validate user has access to the cart
+def validate_cart_access(f): 
     @wraps(f)
     def decorated_function(*args, **kwargs):
         cart_id = kwargs.get('cart_id')
@@ -371,19 +271,8 @@ def validate_cart_access(f):
     
     return decorated_function
 
-
-def validate_order_access(f):
-    """
-    Decorator to validate user has access to the order
-    Expects order_id in route parameters
-    
-    Usage:
-        @app.route('/orders/<int:order_id>')
-        @login_required
-        @validate_order_access
-        def view_order(order_id):
-            return "View order"
-    """
+# Decorator to validate user has access to the order
+def validate_order_access(f): 
     @wraps(f)
     def decorated_function(*args, **kwargs):
         order_id = kwargs.get('order_id')

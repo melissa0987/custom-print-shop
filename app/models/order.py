@@ -1,33 +1,53 @@
 """
+app/models/order.py
 Order Model  
 Represents customer orders
 """
 
-import psycopg2
-import psycopg2.extras
-from datetime import datetime
-from flask import current_app
+
+from app.database import get_cursor
+from datetime import datetime  
+ 
 
 
 class Order:
-    """Orders table"""
+    """Orders table""" 
+    VALID_STATUSES = ['pending', 'processing', 'completed', 'cancelled']
+    def __init__( self, order_id=None, customer_id=None, session_id=None, order_number=None, order_status='pending', 
+                 total_amount=0.0, shipping_address=None, contact_phone=None,  contact_email=None, notes=None, 
+                 created_at=None, updated_at=None, updated_by=None ):
+        
 
-    VALID_STATUSES = ('pending', 'processing', 'completed', 'cancelled')
+        self.order_id = order_id
+        self.customer_id = customer_id
+        self.session_id = session_id
+        self.order_number = order_number
+        self.order_status = order_status
+        self.total_amount = float(total_amount)
+        self.shipping_address = shipping_address
+        self.contact_phone = contact_phone
+        self.contact_email = contact_email
+        self.notes = notes
+        self.created_at = created_at or datetime.now()
+        self.updated_at = updated_at or datetime.now()
+        self.updated_by = updated_by
 
-    def __init__(self):
-        self.conn = psycopg2.connect(
-            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
-                "postgresql+psycopg2", "postgresql"
-            ),
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
-
-    def __del__(self):
-        try:
-            if self.conn:
-                self.conn.close()
-        except Exception:
-            pass
+    def to_dict(self):
+        return {
+            'order_id': self.order_id,
+            'customer_id': self.customer_id,
+            'session_id': self.session_id,
+            'order_number': self.order_number,
+            'order_status': self.order_status,
+            'total_amount': self.total_amount,
+            'shipping_address': self.shipping_address,
+            'contact_phone': self.contact_phone,
+            'contact_email': self.contact_email,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'updated_by': self.updated_by
+        }
 
     # ---------------------
     # CREATE
@@ -35,6 +55,7 @@ class Order:
     def create(self, order_number, total_amount, shipping_address, 
                customer_id=None, session_id=None, order_status='pending',
                contact_phone=None, contact_email=None, notes=None, updated_by=None):
+        
         if order_status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status: {order_status}")
 
@@ -46,14 +67,14 @@ class Order:
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING order_id;
         """
-        now = datetime.utcnow()
-        with self.conn.cursor() as cur:
+        now = datetime.now()
+        with get_cursor() as cur:
             cur.execute(sql, (
                 customer_id, session_id, order_number, order_status,
                 total_amount, shipping_address, contact_phone,
                 contact_email, notes, updated_by, now, now
             ))
-            self.conn.commit()
+             
             return cur.fetchone()["order_id"]
 
     # ---------------------
@@ -61,20 +82,32 @@ class Order:
     # ---------------------
     def get_by_id(self, order_id):
         sql = "SELECT * FROM orders WHERE order_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (order_id,))
             return cur.fetchone()
 
     def get_by_customer(self, customer_id):
         sql = "SELECT * FROM orders WHERE customer_id = %s ORDER BY created_at DESC;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (customer_id,))
+            return cur.fetchall()
+        
+    def get_all(self, limit=None):
+        """Get all orders"""
+        sql = "SELECT * FROM orders ORDER BY created_at DESC"
+        if limit:
+            sql += f" LIMIT {limit};"
+        else:
+            sql += ";"
+        with get_cursor(commit=False) as cur:
+            cur.execute(sql)
             return cur.fetchall()
 
     # ---------------------
     # UPDATE
     # ---------------------
     def update_status(self, order_id, order_status, updated_by=None):
+
         if order_status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status: {order_status}")
 
@@ -83,10 +116,9 @@ class Order:
             SET order_status = %s, updated_at = %s, updated_by = %s
             WHERE order_id = %s;
         """
-        now = datetime.utcnow()
-        with self.conn.cursor() as cur:
+        now = datetime.now()
+        with get_cursor() as cur:
             cur.execute(sql, (order_status, now, updated_by, order_id))
-            self.conn.commit()
             return cur.rowcount > 0
 
     # ---------------------
@@ -94,9 +126,9 @@ class Order:
     # ---------------------
     def delete(self, order_id):
         sql = "DELETE FROM orders WHERE order_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, (order_id,))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------
@@ -125,3 +157,10 @@ class Order:
             if customer:
                 return customer.get("email")
         return order_record.get("contact_email")
+    
+    def get_by_order_number(self, order_number):
+        """Get order by order number"""
+        sql = "SELECT * FROM orders WHERE order_number = %s;"
+        with get_cursor(commit=False) as cur:
+            cur.execute(sql, (order_number,))
+            return cur.fetchone()

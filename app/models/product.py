@@ -1,31 +1,41 @@
 """
+app/models/product.py
 Product Model  
 Represents products available for custom printing
 """
 
-import psycopg2
-import psycopg2.extras
-from datetime import datetime
-from flask import current_app
+from app.database import get_cursor
+from datetime import datetime  
+ 
 
 
-class Product:
-    """Products table"""
+class Product: 
+    def __init__( self,  product_id=None, category_id=None, product_name=None, description=None, base_price=0.0, is_active=True, created_at=None,  updated_at=None, created_by=None, updated_by=None  ):
 
-    def __init__(self):
-        self.conn = psycopg2.connect(
-            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
-                "postgresql+psycopg2", "postgresql"
-            ),
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
+        self.product_id = product_id
+        self.category_id = category_id
+        self.product_name = product_name
+        self.description = description
+        self.base_price = float(base_price)
+        self.is_active = is_active
+        self.created_at = created_at or datetime.now()
+        self.updated_at = updated_at or datetime.now()
+        self.created_by = created_by
+        self.updated_by = updated_by
 
-    def __del__(self):
-        try:
-            if self.conn:
-                self.conn.close()
-        except Exception:
-            pass
+    def to_dict(self):
+        return {
+            'product_id': self.product_id,
+            'category_id': self.category_id,
+            'product_name': self.product_name,
+            'description': self.description,
+            'base_price': self.base_price,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'created_by': self.created_by,
+            'updated_by': self.updated_by
+        }
 
     # ---------------------
     # CREATE
@@ -42,13 +52,12 @@ class Product:
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING product_id;
         """
-        now = datetime.utcnow()
-        with self.conn.cursor() as cur:
+        now = datetime.now()
+        with get_cursor() as cur:
             cur.execute(sql, (
                 category_id, product_name, description, base_price,
                 is_active, created_by, updated_by, now, now
-            ))
-            self.conn.commit()
+            )) 
             return cur.fetchone()["product_id"]
 
     # ---------------------
@@ -56,7 +65,7 @@ class Product:
     # ---------------------
     def get_by_id(self, product_id):
         sql = "SELECT * FROM products WHERE product_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (product_id,))
             return cur.fetchone()
 
@@ -65,7 +74,7 @@ class Product:
         if active_only:
             sql += " WHERE is_active = TRUE"
         sql += " ORDER BY product_name ASC;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql)
             return cur.fetchall()
 
@@ -88,17 +97,16 @@ class Product:
         if not updates:
             return False
 
-        values.append(datetime.utcnow())  # updated_at
-        values.append(product_id)  # WHERE condition
+        values.append(datetime.now()) 
+        values.append(product_id)  
 
         sql = f"""
             UPDATE products
             SET {', '.join(updates)}, updated_at = %s
             WHERE product_id = %s;
         """
-        with self.conn.cursor() as cur:
-            cur.execute(sql, values)
-            self.conn.commit()
+        with get_cursor() as cur:
+            cur.execute(sql, values) 
             return cur.rowcount > 0
 
     # ---------------------
@@ -106,38 +114,38 @@ class Product:
     # ---------------------
     def delete(self, product_id):
         sql = "DELETE FROM products WHERE product_id = %s;"
-        with self.conn.cursor() as cur:
-            cur.execute(sql, (product_id,))
-            self.conn.commit()
+        with get_cursor() as cur:
+            cur.execute(sql, (product_id,)) 
             return cur.rowcount > 0
 
     # ---------------------
     # HELPERS
     # ---------------------
-    def get_total_orders(self, product_id):
-        """Return total number of order items for this product"""
+    # Return total number of order items for this product
+    def get_total_orders(self, product_id): 
         sql = "SELECT COUNT(*) FROM order_items WHERE product_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (product_id,))
             return cur.fetchone()["count"]
 
-    def get_total_quantity_sold(self, product_id):
-        """Return total quantity sold"""
+
+    # Return total quantity sold
+    def get_total_quantity_sold(self, product_id): 
         sql = "SELECT COALESCE(SUM(quantity),0) AS total FROM order_items WHERE product_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (product_id,))
             return cur.fetchone()["total"]
 
-    def get_total_revenue(self, product_id):
-        """Return total revenue generated"""
+    # Return total revenue generated
+    def get_total_revenue(self, product_id): 
         sql = "SELECT COALESCE(SUM(subtotal),0) AS revenue FROM order_items WHERE product_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (product_id,))
             return float(cur.fetchone()["revenue"])
         
-    def get_by_category(self, category_id):
-        """Return all products in a category"""
+    # Return all products in a category 
+    def get_by_category(self, category_id): 
         sql = "SELECT * FROM products WHERE category_id = %s ORDER BY product_name ASC;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (category_id,))
             return cur.fetchall()

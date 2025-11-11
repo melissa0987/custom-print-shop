@@ -1,66 +1,42 @@
 """
+app/utils/validators.py
 Validators Module
-Input validation functions for the custom printing website
-Compatible with psycopg2-based models
+Input validation functions for the custom printing website 
 """
 
-import re
-from datetime import datetime
-import logging
+import re, logging 
 
 logger = logging.getLogger(__name__)
 
 
-class Validators:
-    """Collection of validation functions"""
+"""Collection of validation functions"""
+class Validators: 
     
+    #  Validate email format
     @staticmethod
     def validate_email(email):
-        """
-        Validate email format
-        
-        Args:
-            email (str): Email address to validate
-            
-        Returns:
-            bool: True if valid, False otherwise
-        """
+         
         if not email or not isinstance(email, str):
             return False
         
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return re.match(pattern, email.strip()) is not None
     
+
+    #  Validate username format (3-50 chars, alphanumeric, underscore, hyphen)
     @staticmethod
-    def validate_username(username):
-        """
-        Validate username format (3-50 chars, alphanumeric, underscore, hyphen)
-        Matches database constraint: ^[a-z0-9_-]{3,50}$
-        
-        Args:
-            username (str): Username to validate
-            
-        Returns:
-            bool: True if valid, False otherwise
-        """
+    def validate_username(username): 
         if not username or not isinstance(username, str):
             return False
         
         pattern = r'^[a-z0-9_-]{3,50}$'
         return re.match(pattern, username.strip(), re.IGNORECASE) is not None
     
+
+    # Validate password strength
+    # Requirements: min 8 chars, at least 1 letter and 1 number
     @staticmethod
-    def validate_password_strength(password):
-        """
-        Validate password strength
-        Requirements: min 8 chars, at least 1 letter and 1 number
-        
-        Args:
-            password (str): Password to validate
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_password_strength(password): 
         if not password or not isinstance(password, str):
             return False, "Password is required"
         
@@ -75,17 +51,11 @@ class Validators:
         
         return True, "Password is valid"
     
+    
+    
+    # Validate phone number format (flexible international format)
     @staticmethod
-    def validate_phone_number(phone):
-        """
-        Validate phone number format (flexible international format)
-        
-        Args:
-            phone (str): Phone number to validate
-            
-        Returns:
-            bool: True if valid, False otherwise
-        """
+    def validate_phone_number(phone): 
         if not phone:
             return True  # Phone is optional
         
@@ -99,18 +69,10 @@ class Validators:
         pattern = r'^\+?\d{10,15}$'
         return re.match(pattern, cleaned) is not None
     
+
+    # Validate price (must be non-negative number)
     @staticmethod
-    def validate_price(price):
-        """
-        Validate price (must be non-negative number)
-        Matches database constraint: base_price >= 0
-        
-        Args:
-            price: Price value to validate
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_price(price): 
         try:
             price_float = float(price)
             if price_float < 0:
@@ -121,18 +83,9 @@ class Validators:
         except (ValueError, TypeError):
             return False, "Price must be a valid number"
     
+    # Validate quantity (must be positive integer)
     @staticmethod
-    def validate_quantity(quantity):
-        """
-        Validate quantity (must be positive integer)
-        Matches database constraint: quantity > 0
-        
-        Args:
-            quantity: Quantity value to validate
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_quantity(quantity): 
         try:
             quantity_int = int(quantity)
             if quantity_int < 1:
@@ -143,18 +96,10 @@ class Validators:
         except (ValueError, TypeError):
             return False, "Quantity must be a valid integer"
     
+
+    # Validate file extension
     @staticmethod
-    def validate_file_extension(filename, allowed_extensions=None):
-        """
-        Validate file extension
-        
-        Args:
-            filename (str): Filename to validate
-            allowed_extensions (set): Set of allowed extensions (default: common image/design formats)
-            
-        Returns:
-            bool: True if valid, False otherwise
-        """
+    def validate_file_extension(filename, allowed_extensions=None): 
         if not filename or not isinstance(filename, str):
             return False
         
@@ -168,18 +113,9 @@ class Validators:
         extension = filename.rsplit('.', 1)[1].lower()
         return extension in allowed_extensions
     
+    # Validate file size
     @staticmethod
-    def validate_file_size(file_size, max_size_mb=16):
-        """
-        Validate file size
-        
-        Args:
-            file_size (int): File size in bytes
-            max_size_mb (int): Maximum size in megabytes (default: 16MB)
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_file_size(file_size, max_size_mb=16): 
         try:
             max_size_bytes = max_size_mb * 1024 * 1024
             if file_size > max_size_bytes:
@@ -188,48 +124,24 @@ class Validators:
         except (ValueError, TypeError):
             return False, "Invalid file size"
     
+
+    # Validate order status
     @staticmethod
-    def validate_order_status(status):
-        """
-        Validate order status
-        Matches database constraint: ('pending', 'processing', 'completed', 'cancelled')
-        
-        Args:
-            status (str): Order status to validate
-            
-        Returns:
-            bool: True if valid, False otherwise
-        """
+    def validate_order_status(status): 
         valid_statuses = {'pending', 'processing', 'completed', 'cancelled'}
         return status and status.lower() in valid_statuses
     
+
+    # Validate admin role
     @staticmethod
-    def validate_role(role):
-        """
-        Validate admin role
-        Matches database constraint: ('super_admin', 'admin', 'staff')
-        
-        Args:
-            role (str): Role to validate
-            
-        Returns:
-            bool: True if valid, False otherwise
-        """
+    def validate_role(role): 
         valid_roles = {'super_admin', 'admin', 'staff'}
         return role and role.lower() in valid_roles
     
+
+    # Validate that all required fields are present and non-empty
     @staticmethod
-    def validate_required_fields(data, required_fields):
-        """
-        Validate that all required fields are present and non-empty
-        
-        Args:
-            data (dict): Data dictionary to validate
-            required_fields (list): List of required field names
-            
-        Returns:
-            tuple: (is_valid: bool, missing_fields: list)
-        """
+    def validate_required_fields(data, required_fields): 
         missing_fields = []
         
         for field in required_fields:
@@ -241,18 +153,11 @@ class Validators:
         
         return len(missing_fields) == 0, missing_fields
     
+
+    # Sanitize string input (trim whitespace, limit length)
     @staticmethod
     def sanitize_string(text, max_length=None):
-        """
-        Sanitize string input (trim whitespace, limit length)
-        
-        Args:
-            text (str): Text to sanitize
-            max_length (int, optional): Maximum length
-            
-        Returns:
-            str: Sanitized text
-        """
+         
         if not text or not isinstance(text, str):
             return ""
         
@@ -265,19 +170,10 @@ class Validators:
         
         return sanitized
     
+
+    # Validate text length
     @staticmethod
-    def validate_text_length(text, min_length=0, max_length=None):
-        """
-        Validate text length
-        
-        Args:
-            text (str): Text to validate
-            min_length (int): Minimum length (default: 0)
-            max_length (int, optional): Maximum length
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_text_length(text, min_length=0, max_length=None): 
         if not isinstance(text, str):
             return False, "Text must be a string"
         
@@ -291,17 +187,10 @@ class Validators:
         
         return True, "Text length is valid"
     
+
+    # Validate customization text (for printing on products)
     @staticmethod
-    def validate_customization_text(text):
-        """
-        Validate customization text (for printing on products)
-        
-        Args:
-            text (str): Customization text
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_customization_text(text): 
         if not text:
             return True, "Text is optional"  # Customization text is optional
         
@@ -317,17 +206,10 @@ class Validators:
         
         return True, "Customization text is valid"
     
+
+    # Validate category name (max 50 chars per schema)
     @staticmethod
-    def validate_category_name(name):
-        """
-        Validate category name (max 50 chars per schema)
-        
-        Args:
-            name (str): Category name
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_category_name(name): 
         if not name or not isinstance(name, str):
             return False, "Category name is required"
         
@@ -345,17 +227,10 @@ class Validators:
         
         return True, "Category name is valid"
     
+
+    # Validate product name (max 100 chars per schema)
     @staticmethod
-    def validate_product_name(name):
-        """
-        Validate product name (max 100 chars per schema)
-        
-        Args:
-            name (str): Product name
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_product_name(name): 
         if not name or not isinstance(name, str):
             return False, "Product name is required"
         
@@ -369,17 +244,10 @@ class Validators:
         
         return True, "Product name is valid"
     
+
+    # Validate shipping address
     @staticmethod
-    def validate_shipping_address(address):
-        """
-        Validate shipping address
-        
-        Args:
-            address (str): Shipping address
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_shipping_address(address): 
         if not address or not isinstance(address, str):
             return False, "Shipping address is required"
         
@@ -393,17 +261,10 @@ class Validators:
         
         return True, "Shipping address is valid"
     
+
+    # Validate order number format (max 50 chars per schema)
     @staticmethod
-    def validate_order_number(order_number):
-        """
-        Validate order number format (max 50 chars per schema)
-        
-        Args:
-            order_number (str): Order number
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_order_number(order_number): 
         if not order_number or not isinstance(order_number, str):
             return False, "Order number is required"
         
@@ -416,17 +277,10 @@ class Validators:
         
         return True, "Order number is valid"
     
+
+    # Validate customization key (max 100 chars per schema)
     @staticmethod
-    def validate_customization_key(key):
-        """
-        Validate customization key (max 100 chars per schema)
-        
-        Args:
-            key (str): Customization key
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_customization_key(key): 
         if not key or not isinstance(key, str):
             return False, "Customization key is required"
         
@@ -444,17 +298,10 @@ class Validators:
         
         return True, "Customization key is valid"
     
+
+    # Validate display order (for categories)
     @staticmethod
-    def validate_display_order(order):
-        """
-        Validate display order (for categories)
-        
-        Args:
-            order: Display order value
-            
-        Returns:
-            tuple: (is_valid: bool, message: str)
-        """
+    def validate_display_order(order): 
         try:
             order_int = int(order)
             if order_int < 0:
@@ -464,34 +311,6 @@ class Validators:
             return True, "Display order is valid"
         except (ValueError, TypeError):
             return False, "Display order must be a valid integer"
+ 
 
-
-# Convenience functions for backward compatibility
-def validate_email(email):
-    """Validate email format"""
-    return Validators.validate_email(email)
-
-
-def validate_username(username):
-    """Validate username format"""
-    return Validators.validate_username(username)
-
-
-def validate_password(password):
-    """Validate password strength"""
-    return Validators.validate_password_strength(password)
-
-
-def validate_phone_number(phone):
-    """Validate phone number format"""
-    return Validators.validate_phone_number(phone)
-
-
-def validate_price(price):
-    """Validate price"""
-    return Validators.validate_price(price)
-
-
-def validate_quantity(quantity):
-    """Validate quantity"""
-    return Validators.validate_quantity(quantity)
+  

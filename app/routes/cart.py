@@ -1,17 +1,21 @@
 """
+app/routes/cart.py
 Shopping Cart Routes
 Handles shopping cart operations (add, update, remove items)
-Updated to use psycopg2-based models
+
 """
+# TODO: use render_template for html
 
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, timedelta
-import uuid
+ 
 
 from app.models import (
     ShoppingCart, CartItem, CartItemCustomization,
     Product, Category
 )
+from app.utils import guest_or_customer, PriceHelper, Validators
+from app.services.cart_service import CartService
 
 # Create blueprint
 cart_bp = Blueprint('cart', __name__)
@@ -21,57 +25,43 @@ cart_bp = Blueprint('cart', __name__)
 # HELPER FUNCTIONS
 # ============================================
 
-def get_or_create_cart():
-    """
-    Get or create shopping cart for current user/session
-    
-    Returns:
-        dict: Cart data or None
-    """
+# Get or create shopping cart for current user/session
+def get_or_create_cart(): 
     cart_model = ShoppingCart()
     
     # Check if customer is logged in
     if 'customer_id' in session:
-        # Get or create customer cart
-        carts = cart_model.get_by_customer(session['customer_id'])
-        now = datetime.now()
-        
-        # Find non-expired cart
-        for cart in carts:
-            if cart.get('expires_at') and cart['expires_at'] > now:
-                return cart
-        
-        # Create new cart if none found
+        customer_id = session['customer_id']
+        carts = cart_model.get_by_customer(customer_id)
+    elif 'session_id' in session:
+        session_id = session['session_id']
+        carts = cart_model.get_by_session(session_id)
+    else:
+        # This shouldn't happen with @guest_or_customer decorator
+        return None
+    
+    # Find non-expired cart
+    now = datetime.now()
+    for cart in carts:
+        if cart.get('expires_at') and cart['expires_at'] > now:
+            return cart
+    
+    # Create new cart if none found
+    if 'customer_id' in session:
         cart_id = cart_model.create(
             customer_id=session['customer_id'],
             expires_at=now + timedelta(days=30)
         )
-        return cart_model.get_by_id(cart_id)
     else:
-        # Guest user - use session ID
-        if 'session_id' not in session:
-            session['session_id'] = str(uuid.uuid4())
-            session.permanent = True
-        
-        # Get or create guest cart
-        carts = cart_model.get_by_session(session['session_id'])
-        now = datetime.now()
-        
-        # Find non-expired cart
-        for cart in carts:
-            if cart.get('expires_at') and cart['expires_at'] > now:
-                return cart
-        
-        # Create new cart
         cart_id = cart_model.create(
             session_id=session['session_id'],
             expires_at=now + timedelta(days=30)
         )
-        return cart_model.get_by_id(cart_id)
+    
+    return cart_model.get_by_id(cart_id)
 
-
-def format_cart_response(cart):
-    """Format cart data for JSON response"""
+# Format cart data for JSON response
+def format_cart_response(cart): 
     cart_item_model = CartItem()
     product_model = Product()
     category_model = Category()
@@ -92,7 +82,7 @@ def format_cart_response(cart):
                 for c in cart_item['customizations']
             }
         
-        # Calculate line total
+        # Calculate line total using PriceHelper
         line_total = float(product['base_price']) * cart_item['quantity']
         
         items.append({
@@ -102,38 +92,59 @@ def format_cart_response(cart):
                 'product_name': product['product_name'],
                 'description': product.get('description'),
                 'base_price': float(product['base_price']),
+                'base_price_formatted': PriceHelper.format_currency(product['base_price']),
                 'category_name': category['category_name']
             },
             'quantity': cart_item['quantity'],
             'design_file_url': cart_item.get('design_file_url'),
             'customizations': customizations,
             'line_total': line_total,
+            'line_total_formatted': PriceHelper.format_currency(line_total),
             'added_at': cart_item['added_at'].isoformat() if cart_item.get('added_at') else None
         })
+    
+    # Calculate cart subtotal using PriceHelper
+    subtotal = PriceHelper.calculate_subtotal([
+        type('CartItem', (), {
+            'price': item['product']['base_price'],
+            'quantity': item['quantity']
+        })()
+        for item in items
+    ])
+
+    # Calculate tax and total using PriceHelper
+    tax = PriceHelper.calculate_tax(subtotal, tax_rate=0.13)
+    total = PriceHelper.calculate_total(subtotal, tax)
+
+    # Format currency display
+    subtotal_formatted = PriceHelper.format_currency(subtotal)
+    tax_formatted = PriceHelper.format_currency(tax)
+    total_formatted = PriceHelper.format_currency(total)
+
     
     return {
         'shopping_cart_id': cart['shopping_cart_id'],
         'items': items,
         'total_items': cart_model.get_total_items(cart['shopping_cart_id']),
         'total_quantity': cart_model.get_total_quantity(cart['shopping_cart_id']),
-        'cart_total': cart_model.calculate_total(cart['shopping_cart_id']),
+        'subtotal': subtotal,
+        'subtotal_formatted': subtotal_formatted,
+        'tax': tax,
+        'tax_formatted': tax_formatted,
+        'cart_total': total,
+        'cart_total_formatted': total_formatted,
         'expires_at': cart['expires_at'].isoformat() if cart.get('expires_at') else None
     }
-
 
 # ============================================
 # CART ROUTES
 # ============================================
 
+# Get current shopping cart
 @cart_bp.route('/', methods=['GET'])
 @cart_bp.route('/view', methods=['GET'])
-def view_cart():
-    """
-    Get current shopping cart
-    
-    Returns:
-        JSON cart data with items
-    """
+@guest_or_customer
+def view_cart(): 
     try:
         cart = get_or_create_cart()
         return jsonify({'cart': format_cart_response(cart)}), 200
@@ -142,20 +153,10 @@ def view_cart():
         return jsonify({'error': f'Failed to get cart: {str(e)}'}), 500
 
 
+# Add item to shopping cart
 @cart_bp.route('/add', methods=['POST'])
-def add_to_cart():
-    """
-    Add item to shopping cart
-    
-    POST JSON:
-        - product_id: int (required)
-        - quantity: int (required, min=1)
-        - design_file_url: string (optional)
-        - customizations: object (optional) - key-value pairs
-    
-    Returns:
-        JSON cart data
-    """
+@guest_or_customer
+def add_to_cart(): 
     data = request.get_json()
     
     product_id = data.get('product_id')
@@ -163,12 +164,14 @@ def add_to_cart():
     design_file_url = data.get('design_file_url')
     customizations = data.get('customizations', {})
     
-    # Validation
+    # Validation using Validators
     if not product_id:
         return jsonify({'error': 'product_id is required'}), 400
     
-    if not isinstance(quantity, int) or quantity < 1:
-        return jsonify({'error': 'quantity must be a positive integer'}), 400
+    # Validate quantity using Validators
+    is_valid, message = Validators.validate_quantity(quantity)
+    if not is_valid:
+        return jsonify({'error': message}), 400
     
     try:
         # Verify product exists and is active
@@ -233,28 +236,21 @@ def add_to_cart():
     except Exception as e:
         return jsonify({'error': f'Failed to add to cart: {str(e)}'}), 500
 
-
+# Update cart item quantity or customizations
 @cart_bp.route('/update/<int:cart_item_id>', methods=['PUT'])
-def update_cart_item(cart_item_id):
-    """
-    Update cart item quantity or customizations
-    
-    PUT JSON:
-        - quantity: int (optional, min=1)
-        - design_file_url: string (optional)
-        - customizations: object (optional)
-    
-    Returns:
-        JSON cart data
-    """
+@guest_or_customer
+def update_cart_item(cart_item_id): 
     data = request.get_json()
     
     quantity = data.get('quantity')
     design_file_url = data.get('design_file_url')
     customizations = data.get('customizations')
     
-    if quantity is not None and (not isinstance(quantity, int) or quantity < 1):
-        return jsonify({'error': 'quantity must be a positive integer'}), 400
+    # Validate quantity if provided
+    if quantity is not None:
+        is_valid, message = Validators.validate_quantity(quantity)
+        if not is_valid:
+            return jsonify({'error': message}), 400
     
     try:
         # Get cart
@@ -306,14 +302,10 @@ def update_cart_item(cart_item_id):
         return jsonify({'error': f'Failed to update cart item: {str(e)}'}), 500
 
 
+# Remove item from cart
 @cart_bp.route('/remove/<int:cart_item_id>', methods=['DELETE'])
-def remove_cart_item(cart_item_id):
-    """
-    Remove item from cart
-    
-    Returns:
-        JSON cart data
-    """
+@guest_or_customer
+def remove_cart_item(cart_item_id): 
     try:
         # Get cart
         cart = get_or_create_cart()
@@ -339,14 +331,10 @@ def remove_cart_item(cart_item_id):
         return jsonify({'error': f'Failed to remove cart item: {str(e)}'}), 500
 
 
+# Remove all items from cart
 @cart_bp.route('/clear', methods=['POST'])
-def clear_cart():
-    """
-    Remove all items from cart
-    
-    Returns:
-        JSON success message
-    """
+@guest_or_customer
+def clear_cart(): 
     try:
         # Get cart
         cart = get_or_create_cart()
@@ -370,14 +358,9 @@ def clear_cart():
         return jsonify({'error': f'Failed to clear cart: {str(e)}'}), 500
 
 
+# Get cart item count (for badge display)
 @cart_bp.route('/count', methods=['GET'])
-def get_cart_count():
-    """
-    Get cart item count (for badge display)
-    
-    Returns:
-        JSON with cart counts
-    """
+def get_cart_count(): 
     try:
         cart = get_or_create_cart()
         cart_model = ShoppingCart()
@@ -390,17 +373,11 @@ def get_cart_count():
     except Exception as e:
         return jsonify({'error': f'Failed to get cart count: {str(e)}'}), 500
 
-
+# Merge guest cart into customer cart after login
+# called automatically after customer login
 @cart_bp.route('/merge', methods=['POST'])
-def merge_guest_cart():
-    """
-    Merge guest cart into customer cart after login
-    
-    This should be called automatically after customer login
-    
-    Returns:
-        JSON success message
-    """
+def merge_guest_cart(): 
+
     # Customer must be logged in
     if 'customer_id' not in session:
         return jsonify({'error': 'Customer login required'}), 401

@@ -1,42 +1,28 @@
 """
+app/services/order_service.py
 Order Service
 Business logic for order management
-Updated to use psycopg2-based models
+
 """
 
 from datetime import datetime
-import random
-import string
+ 
+import random,  string
 
 from app.models import (
     Order, OrderItem, OrderItemCustomization,
-    OrderStatusHistory, ShoppingCart, CartItem, Customer
+    OrderStatusHistory, ShoppingCart, CartItem, Customer, Product, Category
 )
 from app.utils.validators import Validators
-from app.utils.helpers import DateHelper
+from app.utils.helpers import DateHelper 
 
 
-class OrderService:
-    """Service class for order operations"""
+class OrderService: 
     
+    # Create order from shopping cart
     @staticmethod
-    def create_order_from_cart(customer_id=None, session_id=None,
-                               shipping_address=None, contact_phone=None,
-                               contact_email=None, notes=None):
-        """
-        Create order from shopping cart
+    def create_order_from_cart(customer_id=None, session_id=None, shipping_address=None, contact_phone=None, contact_email=None, notes=None): 
         
-        Args:
-            customer_id (int, optional): Customer ID
-            session_id (str, optional): Guest session ID
-            shipping_address (str): Shipping address
-            contact_phone (str, optional): Contact phone
-            contact_email (str): Contact email
-            notes (str, optional): Order notes
-            
-        Returns:
-            tuple: (success: bool, order_data or error_message)
-        """
         # Validate required fields
         if not shipping_address or not shipping_address.strip():
             return False, "Shipping address is required"
@@ -87,9 +73,17 @@ class OrderService:
             # Generate unique order number
             order_number = OrderService._generate_order_number()
             
-            # Ensure unique order number
-            while order_model.get_by_id(order_number):  # This won't work as expected
+            ## Ensure unique order number
+            max_attempts = 10
+            attempts = 0
+            while attempts < max_attempts:
+                if not order_model.get_by_order_number(order_number):
+                    break
                 order_number = OrderService._generate_order_number()
+                attempts += 1
+
+            if attempts >= max_attempts:
+                return False, "Failed to generate unique order number"
             
             # Get customer email if logged in
             if customer_id and not contact_email:
@@ -113,7 +107,6 @@ class OrderService:
             # Create order items from cart
             for cart_item in cart_items:
                 # Calculate subtotal
-                from app.models import Product
                 product_model = Product()
                 product = product_model.get_by_id(cart_item['product_id'])
                 
@@ -167,32 +160,19 @@ class OrderService:
         except Exception as e:
             return False, f"Failed to create order: {str(e)}"
     
+
+    # Generate unique order number
     @staticmethod
-    def _generate_order_number():
-        """
-        Generate unique order number
-        
-        Returns:
-            str: Order number (e.g., "ORD-20250110123")
-        """
+    def _generate_order_number(): 
         timestamp = datetime.now().strftime('%y%m%d')
         random_suffix = ''.join(random.choices(string.digits, k=3))
         return f"ORD-{timestamp}{random_suffix}"
     
+
+    # Get orders for a customer
     @staticmethod
     def get_customer_orders(customer_id, page=1, per_page=20, status_filter=None):
-        """
-        Get orders for a customer
         
-        Args:
-            customer_id (int): Customer ID
-            page (int): Page number
-            per_page (int): Items per page
-            status_filter (str, optional): Filter by order status
-            
-        Returns:
-            tuple: (orders_list, total_count, total_pages)
-        """
         try:
             order_model = Order()
             orders = order_model.get_by_customer(customer_id)
@@ -202,7 +182,7 @@ class OrderService:
                 orders = [o for o in orders if o.get('order_status') == status_filter]
             
             # Sort by created_at descending
-            orders.sort(key=lambda x: x.get('created_at') or datetime.min, reverse=True)
+            orders.sort(key=lambda x: x.get('created_at') or datetime.now().min, reverse=True)
             
             total_count = len(orders)
             total_pages = (total_count + per_page - 1) // per_page
@@ -233,20 +213,10 @@ class OrderService:
             print(f"Error getting customer orders: {str(e)}")
             return [], 0, 0
     
+
+    # Get order by ID with ownership check
     @staticmethod
-    def get_order_by_id(order_id, customer_id=None, session_id=None, include_items=True):
-        """
-        Get order by ID with ownership check
-        
-        Args:
-            order_id (int): Order ID
-            customer_id (int, optional): Customer ID for ownership check
-            session_id (str, optional): Session ID for ownership check
-            include_items (bool): Include order items in response
-            
-        Returns:
-            tuple: (success: bool, order_data or error_message)
-        """
+    def get_order_by_id(order_id, customer_id=None, session_id=None, include_items=True): 
         try:
             order_model = Order()
             order = order_model.get_by_id(order_id)
@@ -295,7 +265,6 @@ class OrderService:
                 
                 items = []
                 for item in order_items:
-                    from app.models import Product, Category
                     product_model = Product()
                     product = product_model.get_by_id(item['product_id'])
                     
@@ -332,25 +301,14 @@ class OrderService:
         except Exception as e:
             return False, f"Failed to get order: {str(e)}"
     
+    # Get order by order number
     @staticmethod
-    def get_order_by_number(order_number, customer_id=None, session_id=None):
-        """
-        Get order by order number
-        
-        Args:
-            order_number (str): Order number
-            customer_id (int, optional): Customer ID for ownership check
-            session_id (str, optional): Session ID for ownership check
-            
-        Returns:
-            tuple: (success: bool, order_data or error_message)
-        """
+    def get_order_by_number(order_number, customer_id=None, session_id=None): 
         try:
-            # Note: You may need to add a get_by_order_number method to Order model
-            # For now, we'll need to search through orders
+            
             order_model = Order()
             
-            # This is inefficient - consider adding get_by_order_number to Order model
+             
             if customer_id:
                 orders = order_model.get_by_customer(customer_id)
                 order = None
@@ -373,19 +331,11 @@ class OrderService:
         except Exception as e:
             return False, str(e)
     
+
+    #  Get order status with history
     @staticmethod
     def get_order_status(order_id, customer_id=None, session_id=None):
-        """
-        Get order status with history
-        
-        Args:
-            order_id (int): Order ID
-            customer_id (int, optional): Customer ID
-            session_id (str, optional): Session ID
-            
-        Returns:
-            tuple: (success: bool, status_data or error_message)
-        """
+         
         try:
             order_model = Order()
             order = order_model.get_by_id(order_id)
@@ -423,20 +373,10 @@ class OrderService:
         except Exception as e:
             return False, str(e)
     
+    #  Cancel an order
     @staticmethod
     def cancel_order(order_id, customer_id=None, session_id=None, reason=None):
-        """
-        Cancel an order
-        
-        Args:
-            order_id (int): Order ID
-            customer_id (int, optional): Customer ID
-            session_id (str, optional): Session ID
-            reason (str, optional): Cancellation reason
-            
-        Returns:
-            tuple: (success: bool, message)
-        """
+         
         try:
             order_model = Order()
             order = order_model.get_by_id(order_id)
@@ -470,17 +410,11 @@ class OrderService:
         except Exception as e:
             return False, f"Failed to cancel order: {str(e)}"
     
+
+    # Get customer's order statistics
     @staticmethod
     def get_customer_order_stats(customer_id):
-        """
-        Get customer's order statistics
-        
-        Args:
-            customer_id (int): Customer ID
-            
-        Returns:
-            dict: Order statistics
-        """
+         
         try:
             order_model = Order()
             orders = order_model.get_by_customer(customer_id)
@@ -510,20 +444,11 @@ class OrderService:
                 'total_spent': 0.0
             }
     
+
+    #  Update order status (admin only)
     @staticmethod
     def update_order_status(order_id, new_status, admin_id=None, notes=None):
-        """
-        Update order status (admin only)
-        
-        Args:
-            order_id (int): Order ID
-            new_status (str): New status
-            admin_id (int, optional): Admin ID who made the change
-            notes (str, optional): Status change notes
-            
-        Returns:
-            tuple: (success: bool, message)
-        """
+         
         # Validate status
         if not Validators.validate_order_status(new_status):
             return False, "Invalid order status"

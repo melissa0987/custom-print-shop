@@ -1,18 +1,19 @@
 """
+app/routes/orders.py
 Orders Routes
 Handles order placement, tracking, and history
-Updated to use psycopg2-based models
 """
+# TODO: use render_template for html
 
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime
-import random
-import string
+ 
 
 from app.models import (
     Order, OrderItem, OrderItemCustomization, OrderStatusHistory,
     ShoppingCart, CartItem, Product, Customer, Category
 )
+from app.utils.helpers import OrderHelper, DateHelper
 
 # Create blueprint
 orders_bp = Blueprint('orders', __name__)
@@ -21,16 +22,8 @@ orders_bp = Blueprint('orders', __name__)
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
-
-def generate_order_number():
-    """Generate unique order number"""
-    timestamp = datetime.now().strftime('%y%m%d')
-    random_suffix = ''.join(random.choices(string.digits, k=3))
-    return f"ORD-{timestamp}{random_suffix}"
-
-
-def format_order_response(order, include_items=True):
-    """Format order data for JSON response"""
+ 
+def format_order_response(order, include_items=True): 
     order_data = {
         'order_id': order['order_id'],
         'order_number': order['order_number'],
@@ -40,11 +33,11 @@ def format_order_response(order, include_items=True):
         'contact_phone': order.get('contact_phone'),
         'contact_email': order.get('contact_email'),
         'notes': order.get('notes'),
-        'created_at': order['created_at'].isoformat() if order.get('created_at') else None,
-        'updated_at': order['updated_at'].isoformat() if order.get('updated_at') else None
+        'created_at': DateHelper.format_datetime(order.get('created_at')),
+        'updated_at': DateHelper.format_datetime(order.get('updated_at'))
     }
-    
-    # Add customer info if available
+
+    # Add customer info
     if order.get('customer_id'):
         customer_model = Customer()
         customer = customer_model.get_by_id(order['customer_id'])
@@ -57,28 +50,25 @@ def format_order_response(order, include_items=True):
             }
     else:
         order_data['customer'] = 'Guest'
-    
+
     # Add items if requested
     if include_items:
         order_item_model = OrderItem()
         order_items = order_item_model.get_by_order(order['order_id'])
-        
         product_model = Product()
         category_model = Category()
-        
+
         items = []
         for order_item in order_items:
             product = product_model.get_by_id(order_item['product_id'])
             category = category_model.get_by_id(product['category_id'])
-            
+
             # Get customizations
-            customizations = {}
-            if order_item.get('customizations'):
-                customizations = {
-                    c['customization_key']: c['customization_value']
-                    for c in order_item['customizations']
-                }
-            
+            customizations = {
+                c['customization_key']: c['customization_value']
+                for c in order_item.get('customizations', [])
+            }
+
             items.append({
                 'order_item_id': order_item['order_item_id'],
                 'product': {
@@ -92,10 +82,10 @@ def format_order_response(order, include_items=True):
                 'design_file_url': order_item.get('design_file_url'),
                 'customizations': customizations
             })
-        
+
         order_data['items'] = items
         order_data['total_items'] = len(items)
-    
+
     return order_data
 
 
@@ -103,35 +93,21 @@ def format_order_response(order, include_items=True):
 # ORDER PLACEMENT
 # ============================================
 
+
+# CHECKOUT Create order from shopping cart
 @orders_bp.route('/checkout', methods=['POST'])
-def checkout():
-    """
-    Create order from shopping cart
-    
-    POST JSON:
-        - shipping_address: string (required)
-        - contact_phone: string (optional)
-        - contact_email: string (required for guests)
-        - notes: string (optional)
-    
-    Returns:
-        JSON order data
-    """
+def checkout(): 
     data = request.get_json()
-    
     shipping_address = data.get('shipping_address', '').strip()
     contact_phone = data.get('contact_phone', '').strip()
     contact_email = data.get('contact_email', '').strip()
     notes = data.get('notes', '').strip()
-    
-    # Validation
+
     if not shipping_address:
         return jsonify({'error': 'Shipping address is required'}), 400
-    
-    # For guest checkout, email is required
     if 'customer_id' not in session and not contact_email:
         return jsonify({'error': 'Contact email is required for guest checkout'}), 400
-    
+
     try:
         cart_model = ShoppingCart()
         cart_item_model = CartItem()
@@ -140,11 +116,11 @@ def checkout():
         order_item_customization_model = OrderItemCustomization()
         order_status_history_model = OrderStatusHistory()
         product_model = Product()
-        
-        # Get cart
+
         now = datetime.now()
         cart = None
-        
+
+        # Determine customer or guest cart
         if 'customer_id' in session:
             carts = cart_model.get_by_customer(session['customer_id'])
             for c in carts:
@@ -163,28 +139,26 @@ def checkout():
             session_id = session['session_id']
         else:
             return jsonify({'error': 'No cart found'}), 404
-        
+
         if not cart:
             return jsonify({'error': 'Cart not found'}), 404
-        
-        # Get cart items
+
         cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
-        
-        if not cart_items or len(cart_items) == 0:
+        if not cart_items:
             return jsonify({'error': 'Cart is empty'}), 400
-        
-        # Calculate total
-        total_amount = cart_model.calculate_total(cart['shopping_cart_id'])
-        
-        # Generate order number
-        order_number = generate_order_number()
-        
-        # Get customer email if logged in
+
+         
+        total_amount = OrderHelper.calculate_order_total(cart_items, product_model)
+
+         
+        order_number = OrderHelper.generate_order_number()
+
+        # Fetch customer email if needed
         if customer_id and not contact_email:
             customer_model = Customer()
             customer = customer_model.get_by_id(customer_id)
             contact_email = customer.get('email') if customer else None
-        
+
         # Create order
         order_id = order_model.create(
             order_number=order_number,
@@ -197,71 +171,56 @@ def checkout():
             contact_email=contact_email,
             notes=notes or None
         )
-        
-        # Create order items from cart items
+
+        # Create order items from cart
         for cart_item in cart_items:
             product = product_model.get_by_id(cart_item['product_id'])
-            unit_price = float(product['base_price'])
-            quantity = cart_item['quantity']
-            
             order_item_id = order_item_model.create(
                 order_id=order_id,
                 product_id=cart_item['product_id'],
-                quantity=quantity,
-                unit_price=unit_price,
+                quantity=cart_item['quantity'],
+                unit_price=float(product['base_price']),
                 design_file_url=cart_item.get('design_file_url')
             )
-            
+
             # Copy customizations
-            if cart_item.get('customizations'):
-                for customization in cart_item['customizations']:
-                    order_item_customization_model.create(
-                        order_item_id=order_item_id,
-                        customization_key=customization['customization_key'],
-                        customization_value=customization['customization_value']
-                    )
-        
-        # Create initial status history
+            for customization in cart_item.get('customizations', []):
+                order_item_customization_model.create(
+                    order_item_id=order_item_id,
+                    customization_key=customization['customization_key'],
+                    customization_value=customization['customization_value']
+                )
+
+        # Create initial status
         order_status_history_model.create(
             order_id=order_id,
             status='pending',
             notes='Order created'
         )
-        
+
         # Clear cart
         for item in cart_items:
             cart_item_model.delete(item['cart_item_id'])
-        
-        # Get the created order
+
         order = order_model.get_by_id(order_id)
-        
         return jsonify({
             'message': 'Order placed successfully',
             'order': format_order_response(order)
         }), 201
-            
+
     except Exception as e:
         return jsonify({'error': f'Failed to place order: {str(e)}'}), 500
+
 
 
 # ============================================
 # ORDER RETRIEVAL
 # ============================================
 
+# Get customer's order history
 @orders_bp.route('/', methods=['GET'])
 @orders_bp.route('/list', methods=['GET'])
-def get_orders():
-    """
-    Get customer's order history
-    
-    Query Parameters:
-        - status: string (optional) - filter by status
-        - page: int (optional, default=1)
-        - per_page: int (optional, default=10)
-    
-    Returns:
-        JSON list of orders
-    """
+def get_orders(): 
     # Customer must be logged in
     if 'customer_id' not in session:
         return jsonify({'error': 'Customer login required'}), 401
@@ -281,7 +240,7 @@ def get_orders():
             orders = [o for o in orders if o.get('order_status') == status_filter]
         
         # Sort by created_at descending
-        orders.sort(key=lambda x: x.get('created_at') or datetime.min, reverse=True)
+        orders.sort(key=lambda x: x.get('created_at') or datetime.now().min, reverse=True)
         
         # Get total count
         total_orders = len(orders)
@@ -300,8 +259,8 @@ def get_orders():
                 'order_status': o['order_status'],
                 'total_amount': float(o['total_amount']),
                 'total_items': len(order_items),
-                'created_at': o['created_at'].isoformat() if o.get('created_at') else None,
-                'updated_at': o['updated_at'].isoformat() if o.get('updated_at') else None
+                'created_at': DateHelper.format_datetime(o.get('created_at')),
+                'updated_at': DateHelper.format_datetime(o.get('updated_at')),  
             })
         
         # Pagination info
@@ -323,14 +282,9 @@ def get_orders():
         return jsonify({'error': f'Failed to get orders: {str(e)}'}), 500
 
 
+# Get order details by ID
 @orders_bp.route('/<int:order_id>', methods=['GET'])
-def get_order(order_id):
-    """
-    Get order details by ID
-    
-    Returns:
-        JSON order details with items
-    """
+def get_order(order_id): 
     try:
         order_model = Order()
         order = order_model.get_by_id(order_id)
@@ -354,14 +308,9 @@ def get_order(order_id):
         return jsonify({'error': f'Failed to get order: {str(e)}'}), 500
 
 
+# Get order by order number
 @orders_bp.route('/number/<order_number>', methods=['GET'])
-def get_order_by_number(order_number):
-    """
-    Get order by order number
-    
-    Returns:
-        JSON order details
-    """
+def get_order_by_number(order_number): 
     try:
         order_model = Order()
         
@@ -389,14 +338,9 @@ def get_order_by_number(order_number):
 # ORDER STATUS
 # ============================================
 
+# Get order status with history
 @orders_bp.route('/<int:order_id>/status', methods=['GET'])
-def get_order_status(order_id):
-    """
-    Get order status with history
-    
-    Returns:
-        JSON order status and history
-    """
+def get_order_status(order_id): 
     try:
         order_model = Order()
         order = order_model.get_by_id(order_id)
@@ -422,7 +366,7 @@ def get_order_status(order_id):
         for status_record in status_records:
             history.append({
                 'status': status_record['status'],
-                'changed_at': status_record['changed_at'].isoformat() if status_record.get('changed_at') else None,
+                'changed_at': DateHelper.format_datetime(status_record.get('changed_at')),
                 'changed_by': order_status_history_model.get_changed_by_name(status_record),
                 'notes': status_record.get('notes')
             })
@@ -441,17 +385,9 @@ def get_order_status(order_id):
 # ORDER CANCELLATION
 # ============================================
 
+# Cancel order (only if pending or processing)
 @orders_bp.route('/<int:order_id>/cancel', methods=['POST'])
-def cancel_order(order_id):
-    """
-    Cancel order (only if pending or processing)
-    
-    POST JSON:
-        - reason: string (optional)
-    
-    Returns:
-        JSON success message
-    """
+def cancel_order(order_id): 
     data = request.get_json() or {}
     reason = data.get('reason', 'Customer requested cancellation')
     
@@ -505,14 +441,9 @@ def cancel_order(order_id):
 # ORDER STATISTICS
 # ============================================
 
+# Get customer's order statistics
 @orders_bp.route('/stats', methods=['GET'])
-def get_order_stats():
-    """
-    Get customer's order statistics
-    
-    Returns:
-        JSON with order counts and totals
-    """
+def get_order_stats(): 
     # Customer must be logged in
     if 'customer_id' not in session:
         return jsonify({'error': 'Customer login required'}), 401

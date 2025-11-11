@@ -1,7 +1,8 @@
 """
+app/services/product_service.py
 Product Service
 Business logic for product and category management
-Updated to use psycopg2-based models
+
 """
 
 from app.models import Product, Category
@@ -14,30 +15,12 @@ from app.utils import (
 )
 
 
-class ProductService:
-    """Service class for product operations"""
+class ProductService: 
     
+    # Get products with filtering and pagination
     @staticmethod
-    def get_all_products(category_id=None, search_term=None, min_price=None,
-                         max_price=None, is_active=True, page=1, per_page=20,
-                         sort_by='name', sort_order='asc'):
-        """
-        Get products with filtering and pagination
-        
-        Args:
-            category_id (int, optional): Filter by category
-            search_term (str, optional): Search in name and description
-            min_price (float, optional): Minimum price
-            max_price (float, optional): Maximum price
-            is_active (bool): Filter active products only
-            page (int): Page number
-            per_page (int): Items per page
-            sort_by (str): Sort field (name, price, newest)
-            sort_order (str): Sort order (asc, desc)
-            
-        Returns:
-            tuple: (products, total_count, total_pages)
-        """
+    def get_all_products(category_id=None, search_term=None, min_price=None, max_price=None, is_active=True, page=1, per_page=20, sort_by='name', sort_order='asc'):
+         
         try:
             product_model = Product()
             
@@ -50,7 +33,7 @@ class ProductService:
             
             # Search filter
             if search_term:
-                search_term = StringHelper.clean_whitespace(search_term).lower()
+                search_term = StringHelper.clean(search_term).lower()
                 products = [
                     p for p in products
                     if search_term in p.get('product_name', '').lower() or
@@ -88,18 +71,11 @@ class ProductService:
             print(f"[ProductService] Error getting products: {e}")
             return [], 0, 0
     
+
+    #  Get product by ID
     @staticmethod
     def get_product_by_id(product_id, is_active=True):
-        """
-        Get product by ID
-        
-        Args:
-            product_id (int): Product ID
-            is_active (bool): Check if product is active
-            
-        Returns:
-            dict or None: Product data
-        """
+         
         try:
             product_model = Product()
             product = product_model.get_by_id(product_id)
@@ -114,25 +90,17 @@ class ProductService:
         except Exception:
             return None
     
+
+    # Search products by keyword
     @staticmethod
     def search_products(search_query, category_id=None, limit=10):
-        """
-        Search products by keyword
         
-        Args:
-            search_query (str): Search query
-            category_id (int, optional): Filter by category
-            limit (int): Maximum results
-            
-        Returns:
-            list: List of products
-        """
         if not search_query:
             return []
         
         try:
             product_model = Product()
-            search_query = StringHelper.clean_whitespace(search_query).lower()
+            search_query = StringHelper.clean(search_query).lower()
             
             products = product_model.get_all(active_only=True)
             
@@ -151,17 +119,11 @@ class ProductService:
         except Exception:
             return []
     
+
+    # Get featured products (newest)
     @staticmethod
     def get_featured_products(limit=10):
-        """
-        Get featured products (newest)
         
-        Args:
-            limit (int): Number of products
-            
-        Returns:
-            list: List of products
-        """
         try:
             product_model = Product()
             products = product_model.get_all(active_only=True)
@@ -173,17 +135,11 @@ class ProductService:
         except Exception:
             return []
     
+
+    #  Get popular products (most ordered)
     @staticmethod
     def get_popular_products(limit=10):
-        """
-        Get popular products (most ordered)
         
-        Args:
-            limit (int): Number of products
-            
-        Returns:
-            list: List of tuples (product, order_count)
-        """
         try:
             product_model = Product()
             products = product_model.get_all(active_only=True)
@@ -201,14 +157,11 @@ class ProductService:
         except Exception:
             return []
     
+
+    # Get min and max price of active products
     @staticmethod
     def get_price_range():
-        """
-        Get min and max price of active products
-        
-        Returns:
-            tuple: (min_price, max_price)
-        """
+         
         try:
             product_model = Product()
             products = product_model.get_all(active_only=True)
@@ -221,17 +174,11 @@ class ProductService:
         except Exception:
             return 0.0, 0.0
     
+
+    # Get all categories
     @staticmethod
     def get_all_categories(include_inactive=False):
-        """
-        Get all categories
-        
-        Args:
-            include_inactive (bool): Include inactive categories
-            
-        Returns:
-            list: List of categories
-        """
+         
         try:
             category_model = Category()
             categories = category_model.get_all()
@@ -246,18 +193,11 @@ class ProductService:
         except Exception:
             return []
     
+
+    #  Get category by ID
     @staticmethod
     def get_category_by_id(category_id, include_inactive=False):
-        """
-        Get category by ID
-        
-        Args:
-            category_id (int): Category ID
-            include_inactive (bool): Include inactive category
-            
-        Returns:
-            dict or None: Category data
-        """
+         
         try:
             category_model = Category()
             category = category_model.get_by_id(category_id)
@@ -272,18 +212,11 @@ class ProductService:
         except Exception:
             return None
 
+
+    # Get products in a category
     @staticmethod
     def get_products_by_category(category_id, is_active=True):
-        """
-        Get products in a category
         
-        Args:
-            category_id (int): Category ID
-            is_active (bool): Filter active products
-            
-        Returns:
-            list: List of products
-        """
         try:
             product_model = Product()
             products = product_model.get_by_category(category_id)
@@ -298,17 +231,11 @@ class ProductService:
         except Exception:
             return []
     
+
+    #  Get product statistics
     @staticmethod
     def get_product_statistics(product_id):
-        """
-        Get product statistics
-        
-        Args:
-            product_id (int): Product ID
-            
-        Returns:
-            dict: Product statistics or None
-        """
+         
         try:
             product_model = Product()
             product = product_model.get_by_id(product_id)
@@ -324,19 +251,10 @@ class ProductService:
         except Exception:
             return None
     
+
+    #  Update product (admin only)
     @staticmethod
     def update_product(admin_id, product_id, **kwargs):
-        """
-        Update product (admin only)
-        
-        Args:
-            admin_id (int): Admin ID
-            product_id (int): Product ID
-            **kwargs: Fields to update
-            
-        Returns:
-            tuple: (success: bool, product or error_message)
-        """
         allowed_fields = ["product_name", "description", "base_price", "is_active", "category_id"]
 
         try:
@@ -359,7 +277,7 @@ class ProductService:
                     value = float(value)
 
                 elif key in ("product_name", "description"):
-                    value = StringHelper.clean_whitespace(value)
+                    value = StringHelper.clean(value)
 
                 update_data[key] = value
 
@@ -379,24 +297,14 @@ class ProductService:
         except Exception as e:
             return False, f"Failed to update product: {str(e)}"
     
+
+    # Create new product (admin only)
     @staticmethod
     def create_product(admin_id, category_id, product_name, description, base_price):
-        """
-        Create new product (admin only)
-        
-        Args:
-            admin_id (int): Admin ID
-            category_id (int): Category ID
-            product_name (str): Product name
-            description (str): Description
-            base_price (float): Base price
-            
-        Returns:
-            tuple: (success: bool, product or error_message)
-        """
+         
         # Input sanitization
-        product_name = StringHelper.clean_whitespace(product_name)
-        description = StringHelper.clean_whitespace(description)
+        product_name = StringHelper.clean(product_name)
+        description = StringHelper.clean(description)
 
         # Validation
         if not product_name:

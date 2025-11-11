@@ -1,21 +1,21 @@
 """
+app/services/file_service.py
 File Service
 Business logic for file upload and management
-Updated to use psycopg2-based models
+
 """
 
 import os
 from datetime import datetime, timedelta
-from werkzeug.utils import secure_filename
-from uuid import uuid4
+from zoneinfo import ZoneInfo
+from werkzeug.utils import secure_filename 
 
 from app.models import UploadedFile, CartItem, OrderItem
 from app.utils.helpers import FileHelper
 from app.utils.validators import Validators
 
 
-class FileService:
-    """Service class for file operations"""
+class FileService: 
     
     # Allowed file extensions
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'ai', 'svg', 'psd'}
@@ -100,20 +100,10 @@ class FileService:
         except Exception as e:
             return False, f"Failed to save file: {str(e)}"
     
+
+    # Save multiple uploaded files
     @staticmethod
-    def save_multiple_files(files, customer_id=None, session_id=None, upload_folder=None):
-        """
-        Save multiple uploaded files
-        
-        Args:
-            files: List of FileStorage objects
-            customer_id (int, optional): Customer ID
-            session_id (str, optional): Session ID
-            upload_folder (str): Base upload folder path
-            
-        Returns:
-            tuple: (uploaded_files: list, errors: list)
-        """
+    def save_multiple_files(files, customer_id=None, session_id=None, upload_folder=None): 
         uploaded_files = []
         errors = []
         
@@ -132,18 +122,20 @@ class FileService:
 
         return uploaded_files, errors
 
+
+    # Retrieve file record by ID
     @staticmethod
-    def get_file_by_id(file_id):
-        """Retrieve file record by ID."""
+    def get_file_by_id(file_id): 
         try:
             uploaded_file_model = UploadedFile()
             return uploaded_file_model.get_by_id(file_id)
         except Exception:
             return None
     
+
+    # Fetch all files associated with a user or guest session.
     @staticmethod
-    def get_user_files(customer_id=None, session_id=None):
-        """Fetch all files associated with a user or guest session."""
+    def get_user_files(customer_id=None, session_id=None): 
         try:
             uploaded_file_model = UploadedFile()
             
@@ -155,14 +147,15 @@ class FileService:
                 return []
             
             # Sort by uploaded_at descending
-            files.sort(key=lambda x: x.get('uploaded_at') or datetime.min, reverse=True)
+            files.sort(key=lambda x: x.get('uploaded_at') or datetime.now().min, reverse=True)
             return files
         except Exception:
             return []
     
+
+    # Delete a file and its record if user owns it.
     @staticmethod
-    def delete_file(file_id, customer_id=None, session_id=None, upload_folder=None):
-        """Delete a file and its record if user owns it."""
+    def delete_file(file_id, customer_id=None, session_id=None, upload_folder=None): 
         try:
             uploaded_file_model = UploadedFile()
             file = uploaded_file_model.get_by_id(file_id)
@@ -193,9 +186,10 @@ class FileService:
         except Exception as e:
             return False, f"Failed to delete file: {str(e)}"
     
+
+    # Check if a user owns a file (or is admin)
     @staticmethod
-    def verify_file_ownership(file_id, customer_id=None, session_id=None, is_admin=False):
-        """Check if a user owns a file (or is admin)."""
+    def verify_file_ownership(file_id, customer_id=None, session_id=None, is_admin=False): 
         try:
             uploaded_file_model = UploadedFile()
             file = uploaded_file_model.get_by_id(file_id)
@@ -211,9 +205,10 @@ class FileService:
         except Exception:
             return False
     
+
+    # Return summary statistics of a user's files.
     @staticmethod
-    def get_file_statistics(customer_id=None):
-        """Return summary statistics of a user's files."""
+    def get_file_statistics(customer_id=None): 
         try:
             if not customer_id:
                 return {"total_files": 0}
@@ -230,21 +225,44 @@ class FileService:
         except Exception:
             return {"total_files": 0}
     
+
+    # Clean up orphaned files (not attached to cart or order).
     @staticmethod
-    def cleanup_orphaned_files(days_old=30):
-        """Clean up orphaned files (not attached to cart or order)."""
+    def cleanup_orphaned_files(days_old=30, upload_folder='uploads'): 
+        """Clean up orphaned files (not attached to cart or order) older than X days"""
         try:
-            # This would require getting all files and checking their age
-            # For now, return 0 as placeholder
-            # You may need to add a method to UploadedFile model for this
-            return 0
+            from datetime import timedelta
+            uploaded_file_model = UploadedFile()
+            cutoff_date = datetime.now() - timedelta(days=days_old)
+            deleted_count = 0
+            
+            orphaned = uploaded_file_model.get_orphaned_files(cutoff_date)
+            
+            for file in orphaned:
+                # Delete physical file
+                try:
+                    file_path = file['file_url'].replace("/static/", "")
+                    full_path = os.path.join(upload_folder, file_path)
+                    if os.path.exists(full_path):
+                        os.remove(full_path)
+                except Exception as e:
+                    print(f"Error deleting physical file {file['file_id']}: {e}")
+                
+                # Delete database record
+                uploaded_file_model.delete(file['file_id'])
+                deleted_count += 1
+            
+            print(f"Cleaned up {deleted_count} orphaned files")
+            return deleted_count
+            
         except Exception as e:
             print(f"Cleanup failed: {e}")
             return 0
         
+
+    # Return upload configuration for frontend display.
     @staticmethod
-    def get_file_info():
-        """Return upload configuration for frontend display."""
+    def get_file_info(): 
         return {
             "allowed_extensions": list(FileService.ALLOWED_EXTENSIONS),
             "max_file_size_bytes": FileService.MAX_FILE_SIZE,

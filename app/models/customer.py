@@ -1,35 +1,47 @@
 """
+app/models/customer.py
 Customer Model  
 Represents customers who can place orders
 """
 
-import psycopg2
-import psycopg2.extras
-from datetime import datetime
-from flask import current_app
+from app.database import get_cursor
+from datetime import datetime 
+ 
+
 from  .shopping_cart import ShoppingCart
 from  .order import Order
 from  .uploaded_file import UploadedFile
 
 
-class Customer:
-    """Customers table"""
+class Customer: 
+    def __init__( self, customer_id=None, username=None, password_hash=None,  email=None, first_name=None, last_name=None, phone_number=None, is_active=True,  created_at=None, last_login=None
+    ):
+        self.customer_id = customer_id
+        self.username = username
+        self.password_hash = password_hash  # Store only hashed password
+        self.email = email
+        self.first_name = first_name
+        self.last_name = last_name
+        self.phone_number = phone_number
+        self.is_active = is_active
+        self.created_at = created_at or datetime.now()
+        self.last_login = last_login
 
-    def __init__(self):
-        self.conn = psycopg2.connect(
-            current_app.config['SQLALCHEMY_DATABASE_URI'].replace(
-                "postgresql+psycopg2", "postgresql"
-            ),
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
-
-    def __del__(self):
-        try:
-            if self.conn:
-                self.conn.close()
-        except Exception:
-            pass
-
+    def to_dict(self, include_sensitive=False): 
+        data = {
+            'customer_id': self.customer_id,
+            'username': self.username,
+            'email': self.email,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'phone_number': self.phone_number,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat(),
+            'last_login': self.last_login.isoformat() if self.last_login else None
+        }
+        if include_sensitive:
+            data['password_hash'] = self.password_hash
+        return data
     # ---------------------
     # CREATE
     # ---------------------
@@ -40,11 +52,11 @@ class Customer:
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING customer_id;
         """
-        now = datetime.utcnow()
+        now = datetime.now()
         values = (username, email, password_hash, first_name, last_name, phone_number, is_active, now)
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, values)
-            self.conn.commit()
+             
             return cur.fetchone()["customer_id"]
 
     # ---------------------
@@ -52,7 +64,7 @@ class Customer:
     # ---------------------
     def get_by_id(self, customer_id):
         sql = "SELECT * FROM customers WHERE customer_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (customer_id,))
             customer = cur.fetchone()
             if customer:
@@ -63,7 +75,7 @@ class Customer:
 
     def get_by_username(self, username):
         sql = "SELECT * FROM customers WHERE username = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor(commit=False) as cur:
             cur.execute(sql, (username,))
             return cur.fetchone()
 
@@ -84,9 +96,9 @@ class Customer:
 
         sql = f"UPDATE customers SET {', '.join(updates)} WHERE customer_id = %s;"
         values.append(customer_id)
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, tuple(values))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------
@@ -94,9 +106,9 @@ class Customer:
     # ---------------------
     def delete(self, customer_id):
         sql = "DELETE FROM customers WHERE customer_id = %s;"
-        with self.conn.cursor() as cur:
+        with get_cursor() as cur:
             cur.execute(sql, (customer_id,))
-            self.conn.commit()
+             
             return cur.rowcount > 0
 
     # ---------------------
@@ -121,7 +133,7 @@ class Customer:
         return f"{customer['first_name']} {customer['last_name']}"
 
     def get_active_cart(self, customer):
-        now = datetime.utcnow()
+        now = datetime.now()
         for cart in customer.get('shopping_carts', []):
             if cart['expires_at'] and cart['expires_at'] > now:
                 return cart
@@ -135,3 +147,14 @@ class Customer:
 
     def get_order_count(self, customer):
         return len(customer.get('orders', []))
+    
+    def get_all(self, limit=None):
+        """Get all customers"""
+        sql = "SELECT * FROM customers ORDER BY created_at DESC"
+        if limit:
+            sql += f" LIMIT {limit};"
+        else:
+            sql += ";"
+        with get_cursor(commit=False) as cur:
+            cur.execute(sql)
+            return cur.fetchall()
