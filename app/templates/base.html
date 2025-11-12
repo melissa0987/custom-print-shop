@@ -23,7 +23,8 @@
                         <li><span style="color: #f5a623;">Admin: {{ session.get('admin_username') }}</span></li>
                         <li>
                             <form method="POST" action="{{ url_for('auth.admin_logout') }}" style="display: inline;">
-                                <button type="submit" style="background: none; border: none; color: white; cursor: pointer; font-size: inherit;">
+                                <button type="submit" 
+                                    style="display: inline-block; padding: 8px 16px; background-color: #f5a623; color: white; border-radius: 4px; text-decoration: none;">
                                     Logout
                                 </button>
                             </form>
@@ -35,18 +36,18 @@
                         <li><a href="{{ url_for('customer.profile') }}">Profile</a></li> 
                         <li><a href="{{ url_for('orders.get_orders') }}">My Orders</a></li>
                         <li>
-                            <form method="POST" action="{{ url_for('auth.logout') }}" style="display: inline;">
-                                <button type="submit" style="background: none; border: none; color: white; cursor: pointer; font-size: inherit;">
-                                    Logout
-                                </button>
-                            </form>
+                            <a class="button-link guest-auth" 
+                                href="{{ url_for('auth.logout') }}" > 
+                                Logout
+                            </a> 
                         </li>
                     {% else %}
                         <!-- Guest Menu -->
                         <li><a href="{{ url_for('main.homepage') }}">Home</a></li>
                         <li><a href="{{ url_for('products.get_products') }}">Products</a></li>
                         <li>
-                            <a class="button-link guest-auth" href="{{ url_for('auth.login') }}" style="display: inline-block; padding: 8px 16px; background-color: #f5a623; color: white; border-radius: 4px; text-decoration: none;">
+                            <a class="button-link guest-auth" 
+                                href="{{ url_for('auth.login') }}" > 
                                 Login / Register
                             </a>
                         </li>
