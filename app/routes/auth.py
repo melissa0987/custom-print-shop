@@ -5,9 +5,12 @@ Handles customer and admin authentication (registration, login, logout)
 """
 
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.models import Customer, AdminUser
+from app.models.cart_item import CartItem
+from app.models.cart_item_customization import CartItemCustomization
+from app.models.shopping_cart import ShoppingCart
 from app.utils import (
     login_required,
     admin_required,
@@ -147,8 +150,11 @@ def login():
             return render_template('auth/login.html')
 
         customer_model.update(customer['customer_id'], last_login=datetime.now())
+
         session['customer_id'] = customer['customer_id']
         session['username'] = customer['username']
+        merge_guest_cart_to_user(customer['customer_id'])
+
         session.permanent = True
 
         if request.is_json:
@@ -210,3 +216,70 @@ def change_password():
             
     except Exception as e:
         return jsonify({'error': f'Failed to change password: {str(e)}'}), 500
+
+def merge_guest_cart_to_user(customer_id):
+    """Merge guest cart items into logged-in user's cart"""
+    if 'session_id' not in session:
+        return
+
+    session_id = session['session_id']
+    cart_model = ShoppingCart()
+    cart_item_model = CartItem()
+    customization_model = CartItemCustomization()
+
+    # Get guest cart
+    guest_carts = cart_model.get_by_session(session_id)
+    if not guest_carts:
+        return
+    guest_cart = guest_carts[0]
+
+    # Get user cart (or create if none)
+    user_carts = cart_model.get_by_customer(customer_id)
+    now = datetime.now()
+    if user_carts:
+        user_cart = user_carts[0]
+    else:
+        cart_id = cart_model.create(
+            customer_id=customer_id,
+            expires_at=now + timedelta(days=30)
+        )
+        user_cart = cart_model.get_by_id(cart_id)
+
+    # Merge guest cart items
+    guest_items = cart_item_model.get_by_cart(guest_cart['shopping_cart_id'])
+    user_items = cart_item_model.get_by_cart(user_cart['shopping_cart_id'])
+    user_item_map = {item['product_id']: item for item in user_items}
+
+    for item in guest_items:
+        if item['product_id'] in user_item_map:
+            # Increment quantity if product exists in user cart
+            existing_item = user_item_map[item['product_id']]
+            new_qty = existing_item['quantity'] + item['quantity']
+            cart_item_model.update(existing_item['cart_item_id'], quantity=new_qty)
+        else:
+            # Move item to user cart
+            new_item_id = cart_item_model.create(
+                shopping_cart_id=user_cart['shopping_cart_id'],
+                product_id=item['product_id'],
+                quantity=item['quantity'],
+                design_file_url=item.get('design_file_url')
+            )
+            # Move customizations if any
+            customizations = customization_model.get_by_cart_item(item['cart_item_id'])
+            for c in customizations:
+                customization_model.create(
+                    cart_item_id=new_item_id,
+                    customization_key=c['customization_key'],
+                    customization_value=c['customization_value']
+                )
+
+    # Delete guest cart
+    for item in guest_items:
+        cart_item_model.delete(item['cart_item_id'])
+    cart_model.delete(guest_cart['shopping_cart_id'])
+
+    # Remove session_id
+    session.pop('session_id', None)
+
+    # Update cart count
+    session['cart_count'] = cart_item_model.get_total_items(user_cart['shopping_cart_id'])

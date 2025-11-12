@@ -156,3 +156,11 @@ class CartItem:
                 quantity=int(quantity),
                 design_file_url=design_file_url
             )
+        
+    def get_total_items(self, shopping_cart_id):
+        """Return the total number of items (sum of quantities) in a given cart"""
+        sql = "SELECT COALESCE(SUM(quantity), 0) AS total_items FROM cart_items WHERE shopping_cart_id = %s;"
+        with get_cursor(commit=False) as cur:
+            cur.execute(sql, (shopping_cart_id,))
+            row = cur.fetchone()
+            return row['total_items'] if row else 0
