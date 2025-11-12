@@ -45,41 +45,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===================================
     // Cart Quantity Updates
     // ===================================
-    const quantityInputs = document.querySelectorAll('.quantity-input[data-item-id]');
-    quantityInputs.forEach(input => {
-        let debounceTimer;
-        input.addEventListener('input', function() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                updateCartItemQuantity(this.dataset.itemId, this.value);
-            }, 500); // Update after 500ms of no input
+        document.querySelectorAll('.btn-update').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const itemId = e.target.dataset.itemId;
+            const qtyInput = e.target.closest('.item-quantity').querySelector('.quantity-input');
+            const newQty = qtyInput.value;
+
+            try {
+                const response = await fetch(`/cart/update/${itemId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ quantity: newQty })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Reload page to reflect totals
+                    location.reload();
+                } else {
+                    alert(result.error || 'Failed to update item');
+                }
+            } catch (err) {
+                alert('Error updating cart item');
+                console.error(err);
+            }
         });
     });
-    
-    function updateCartItemQuantity(itemId, quantity) {
-        if (quantity < 1) return;
-        
-        fetch(`/cart/update/${itemId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ quantity: parseInt(quantity) })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                showNotification('Error updating quantity', 'error');
-            } else {
-                // Reload page to update totals
-                location.reload();
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Failed to update quantity', 'error');
-        });
-    }
+
     
     // ===================================
     // Form Validation
@@ -281,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 1000);
             }
         });
-    });
+    }); 
     
     // ===================================
     // Search Functionality

@@ -12,9 +12,9 @@
             <p class="user-info">Shopping as Guest | <a href="{{ url_for('auth.login') }}">Login</a> to save your cart</p>
         {% endif %}
 
-        {% if cart.items %}
+        {% if cart['items'] %}
             <div class="cart-items">
-                {% for item in cart.items %}
+                {% for item in cart['items'] %}
                 <div class="cart-item">
                     <div class="item-image">
                         {% if item.design_file_url %}
@@ -46,6 +46,7 @@
                         <label>Quantity:</label>
                         <input type="number" value="{{ item.quantity }}" min="1" 
                                data-item-id="{{ item.cart_item_id }}" class="quantity-input">
+                        <button type="button" class="btn-update" data-item-id="{{ item.cart_item_id }}">Update</button>
                     </div>
                     
                     <div class="item-total">
@@ -98,6 +99,6 @@
         {% endif %}
     </div>
 </section>
-
  
 {% endblock %}
+
