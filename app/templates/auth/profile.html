@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}My Profile - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="profile-page">
+    <div class="container">
+        <h1>My Profile</h1>
+        
+        <div class="profile-grid">
+            <!-- Profile Information -->
+            <div class="profile-info">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Account Information</h2>
+                        <a href="{{ url_for('customer.edit_profile') }}" class="btn-edit">Edit Profile</a>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="label">Username:</span>
+                            <span class="value">{{ customer.username }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="label">Email:</span>
+                            <span class="value">{{ customer.email }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="label">Full Name:</span>
+                            <span class="value">{{ customer.first_name }} {{ customer.last_name }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="label">Phone:</span>
+                            <span class="value">{{ customer.phone_number or 'Not provided' }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="label">Account Status:</span>
+                            <span class="value">
+                                {% if customer.is_active %}
+                                    <span class="status-badge active">Active</span>
+                                {% else %}
+                                    <span class="status-badge inactive">Inactive</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="label">Member Since:</span>
+                            <span class="value">{{ customer.created_at.strftime('%Y-%m-%d') if customer.created_at else 'N/A' }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="label">Last Login:</span>
+                            <span class="value">{{ customer.last_login.strftime('%Y-%m-%d') if customer.last_login else 'Never' }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Account Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Account Actions</h2>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="action-buttons">
+                            <a href="{{ url_for('customer.change_password_page') }}" class="btn-action">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/>
+                                </svg>
+                                Change Password
+                            </a>
+                            
+                            <a href="{{ url_for('orders.get_orders') }}" class="btn-action">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+                                </svg>
+                                View Orders
+                            </a>
+                            
+                            <a href="{{ url_for('cart.view_cart') }}" class="btn-action">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5"/>
+                                </svg>
+                                Shopping Cart
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Order Statistics -->
+            <div class="profile-stats">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Order Statistics</h2>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon">📦</div>
+                                <div class="stat-value">{{ stats.total_orders }}</div>
+                                <div class="stat-label">Total Orders</div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">✅</div>
+                                <div class="stat-value">{{ stats.completed_orders }}</div>
+                                <div class="stat-label">Completed</div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">⏳</div>
+                                <div class="stat-value">{{ stats.pending_orders }}</div>
+                                <div class="stat-label">Pending</div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">💰</div>
+                                <div class="stat-value">${{ "%.2f"|format(stats.total_spent) }}</div>
+                                <div class="stat-label">Total Spent</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="quick-actions">
+                            <a href="{{ url_for('products.get_products') }}" class="quick-action-btn">
+                                Continue Shopping
+                            </a>
+                            <a href="{{ url_for('orders.get_orders') }}" class="quick-action-btn">
+                                Track Orders
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.profile-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 200px);
+}
+
+.profile-page .container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.profile-page h1 {
+    margin-bottom: 2rem;
+    color: #333;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.btn-edit {
+    padding: 0.5rem 1rem;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+}
+
+.btn-edit:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-row .label {
+    font-weight: 600;
+    color: #666;
+}
+
+.info-row .value {
+    color: #333;
+    text-align: right;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.action-buttons,
+.quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.btn-action,
+.quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: #f8f9fa;
+    border: 2px solid #667eea;
+    color: #667eea;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-action:hover,
+.quick-action-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    color: white;
+}
+
+.stat-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+@media (max-width: 968px) {
+    .profile-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

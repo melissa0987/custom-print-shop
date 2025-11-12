@@ -158,3 +158,16 @@ class Customer:
         with get_cursor(commit=False) as cur:
             cur.execute(sql)
             return cur.fetchall()
+
+
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField
+from wtforms.validators import DataRequired, Email, Optional
+
+class EditProfileForm(FlaskForm):
+    first_name = StringField('First Name', validators=[DataRequired()])
+    last_name = StringField('Last Name', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    phone = StringField('Phone', validators=[Optional()])
+    password = PasswordField('New Password', validators=[Optional()])
+    confirm_password = PasswordField('Confirm Password', validators=[Optional()])

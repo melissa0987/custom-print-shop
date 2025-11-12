@@ -13,8 +13,8 @@ class ShoppingCart:
         self.shopping_cart_id = shopping_cart_id
         self.customer_id = customer_id
         self.session_id = session_id
-        self.created_at = created_at or datetime.now()()
-        self.updated_at = updated_at or datetime.now()()
+        self.created_at = created_at or datetime.now()
+        self.updated_at = updated_at or datetime.now()
         self.expires_at = expires_at or (self.created_at + timedelta(days=30))
 
     def to_dict(self):
@@ -33,8 +33,8 @@ class ShoppingCart:
         if (customer_id is None and session_id is None) or (customer_id and session_id):
             raise ValueError("Cart must have either a customer_id or session_id, not both.")
 
-        expires_at = expires_at or (datetime.now()() + timedelta(days=30))
-        now = datetime.now()()
+        expires_at = expires_at or (datetime.now() + timedelta(days=30))
+        now = datetime.now()
 
         sql = """
             INSERT INTO shopping_carts (customer_id, session_id, created_at, updated_at, expires_at)

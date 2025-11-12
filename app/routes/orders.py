@@ -3,17 +3,15 @@ app/routes/orders.py
 Orders Routes
 Handles order placement, tracking, and history
 """
-# TODO: use render_template for html
-
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, render_template, flash, redirect, url_for
 from datetime import datetime
- 
 
 from app.models import (
     Order, OrderItem, OrderItemCustomization, OrderStatusHistory,
     ShoppingCart, CartItem, Product, Customer, Category
 )
 from app.utils.helpers import OrderHelper, DateHelper
+from app.utils import login_required
 
 # Create blueprint
 orders_bp = Blueprint('orders', __name__)
@@ -90,23 +88,49 @@ def format_order_response(order, include_items=True):
 
 
 # ============================================
-# ORDER PLACEMENT
+# CHECKOUT PAGE
 # ============================================
+
+@orders_bp.route('/checkout', methods=['GET'])
+def checkout_page():
+    """Render checkout page"""
+    # Get cart data
+    from app.routes.cart import get_or_create_cart, format_cart_response
+    
+    cart = get_or_create_cart()
+    if not cart:
+        flash('No cart found', 'error')
+        return redirect(url_for('products.get_products'))
+    
+    cart_data = format_cart_response(cart)
+    
+    if not cart_data['items']:
+        flash('Your cart is empty', 'error')
+        return redirect(url_for('cart.view_cart'))
+    
+    return render_template('orders/checkout.html', cart=cart_data)
 
 
 # CHECKOUT Create order from shopping cart
 @orders_bp.route('/checkout', methods=['POST'])
 def checkout(): 
-    data = request.get_json()
+    data = request.form.to_dict() or request.get_json() or {}
     shipping_address = data.get('shipping_address', '').strip()
     contact_phone = data.get('contact_phone', '').strip()
     contact_email = data.get('contact_email', '').strip()
     notes = data.get('notes', '').strip()
 
     if not shipping_address:
-        return jsonify({'error': 'Shipping address is required'}), 400
+        if request.is_json:
+            return jsonify({'error': 'Shipping address is required'}), 400
+        flash('Shipping address is required', 'error')
+        return redirect(url_for('orders.checkout_page'))
+    
     if 'customer_id' not in session and not contact_email:
-        return jsonify({'error': 'Contact email is required for guest checkout'}), 400
+        if request.is_json:
+            return jsonify({'error': 'Contact email is required for guest checkout'}), 400
+        flash('Contact email is required for guest checkout', 'error')
+        return redirect(url_for('orders.checkout_page'))
 
     try:
         cart_model = ShoppingCart()
@@ -138,19 +162,25 @@ def checkout():
             customer_id = None
             session_id = session['session_id']
         else:
-            return jsonify({'error': 'No cart found'}), 404
+            if request.is_json:
+                return jsonify({'error': 'No cart found'}), 404
+            flash('No cart found', 'error')
+            return redirect(url_for('cart.view_cart'))
 
         if not cart:
-            return jsonify({'error': 'Cart not found'}), 404
+            if request.is_json:
+                return jsonify({'error': 'Cart not found'}), 404
+            flash('Cart not found', 'error')
+            return redirect(url_for('cart.view_cart'))
 
         cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
         if not cart_items:
-            return jsonify({'error': 'Cart is empty'}), 400
+            if request.is_json:
+                return jsonify({'error': 'Cart is empty'}), 400
+            flash('Cart is empty', 'error')
+            return redirect(url_for('cart.view_cart'))
 
-         
         total_amount = OrderHelper.calculate_order_total(cart_items, product_model)
-
-         
         order_number = OrderHelper.generate_order_number()
 
         # Fetch customer email if needed
@@ -202,15 +232,25 @@ def checkout():
         for item in cart_items:
             cart_item_model.delete(item['cart_item_id'])
 
+        # Update session cart count
+        session['cart_count'] = 0
+
         order = order_model.get_by_id(order_id)
-        return jsonify({
-            'message': 'Order placed successfully',
-            'order': format_order_response(order)
-        }), 201
+        
+        if request.is_json:
+            return jsonify({
+                'message': 'Order placed successfully',
+                'order': format_order_response(order)
+            }), 201
+        
+        flash(f'Order #{order_number} placed successfully!', 'success')
+        return redirect(url_for('orders.get_order', order_id=order_id))
 
     except Exception as e:
-        return jsonify({'error': f'Failed to place order: {str(e)}'}), 500
-
+        if request.is_json:
+            return jsonify({'error': f'Failed to place order: {str(e)}'}), 500
+        flash(f'Failed to place order: {str(e)}', 'error')
+        return redirect(url_for('orders.checkout_page'))
 
 
 # ============================================
@@ -220,11 +260,8 @@ def checkout():
 # Get customer's order history
 @orders_bp.route('/', methods=['GET'])
 @orders_bp.route('/list', methods=['GET'])
+@login_required
 def get_orders(): 
-    # Customer must be logged in
-    if 'customer_id' not in session:
-        return jsonify({'error': 'Customer login required'}), 401
-    
     status_filter = request.args.get('status')
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 10, type=int), 50)
@@ -240,18 +277,18 @@ def get_orders():
             orders = [o for o in orders if o.get('order_status') == status_filter]
         
         # Sort by created_at descending
-        orders.sort(key=lambda x: x.get('created_at') or datetime.now().min, reverse=True)
+        orders.sort(key=lambda x: x.get('created_at') or datetime.min, reverse=True)
         
         # Get total count
         total_orders = len(orders)
         
         # Pagination
         offset = (page - 1) * per_page
-        orders = orders[offset:offset + per_page]
+        orders_page = orders[offset:offset + per_page]
         
         # Format results
         result = []
-        for o in orders:
+        for o in orders_page:
             order_items = order_item_model.get_by_order(o['order_id'])
             result.append({
                 'order_id': o['order_id'],
@@ -266,20 +303,29 @@ def get_orders():
         # Pagination info
         total_pages = (total_orders + per_page - 1) // per_page
         
-        return jsonify({
-            'orders': result,
-            'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total_orders': total_orders,
-                'total_pages': total_pages,
-                'has_next': page < total_pages,
-                'has_prev': page > 1
-            }
-        }), 200
+        pagination = {
+            'page': page,
+            'per_page': per_page,
+            'total_orders': total_orders,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
+        
+        # Get stats
+        from app.services.order_service import OrderService
+        stats = OrderService.get_customer_order_stats(session['customer_id'])
+        
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({'orders': result, 'pagination': pagination, 'stats': stats}), 200
+        
+        return render_template('orders/list.html', orders=result, pagination=pagination, stats=stats)
             
     except Exception as e:
-        return jsonify({'error': f'Failed to get orders: {str(e)}'}), 500
+        if request.accept_mimetypes.accept_json:
+            return jsonify({'error': f'Failed to get orders: {str(e)}'}), 500
+        flash(f'Failed to get orders: {str(e)}', 'error')
+        return redirect(url_for('main.homepage'))
 
 
 # Get order details by ID
@@ -290,22 +336,42 @@ def get_order(order_id):
         order = order_model.get_by_id(order_id)
         
         if not order:
-            return jsonify({'error': 'Order not found'}), 404
+            if request.accept_mimetypes.accept_json:
+                return jsonify({'error': 'Order not found'}), 404
+            flash('Order not found', 'error')
+            return redirect(url_for('orders.get_orders'))
         
         # Check ownership (customer or guest session)
         if 'customer_id' in session:
             if order.get('customer_id') != session['customer_id']:
-                return jsonify({'error': 'Access denied'}), 403
+                if request.accept_mimetypes.accept_json:
+                    return jsonify({'error': 'Access denied'}), 403
+                flash('Access denied', 'error')
+                return redirect(url_for('orders.get_orders'))
         elif 'session_id' in session:
             if order.get('session_id') != session['session_id']:
-                return jsonify({'error': 'Access denied'}), 403
+                if request.accept_mimetypes.accept_json:
+                    return jsonify({'error': 'Access denied'}), 403
+                flash('Access denied', 'error')
+                return redirect(url_for('main.homepage'))
         else:
-            return jsonify({'error': 'Authentication required'}), 401
+            if request.accept_mimetypes.accept_json:
+                return jsonify({'error': 'Authentication required'}), 401
+            flash('Please log in to view your order', 'error')
+            return redirect(url_for('auth.login'))
         
-        return jsonify({'order': format_order_response(order)}), 200
+        order_data = format_order_response(order)
+        
+        if request.accept_mimetypes.accept_json:
+            return jsonify({'order': order_data}), 200
+        
+        return render_template('orders/detail.html', order=order_data)
             
     except Exception as e:
-        return jsonify({'error': f'Failed to get order: {str(e)}'}), 500
+        if request.accept_mimetypes.accept_json:
+            return jsonify({'error': f'Failed to get order: {str(e)}'}), 500
+        flash(f'Failed to get order: {str(e)}', 'error')
+        return redirect(url_for('orders.get_orders'))
 
 
 # Get order by order number
@@ -326,7 +392,7 @@ def get_order_by_number(order_number):
             if not order:
                 return jsonify({'error': 'Order not found'}), 404
             
-            return jsonify({'order': format_order_response(order)}), 200
+            return redirect(url_for('orders.get_order', order_id=order['order_id']))
         else:
             return jsonify({'error': 'Customer login required'}), 401
             
@@ -388,7 +454,7 @@ def get_order_status(order_id):
 # Cancel order (only if pending or processing)
 @orders_bp.route('/<int:order_id>/cancel', methods=['POST'])
 def cancel_order(order_id): 
-    data = request.get_json() or {}
+    data = request.get_json() or request.form.to_dict() or {}
     reason = data.get('reason', 'Customer requested cancellation')
     
     try:
@@ -396,23 +462,37 @@ def cancel_order(order_id):
         order = order_model.get_by_id(order_id)
         
         if not order:
-            return jsonify({'error': 'Order not found'}), 404
+            if request.is_json:
+                return jsonify({'error': 'Order not found'}), 404
+            flash('Order not found', 'error')
+            return redirect(url_for('orders.get_orders'))
         
         # Check ownership
         if 'customer_id' in session:
             if order.get('customer_id') != session['customer_id']:
-                return jsonify({'error': 'Access denied'}), 403
+                if request.is_json:
+                    return jsonify({'error': 'Access denied'}), 403
+                flash('Access denied', 'error')
+                return redirect(url_for('orders.get_orders'))
         elif 'session_id' in session:
             if order.get('session_id') != session['session_id']:
-                return jsonify({'error': 'Access denied'}), 403
+                if request.is_json:
+                    return jsonify({'error': 'Access denied'}), 403
+                flash('Access denied', 'error')
+                return redirect(url_for('main.homepage'))
         else:
-            return jsonify({'error': 'Authentication required'}), 401
+            if request.is_json:
+                return jsonify({'error': 'Authentication required'}), 401
+            flash('Please log in', 'error')
+            return redirect(url_for('auth.login'))
         
         # Check if order can be cancelled
         if not order_model.can_be_cancelled(order):
-            return jsonify({
-                'error': f'Order cannot be cancelled (current status: {order["order_status"]})'
-            }), 400
+            error_msg = f'Order cannot be cancelled (current status: {order["order_status"]})'
+            if request.is_json:
+                return jsonify({'error': error_msg}), 400
+            flash(error_msg, 'error')
+            return redirect(url_for('orders.get_order', order_id=order_id))
         
         # Update order status
         order_model.update_status(order_id, 'cancelled')
@@ -428,13 +508,20 @@ def cancel_order(order_id):
         # Get updated order
         order = order_model.get_by_id(order_id)
         
-        return jsonify({
-            'message': 'Order cancelled successfully',
-            'order': format_order_response(order, include_items=False)
-        }), 200
+        if request.is_json:
+            return jsonify({
+                'message': 'Order cancelled successfully',
+                'order': format_order_response(order, include_items=False)
+            }), 200
+        
+        flash('Order cancelled successfully', 'success')
+        return redirect(url_for('orders.get_order', order_id=order_id))
             
     except Exception as e:
-        return jsonify({'error': f'Failed to cancel order: {str(e)}'}), 500
+        if request.is_json:
+            return jsonify({'error': f'Failed to cancel order: {str(e)}'}), 500
+        flash(f'Failed to cancel order: {str(e)}', 'error')
+        return redirect(url_for('orders.get_orders'))
 
 
 # ============================================
@@ -443,11 +530,8 @@ def cancel_order(order_id):
 
 # Get customer's order statistics
 @orders_bp.route('/stats', methods=['GET'])
+@login_required
 def get_order_stats(): 
-    # Customer must be logged in
-    if 'customer_id' not in session:
-        return jsonify({'error': 'Customer login required'}), 401
-    
     try:
         order_model = Order()
         orders = order_model.get_by_customer(session['customer_id'])

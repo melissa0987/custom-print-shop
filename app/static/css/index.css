@@ -1,3 +1,18 @@
+.logout-button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1em;
+    text-decoration: underline; /* optional, to mimic a link */
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+}
+.logout-button:hover {
+    color: #f5a623; /* hover color */
+}
+
 /* ==========================
    Hero Section
 ========================== */

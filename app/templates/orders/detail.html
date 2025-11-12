@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.order_number }} - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="order-detail-page">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav class="breadcrumb">
+            <a href="{{ url_for('main.homepage') }}">Home</a> /
+            <a href="{{ url_for('orders.get_orders') }}">My Orders</a> /
+            <span>Order #{{ order.order_number }}</span>
+        </nav>
+
+        <!-- Order Header -->
+        <div class="order-header-card">
+            <div class="order-title">
+                <h1>Order #{{ order.order_number }}</h1>
+                <span class="status-badge status-{{ order.order_status }}">
+                    {{ order.order_status | capitalize }}
+                </span>
+            </div>
+            
+            <div class="order-meta">
+                <div class="meta-item">
+                    <strong>Order Date:</strong> {{ order.created_at }}
+                </div>
+                <div class="meta-item">
+                    <strong>Last Updated:</strong> {{ order.updated_at }}
+                </div>
+                {% if order.customer and order.customer != 'Guest' %}
+                <div class="meta-item">
+                    <strong>Customer:</strong> {{ order.customer.full_name }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="order-detail-grid">
+            <!-- Order Items -->
+            <div class="order-items-section">
+                <h2>Order Items</h2>
+                
+                {% if order.items %}
+                    {% for item in order.items %}
+                    <div class="order-item">
+                        <div class="item-image">
+                            {% if item.design_file_url %}
+                                <img src="{{ item.design_file_url }}" alt="{{ item.product.product_name }}">
+                            {% else %}
+                                <div class="placeholder">🖨️</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="item-details">
+                            <h3>{{ item.product.product_name }}</h3>
+                            <p class="category">{{ item.product.category_name }}</p>
+                            
+                            {% if item.customizations %}
+                            <div class="customizations">
+                                <strong>Customizations:</strong>
+                                <ul>
+                                    {% for key, value in item.customizations.items() %}
+                                        <li>{{ key }}: {{ value }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="item-pricing">
+                                <p><strong>Quantity:</strong> {{ item.quantity }}</p>
+                                <p><strong>Unit Price:</strong> ${{ "%.2f"|format(item.unit_price) }}</p>
+                                <p><strong>Subtotal:</strong> ${{ "%.2f"|format(item.subtotal) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Order Summary -->
+            <div class="order-summary-section">
+                <!-- Shipping Information -->
+                <div class="info-card">
+                    <h3>Shipping Information</h3>
+                    <div class="info-content">
+                        <p><strong>Address:</strong></p>
+                        <p>{{ order.shipping_address }}</p>
+                        
+                        {% if order.contact_phone %}
+                        <p><strong>Phone:</strong> {{ order.contact_phone }}</p>
+                        {% endif %}
+                        
+                        {% if order.contact_email %}
+                        <p><strong>Email:</strong> {{ order.contact_email }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Order Total -->
+                <div class="info-card">
+                    <h3>Order Summary</h3>
+                    <div class="total-breakdown">
+                        <div class="total-row">
+                            <span>Total Amount:</span>
+                            <span class="total-amount">${{ "%.2f"|format(order.total_amount) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Notes -->
+                {% if order.notes %}
+                <div class="info-card">
+                    <h3>Order Notes</h3>
+                    <div class="info-content">
+                        <p>{{ order.notes }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Order Actions -->
+                <div class="order-actions">
+                    <a href="{{ url_for('orders.get_order_status', order_id=order.order_id) }}" 
+                       class="btn-secondary">View Status History</a>
+                    
+                    {% if order.order_status in ['pending', 'processing'] %}
+                        <form method="POST" 
+                              action="{{ url_for('orders.cancel_order', order_id=order.order_id) }}"
+                              onsubmit="return confirm('Are you sure you want to cancel this order?')">
+                            <button type="submit" class="btn-cancel">Cancel Order</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.order-detail-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 200px);
+}
+
+.order-detail-page .container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.breadcrumb {
+    margin-bottom: 2rem;
+    color: #666;
+}
+
+.breadcrumb a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.order-header-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.order-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.order-title h1 {
+    margin: 0;
+    color: #333;
+}
+
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-processing {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-cancelled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.order-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.meta-item {
+    color: #666;
+}
+
+.meta-item strong {
+    color: #333;
+}
+
+.order-detail-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+}
+
+.order-items-section,
+.order-summary-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.order-items-section h2,
+.info-card h3 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.order-item {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.item-image img,
+.item-image .placeholder {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.item-image .placeholder {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+}
+
+.item-details {
+    flex: 1;
+}
+
+.item-details h3 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.category {
+    color: #667eea;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.customizations {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.customizations ul {
+    margin: 0.5rem 0 0 1rem;
+    color: #666;
+}
+
+.item-pricing p {
+    margin: 0.25rem 0;
+    color: #666;
+}
+
+.info-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.info-content p {
+    margin: 0.5rem 0;
+    color: #666;
+}
+
+.info-content strong {
+    color: #333;
+}
+
+.total-breakdown {
+    padding-top: 1rem;
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 0;
+    border-top: 2px solid #333;
+}
+
+.total-amount {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.order-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.btn-secondary,
+.btn-cancel {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    text-align: center;
+    text-decoration: none;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    display: block;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-cancel {
+    background: #dc3545;
+    color: white;
+    width: 100%;
+}
+
+.btn-cancel:hover {
+    background: #c82333;
+}
+
+@media (max-width: 968px) {
+    .order-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .order-item {
+        flex-direction: column;
+    }
+    
+    .item-image img,
+    .item-image .placeholder {
+        width: 100%;
+        height: 200px;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}{{ product.product_name }} - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="product-detail-page">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav class="breadcrumb">
+            <a href="{{ url_for('main.homepage') }}">Home</a> /
+            <a href="{{ url_for('products.get_products') }}">Products</a> /
+            {% if product.category %}
+            <a href="{{ url_for('products.get_category', category_id=product.category.category_id) }}">
+                {{ product.category.category_name }}
+            </a> /
+            {% endif %}
+            <span>{{ product.product_name }}</span>
+        </nav>
+
+        <div class="product-detail-grid">
+            <!-- Product Image -->
+            <div class="product-image-section">
+                <div class="main-image">
+                    <div class="placeholder-image">🖨️</div>
+                </div>
+            </div>
+
+            <!-- Product Info -->
+            <div class="product-info-section">
+                <h1>{{ product.product_name }}</h1>
+                
+                {% if product.category %}
+                <p class="category-badge">{{ product.category.category_name }}</p>
+                {% endif %}
+                
+                <div class="price-section">
+                    <span class="price">{{ product.base_price_formatted }}</span>
+                    <span class="price-label">Base Price</span>
+                </div>
+
+                {% if product.description %}
+                <div class="description">
+                    <h3>Description</h3>
+                    <p>{{ product.description }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Add to Cart Form -->
+                <form method="POST" action="{{ url_for('cart.add_to_cart') }}" class="add-to-cart-form">
+                    <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                    
+                    <div class="form-group">
+                        <label for="quantity">Quantity:</label>
+                        <input type="number" id="quantity" name="quantity" value="1" min="1" max="100" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customizations">Customization Notes (optional):</label>
+                        <textarea id="customizations" name="notes" rows="3" 
+                                  placeholder="Add any special customization requests..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-add-to-cart">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5"/>
+                        </svg>
+                        Add to Cart
+                    </button>
+                </form>
+
+                <!-- Product Features -->
+                <div class="product-features">
+                    <h3>Features</h3>
+                    <ul>
+                        <li>✓ High-quality printing</li>
+                        <li>✓ Custom designs welcome</li>
+                        <li>✓ Fast turnaround time</li>
+                        <li>✓ 100% satisfaction guarantee</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Products -->
+        {% if product.category %}
+        <div class="related-products">
+            <h2>More in {{ product.category.category_name }}</h2>
+            <a href="{{ url_for('products.get_category', category_id=product.category.category_id) }}" 
+               class="btn-view-all">View All</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<style>
+.product-detail-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 200px);
+}
+
+.product-detail-page .container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.breadcrumb {
+    margin-bottom: 2rem;
+    color: #666;
+}
+
+.breadcrumb a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.product-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 3rem;
+}
+
+.product-image-section .main-image {
+    position: sticky;
+    top: 100px;
+}
+
+.placeholder-image {
+    width: 100%;
+    height: 500px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8rem;
+}
+
+.product-info-section h1 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.category-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: #667eea;
+    color: white;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+.price-section {
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.price {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 0.25rem;
+}
+
+.price-label {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.description {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #eee;
+}
+
+.description h3 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.description p {
+    line-height: 1.6;
+    color: #666;
+}
+
+.add-to-cart-form {
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.btn-add-to-cart {
+    width: 100%;
+    padding: 1.25rem;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: background 0.3s;
+}
+
+.btn-add-to-cart:hover {
+    background: #5a67d8;
+}
+
+.product-features {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.product-features h3 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.product-features ul {
+    list-style: none;
+    padding: 0;
+}
+
+.product-features li {
+    padding: 0.5rem 0;
+    color: #666;
+}
+
+.related-products {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.btn-view-all {
+    padding: 0.75rem 1.5rem;
+    background: #667eea;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn-view-all:hover {
+    background: #5a67d8;
+}
+
+@media (max-width: 968px) {
+    .product-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .product-image-section .main-image {
+        position: static;
+    }
+}
+</style>
+{% endblock %}

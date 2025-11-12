@@ -18,10 +18,7 @@ from werkzeug.security import generate_password_hash
 from app.services.auth_service import AuthService
 
 # Create blueprint
-auth_bp = Blueprint('auth', __name__)
-hash_scrypt = generate_password_hash("secret123", method="scrypt")
-print(hash_scrypt)
-
+auth_bp = Blueprint('auth', __name__) 
 # ============================================
 # CUSTOMER AUTHENTICATION ROUTES
 # ============================================
@@ -172,12 +169,10 @@ def login():
 # Customer logout
 @auth_bp.route('/logout', methods=['POST', 'GET'])
 @login_required
-def logout(): 
+def logout():
     session.clear()
-    if request.is_json:
-        return jsonify({'message': 'Logout successful'}), 200
-    flash('You have been logged out', 'success')
-    return redirect(url_for('auth.login'))
+    flash('Logged out successfully', 'success')
+    return redirect(url_for('main.homepage'))
 
 # ============================================
 # PASSWORD CHANGE

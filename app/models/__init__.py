@@ -5,7 +5,7 @@ Exports all SQL models for the custom printing website
 """
 
 from app.models.admin_user import AdminUser
-from app.models.customer import Customer
+from app.models.customer import Customer, EditProfileForm
 from app.models.category import Category
 from app.models.product import Product
 from app.models.shopping_cart import ShoppingCart
@@ -32,4 +32,5 @@ __all__ = [
     'UploadedFile',
     'OrderStatusHistory',
     'AdminActivityLog',
+    'EditProfileForm'
 ]

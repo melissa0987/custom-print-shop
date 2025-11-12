@@ -6,7 +6,7 @@ Handles admin panel operations (orders, products, customers, reports)
 """
 # TODO: use render_template for html
 
-from flask import Blueprint, request, jsonify, session 
+from flask import Blueprint, flash, redirect, request, jsonify, session, url_for 
 
 from app.models import (
     Order, OrderItem, OrderStatusHistory, Product, Category,
@@ -77,6 +77,14 @@ def get_dashboard():
     except Exception as e:
         return jsonify({'error': f'Failed to get dashboard: {str(e)}'}), 500
 
+ 
+
+@admin_bp.route('/admin-logout', methods=['POST'])
+@admin_required
+def admin_logout():
+    session.clear()
+    flash('Admin logged out', 'success')
+    return redirect(url_for('main.homepage'))
 
 # ============================================
 # ORDER MANAGEMENT

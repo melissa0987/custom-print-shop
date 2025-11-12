@@ -67,10 +67,12 @@ def register_blueprints(app):
     from app.routes.cart import cart_bp
     from app.routes.orders import orders_bp
     from app.routes.files import files_bp
+    from app.routes.customer import customer_bp
 
     app.register_blueprint(main_bp, url_prefix="/")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(customer_bp, url_prefix="/customer")
     app.register_blueprint(products_bp, url_prefix="/products")
     app.register_blueprint(cart_bp, url_prefix="/cart")
     app.register_blueprint(orders_bp, url_prefix="/orders")

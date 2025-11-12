@@ -18,8 +18,7 @@ main_bp = Blueprint('main', __name__)
 # ============================================
 # HOMEPAGE
 # ============================================
-@main_bp.route('/', methods=['GET'])
-@main_bp.route('/', methods=['GET'])
+@main_bp.route('/', methods=['GET'])  
 def homepage():
     """Homepage with featured products, categories, and About info"""
     try:

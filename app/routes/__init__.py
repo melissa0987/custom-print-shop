@@ -12,6 +12,7 @@ from app.routes.auth import auth_bp
 from app.routes.admin import admin_bp
 from app.routes.products import products_bp
 from app.routes.cart import cart_bp
+from app.routes.customer import customer_bp
 from app.routes.orders import orders_bp
 from app.routes.files import files_bp
 
@@ -21,6 +22,7 @@ def register_blueprints(app):
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(products_bp, url_prefix='/products')
     app.register_blueprint(cart_bp, url_prefix='/cart')
+    app.register_blueprint(customer_bp, url_prefix='/customer')
     app.register_blueprint(orders_bp, url_prefix='/orders')
     app.register_blueprint(files_bp, url_prefix='/files')
     
@@ -35,5 +37,6 @@ __all__ = [
     'orders_bp',
     'admin_bp',
     'files_bp',
-    'register_blueprints'
+    'register_blueprints',
+    'customer_bp'
 ]
