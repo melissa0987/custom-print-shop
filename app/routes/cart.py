@@ -5,6 +5,7 @@ Handles shopping cart operations (add, update, remove items)
 """
 from flask import Blueprint, request, jsonify, session, render_template, flash, redirect, url_for
 from datetime import datetime, timedelta
+import uuid
 
 from app.models import (
     ShoppingCart, CartItem, CartItemCustomization,
@@ -21,8 +22,20 @@ cart_bp = Blueprint('cart', __name__)
 # HELPER FUNCTIONS
 # ============================================
 
+def ensure_session_id():
+    """Ensure guest users have a session_id"""
+    if 'customer_id' not in session and 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+        session.permanent = True
+    return session.get('session_id')
+
 def get_or_create_cart(): 
+    """Get or create shopping cart for current user/session"""
     cart_model = ShoppingCart()
+    
+    # Ensure guest has session_id
+    if 'customer_id' not in session:
+        ensure_session_id()
     
     # Check if customer is logged in
     if 'customer_id' in session:
@@ -55,7 +68,21 @@ def get_or_create_cart():
     return cart_model.get_by_id(cart_id)
 
 
+def update_cart_count():
+    """Update cart count in session"""
+    try:
+        cart = get_or_create_cart()
+        if cart:
+            cart_model = ShoppingCart()
+            session['cart_count'] = cart_model.get_total_items(cart['shopping_cart_id'])
+        else:
+            session['cart_count'] = 0
+    except:
+        session['cart_count'] = 0
+
+
 def format_cart_response(cart): 
+    """Format cart data for display"""
     cart_item_model = CartItem()
     product_model = Product()
     category_model = Category()
@@ -66,6 +93,9 @@ def format_cart_response(cart):
     items = []
     for cart_item in cart_items:
         product = product_model.get_by_id(cart_item['product_id'])
+        if not product:
+            continue
+            
         category = category_model.get_by_id(product['category_id'])
         
         # Get customizations
@@ -87,7 +117,7 @@ def format_cart_response(cart):
                 'description': product.get('description'),
                 'base_price': float(product['base_price']),
                 'base_price_formatted': PriceHelper.format_currency(product['base_price']),
-                'category_name': category['category_name']
+                'category_name': category['category_name'] if category else 'Uncategorized'
             },
             'quantity': cart_item['quantity'],
             'design_file_url': cart_item.get('design_file_url'),
@@ -123,11 +153,24 @@ def format_cart_response(cart):
 
 @cart_bp.route('/', methods=['GET'])
 @cart_bp.route('/view', methods=['GET'])
-@guest_or_customer
 def view_cart(): 
+    """View shopping cart"""
+    # Ensure guest has session
+    if 'customer_id' not in session:
+        ensure_session_id()
+    
     try:
         cart = get_or_create_cart()
+        if not cart:
+            if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+                return jsonify({'error': 'Could not create cart'}), 500
+            flash('Could not load cart', 'error')
+            return redirect(url_for('main.homepage'))
+            
         cart_data = format_cart_response(cart)
+        
+        # Update cart count in session
+        session['cart_count'] = cart_data['total_items']
         
         # Check if JSON or HTML
         if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
@@ -143,9 +186,16 @@ def view_cart():
 
 
 @cart_bp.route('/add', methods=['POST'])
-@guest_or_customer
 def add_to_cart(): 
-    data = request.get_json() or request.form.to_dict()
+    """Add item to cart - works for both logged in users and guests"""
+    # Ensure guest has session
+    if 'customer_id' not in session:
+        ensure_session_id()
+    
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form.to_dict()
     
     product_id = data.get('product_id')
     quantity = data.get('quantity', 1)
@@ -179,6 +229,12 @@ def add_to_cart():
         
         # Get or create cart
         cart = get_or_create_cart()
+        if not cart:
+            if request.is_json:
+                return jsonify({'error': 'Failed to create cart'}), 500
+            flash('Failed to create cart', 'error')
+            return redirect(request.referrer or url_for('products.get_products'))
+        
         cart_item_model = CartItem()
         cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
         
@@ -217,11 +273,9 @@ def add_to_cart():
                     customization_value=str(value)
                 )
         
-        # Refresh cart
+        # Refresh cart and update session count
         cart = get_or_create_cart()
         cart_data = format_cart_response(cart)
-        
-        # Update session cart count
         session['cart_count'] = cart_data['total_items']
         
         if request.is_json:
@@ -241,10 +295,16 @@ def add_to_cart():
 
 
 @cart_bp.route('/remove/<int:cart_item_id>', methods=['POST', 'DELETE'])
-@guest_or_customer
 def remove_cart_item(cart_item_id): 
+    """Remove item from cart"""
     try:
         cart = get_or_create_cart()
+        if not cart:
+            if request.is_json:
+                return jsonify({'error': 'Cart not found'}), 404
+            flash('Cart not found', 'error')
+            return redirect(url_for('cart.view_cart'))
+            
         cart_item_model = CartItem()
         cart_item = cart_item_model.get_by_id(cart_item_id)
         
@@ -256,14 +316,12 @@ def remove_cart_item(cart_item_id):
         
         cart_item_model.delete(cart_item_id)
         
-        # Refresh cart
-        cart = get_or_create_cart()
-        cart_data = format_cart_response(cart)
-        
-        # Update session cart count
-        session['cart_count'] = cart_data['total_items']
+        # Update cart count
+        update_cart_count()
         
         if request.is_json:
+            cart = get_or_create_cart()
+            cart_data = format_cart_response(cart)
             return jsonify({
                 'message': 'Item removed from cart',
                 'cart': cart_data
@@ -280,10 +338,16 @@ def remove_cart_item(cart_item_id):
 
 
 @cart_bp.route('/clear', methods=['POST'])
-@guest_or_customer
 def clear_cart(): 
+    """Clear all items from cart"""
     try:
         cart = get_or_create_cart()
+        if not cart:
+            if request.is_json:
+                return jsonify({'error': 'Cart not found'}), 404
+            flash('Cart not found', 'error')
+            return redirect(url_for('cart.view_cart'))
+            
         cart_item_model = CartItem()
         cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
         
@@ -304,3 +368,18 @@ def clear_cart():
             return jsonify({'error': f'Failed to clear cart: {str(e)}'}), 500
         flash(f'Failed to clear cart: {str(e)}', 'error')
         return redirect(url_for('cart.view_cart'))
+
+
+@cart_bp.route('/count', methods=['GET'])
+def get_cart_count():
+    """Get cart item count (useful for AJAX updates)"""
+    try:
+        cart = get_or_create_cart()
+        if cart:
+            cart_model = ShoppingCart()
+            count = cart_model.get_total_items(cart['shopping_cart_id'])
+            session['cart_count'] = count
+            return jsonify({'count': count}), 200
+        return jsonify({'count': 0}), 200
+    except Exception as e:
+        return jsonify({'count': 0, 'error': str(e)}), 500

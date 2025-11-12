@@ -93,7 +93,7 @@ def register():
         if request.is_json:
             return jsonify({'message': 'Registration successful', 'customer': customer}), 201
         flash('Registration successful! You are now logged in.', 'success')
-        return redirect(url_for('main.home'))
+        return redirect(url_for('main.homepage'))
             
     except Exception as e:
         error_msg = f'Registration failed: {str(e)}'

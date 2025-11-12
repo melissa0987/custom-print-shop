@@ -3,7 +3,19 @@
 
 {% block content %}
 <section class="products-page">
-    <div class="container">
+    <div class="container"> 
+        <nav class="breadcrumb">  
+            <a href="{{ url_for('products.get_products') }}">Products</a>
+            {% if current_category %}
+                <span class="breadcrumb-separator">/</span>
+                {% for category in categories %}
+                    {% if category.category_id == current_category %}
+                        <span>{{ category.category_name }}</span>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </nav>
+
         <h1>Our Products</h1>
         
         <!-- Filter Section -->
@@ -11,7 +23,7 @@
             <form method="GET" action="{{ url_for('products.get_products') }}">
                 <div class="filter-group">
                     <label>Category:</label>
-                    <select name="category_id">
+                    <select name="category_id" onchange="this.form.submit()">
                         <option value="">All Categories</option>
                         {% for category in categories %}
                             <option value="{{ category.category_id }}" 
@@ -30,9 +42,17 @@
                 <div class="filter-group">
                     <label>Sort by:</label>
                     <select name="sort_by">
-                        <option value="name">Name</option>
-                        <option value="price">Price</option>
-                        <option value="newest">Newest</option>
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+                        <option value="price" {% if sort_by == 'price' %}selected{% endif %}>Price</option>
+                        <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Order:</label>
+                    <select name="sort_order">
+                        <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                        <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
                     </select>
                 </div>
                 
@@ -52,7 +72,9 @@
                     <div class="product-info">
                         <h3>{{ product.product_name }}</h3>
                         <p class="category">{{ product.category.category_name if product.category else 'Uncategorized' }}</p>
+                        {% if product.description %}
                         <p class="description">{{ product.description }}</p>
+                        {% endif %}
                         <p class="price">{{ product.base_price_formatted }}</p>
                     </div>
                     
@@ -73,26 +95,27 @@
             <!-- Pagination -->
             {% if pagination.total_pages > 1 %}
             <div class="pagination">
-                {% if pagination.page > 1 %}
-                    <a href="?page={{ pagination.page - 1 }}&category_id={{ current_category or '' }}&search={{ search_term or '' }}" 
+                {% if pagination.has_prev %}
+                    <a href="?page={{ pagination.page - 1 }}{% if current_category %}&category_id={{ current_category }}{% endif %}{% if search_term %}&search={{ search_term }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}{% if sort_order %}&sort_order={{ sort_order }}{% endif %}" 
                        class="page-link">Previous</a>
                 {% endif %}
                 
                 <span class="page-info">Page {{ pagination.page }} of {{ pagination.total_pages }}</span>
                 
-                {% if pagination.page < pagination.total_pages %}
-                    <a href="?page={{ pagination.page + 1 }}&category_id={{ current_category or '' }}&search={{ search_term or '' }}" 
+                {% if pagination.has_next %}
+                    <a href="?page={{ pagination.page + 1 }}{% if current_category %}&category_id={{ current_category }}{% endif %}{% if search_term %}&search={{ search_term }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}{% if sort_order %}&sort_order={{ sort_order }}{% endif %}" 
                        class="page-link">Next</a>
                 {% endif %}
             </div>
             {% endif %}
         {% else %}
             <div class="no-products">
-                <p>No products found</p>
+                <p>No products found{% if search_term %} for "{{ search_term }}"{% endif %}</p>
                 <a href="{{ url_for('products.get_products') }}" class="btn-primary">View All Products</a>
             </div>
         {% endif %}
     </div>
 </section>
- 
+
+
 {% endblock %}

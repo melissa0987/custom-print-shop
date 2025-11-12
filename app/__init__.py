@@ -7,7 +7,7 @@ import os
 import logging
 from datetime import datetime
  
-from flask import Flask, g
+from flask import Flask, g, session
 from flask_cors import CORS
 from app.config import get_config
 from app.database import init_db, close_db, health_check
@@ -49,6 +49,9 @@ def create_app(config_class=None):
 
     # Request handlers
     register_request_handlers(app)
+    
+    # Context processors
+    register_context_processors(app)
 
     # Security headers
     apply_security_headers(app)
@@ -93,6 +96,10 @@ def register_request_handlers(app):
     @app.before_request
     def before_request():
         g.start_time = datetime.now()
+        
+        # Initialize cart_count in session if not present
+        if 'cart_count' not in session:
+            session['cart_count'] = 0
 
     @app.after_request
     def after_request(response):
@@ -105,6 +112,16 @@ def register_request_handlers(app):
     def teardown(exception=None):
         if hasattr(g, "db_conn"):
             close_db()
+
+
+def register_context_processors(app):
+    """Register context processors to make variables available in all templates"""
+    @app.context_processor
+    def inject_cart_info():
+        """Inject cart count into all templates"""
+        return {
+            'cart_count': session.get('cart_count', 0)
+        }
 
 
 def apply_security_headers(app):
