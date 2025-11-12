@@ -499,7 +499,10 @@ def get_order_status(order_id):
 # Cancel order (only if pending or processing)
 @orders_bp.route('/<int:order_id>/cancel', methods=['POST'])
 def cancel_order(order_id): 
-    data = request.get_json() or request.form.to_dict() or {}
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form.to_dict()
     reason = data.get('reason', 'Customer requested cancellation')
     
     try:
