@@ -133,7 +133,7 @@ def view_cart():
         if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
             return jsonify({'cart': cart_data}), 200
         
-        return render_template('cart/cartview.html', cart=cart_data)
+        return render_template('cart/view.html', cart=cart_data)
             
     except Exception as e:
         if request.accept_mimetypes.accept_json:

@@ -43,22 +43,6 @@
         </div>
     </div>
 </section>
-
-<script>
-    // FAQ collapse/expand functionality
-    document.querySelectorAll('.faq-question').forEach(button => {
-        button.addEventListener('click', () => {
-            const answer = button.nextElementSibling;
-            const isOpen = answer.style.maxHeight && answer.style.maxHeight !== '0px';
-
-            // Close all answers
-            document.querySelectorAll('.faq-answer').forEach(a => a.style.maxHeight = null);
-
-            if (!isOpen) {
-                answer.style.maxHeight = answer.scrollHeight + "px";
-            }
-        });
-    });
-</script>
+ 
  
 {% endblock %}

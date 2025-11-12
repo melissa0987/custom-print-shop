@@ -2,98 +2,49 @@
 {% block title %}Login - PrintCraft{% endblock %}
 
 {% block content %}
-<main class="auth-page">
-    <section class="auth-form-section">
-        <h1>Login</h1>
-        
-        <!-- Display Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        <form id="login-form" method="POST" action="{{ url_for('auth.login') }}">
-            <!-- Hidden field to preserve next parameter -->
+<main class="auth-container">
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <a href="{{ url_for('auth.login') }}" class="tab active">Login</a>
+      <a href="{{ url_for('auth.register') }}" class="tab">Signup</a>
+    </div>
+
+    <h2>Login Form</h2>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+     <form id="login-form" method="POST" action="{{ url_for('auth.login') }}">
+            <!-- Preserve next parameter -->
             {% if request.args.get('next') %}
                 <input type="hidden" name="next" value="{{ request.args.get('next') }}">
             {% endif %}
-            
+
             <label for="username_or_email">Username or Email</label>
-            <input type="text" name="username_or_email" id="username_or_email" 
-                   value="{{ request.form.get('username_or_email', '') }}" required>
+            <input 
+                type="text" 
+                name="username_or_email" 
+                id="username_or_email" 
+                value="{{ request.form.get('username_or_email', '') }}" 
+                required
+            >
 
             <label for="password">Password</label>
             <input type="password" name="password" id="password" required>
 
-            <button type="submit">Login</button>
+            <button type="submit" class="btn-login">Login</button>
         </form>
-        
-        <p class="auth-footer">
-            Don't have an account? 
-            <a href="{{ url_for('auth.register') }}{% if request.args.get('next') %}?next={{ request.args.get('next') }}{% endif %}">
-                Register here
-            </a>
-        </p>
-    </section>
+
+    <p class="switch-text">
+      Not a member? <a href="{{ url_for('auth.register') }}">Signup now</a>
+    </p>
+  </div>
 </main>
-
-<style>
-.alert {
-    padding: 1rem 1.5rem;
-    margin-bottom: 1.5rem;
-    border-radius: 8px;
-    font-weight: 500;
-    animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.alert-error {
-    background: #f8d7da;
-    color: #721c24;
-    border-left: 4px solid #dc3545;
-}
-
-.alert-success {
-    background: #d4edda;
-    color: #155724;
-    border-left: 4px solid #28a745;
-}
-
-.alert-warning {
-    background: #fff3cd;
-    color: #856404;
-    border-left: 4px solid #ffc107;
-}
-
-.auth-footer {
-    margin-top: 1.5rem;
-    text-align: center;
-    color: #666;
-}
-
-.auth-footer a {
-    color: #667eea;
-    text-decoration: none;
-    font-weight: 600;
-}
-
-.auth-footer a:hover {
-    text-decoration: underline;
-}
-</style>
+ 
 {% endblock %}

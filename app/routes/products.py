@@ -3,8 +3,7 @@ app/routes/products.py
 Products Routes
 Handles product browsing, searching, and category management
 """
-from flask import Blueprint, request, jsonify, render_template, session
-
+from flask import Blueprint, request, jsonify, render_template, session, flash, redirect, url_for
 from app.models import Product, Category
 from app.utils import PriceHelper, StringHelper, PaginationHelper
 
@@ -12,14 +11,15 @@ from app.utils import PriceHelper, StringHelper, PaginationHelper
 products_bp = Blueprint('products', __name__)
 
 
-# ============================================
+# ============================================================
 # CATEGORY ROUTES
-# ============================================
+# ============================================================
 
-# Get all active categories
 @products_bp.route('/categories', methods=['GET'])
-def get_categories(): 
+def get_categories():
+    """Display all product categories."""
     include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
+    wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
 
     try:
         category_model = Category()
@@ -28,60 +28,59 @@ def get_categories():
         if not include_inactive:
             categories = [c for c in categories if c.get('is_active')]
 
-        # Sort by display_order and category_name
+        # Sort by order and name
         categories.sort(key=lambda x: (x.get('display_order', 0), x.get('category_name', '')))
 
-        result = []
-        for category in categories:
-            result.append({
-                'category_id': category['category_id'],
-                'category_name': category['category_name'],
-                'description': StringHelper.truncate_text(category.get('description'), 100),
-                'is_active': category.get('is_active'),
-                'display_order': category.get('display_order'),
-                'product_count': category_model.get_active_product_count(category['category_id']),
-                'slug': StringHelper.slugify(category['category_name']),
-                'created_at': category['created_at'].isoformat() if category.get('created_at') else None
-            })
+        # Format data
+        result = [{
+            'category_id': c['category_id'],
+            'category_name': c['category_name'],
+            'description': StringHelper.truncate_text(c.get('description'), 100),
+            'is_active': c.get('is_active'),
+            'display_order': c.get('display_order'),
+            'product_count': category_model.get_active_product_count(c['category_id']),
+            'slug': StringHelper.slugify(c['category_name']),
+            'created_at': c['created_at'].isoformat() if c.get('created_at') else None
+        } for c in categories]
 
-        # Check if user wants JSON or HTML
-        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+        # JSON only if explicitly requested
+        if wants_json:
             return jsonify({'categories': result}), 200
-        
+
         return render_template('products/categories.html', categories=result)
 
     except Exception as e:
-        return jsonify({'error': f'Failed to get categories: {str(e)}'}), 500
+        if wants_json:
+            return jsonify({'error': str(e)}), 500
+        flash(f'Failed to get categories: {str(e)}', 'error')
+        return redirect(url_for('main.homepage'))
 
 
-# Get category details with products
 @products_bp.route('/categories/<int:category_id>', methods=['GET'])
-def get_category(category_id): 
+def get_category(category_id):
+    """Show a single category and its active products."""
+    wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
+
     try:
         category_model = Category()
         category = category_model.get_by_id(category_id)
-
         if not category:
-            if request.accept_mimetypes.accept_json:
+            if wants_json:
                 return jsonify({'error': 'Category not found'}), 404
+            flash('Category not found', 'error')
             return render_template('errors/404.html'), 404
 
         product_model = Product()
-        products_list = product_model.get_by_category(category_id)
-        products_list = [p for p in products_list if p.get('is_active')]
+        products = [p for p in product_model.get_by_category(category_id) if p.get('is_active')]
 
-        products = [
-            {
-                'product_id': p['product_id'],
-                'product_name': p['product_name'],
-                'description': StringHelper.truncate_text(p.get('description'), 120),
-                'base_price': float(p['base_price']),
-                'base_price_formatted': PriceHelper.format_currency(p['base_price']),
-                'slug': StringHelper.slugify(p['product_name']),
-                'is_active': p.get('is_active')
-            }
-            for p in products_list
-        ]
+        product_data = [{
+            'product_id': p['product_id'],
+            'product_name': p['product_name'],
+            'description': StringHelper.truncate_text(p.get('description'), 120),
+            'base_price': float(p['base_price']),
+            'base_price_formatted': PriceHelper.format_currency(p['base_price']),
+            'slug': StringHelper.slugify(p['product_name']),
+        } for p in products]
 
         category_data = {
             'category_id': category['category_id'],
@@ -89,29 +88,30 @@ def get_category(category_id):
             'description': category.get('description'),
             'slug': StringHelper.slugify(category['category_name']),
             'is_active': category.get('is_active'),
-            'product_count': len(products),
-            'products': products
+            'product_count': len(product_data),
+            'products': product_data
         }
 
-        if request.accept_mimetypes.accept_json:
+        if wants_json:
             return jsonify({'category': category_data}), 200
-        
+
         return render_template('products/category_detail.html', category=category_data)
 
     except Exception as e:
-        return jsonify({'error': f'Failed to get category: {str(e)}'}), 500
+        if wants_json:
+            return jsonify({'error': str(e)}), 500
+        flash(f'Failed to get category: {str(e)}', 'error')
+        return redirect(url_for('products.get_categories'))
 
 
-# ============================================
+# ============================================================
 # PRODUCT LISTING ROUTES
-# ============================================
+# ============================================================
 
-# Get products with filtering and pagination
 @products_bp.route('/', methods=['GET'])
 @products_bp.route('/list', methods=['GET'])
-def get_products(): 
-
-    # Query params
+def get_products():
+    """Display all products with filtering, search, and pagination."""
     category_id = request.args.get('category_id', type=int)
     search_term = request.args.get('search', '').strip()
     min_price = request.args.get('min_price', type=float)
@@ -121,33 +121,28 @@ def get_products():
     sort_by = request.args.get('sort_by', 'name')
     sort_order = request.args.get('sort_order', 'asc')
 
+    wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
+
     try:
         product_model = Product()
         category_model = Category()
 
-        # Get all active products
         products = product_model.get_all(active_only=True)
 
-        # Category filter
+        # --- Filters ---
         if category_id:
             products = [p for p in products if p.get('category_id') == category_id]
 
-        # Search filter
         if search_term:
-            search_lower = search_term.lower()
-            products = [
-                p for p in products
-                if search_lower in p.get('product_name', '').lower() or
-                   search_lower in p.get('description', '').lower()
-            ]
+            s = search_term.lower()
+            products = [p for p in products if s in p.get('product_name', '').lower() or s in p.get('description', '').lower()]
 
-        # Price filters
         if min_price is not None:
             products = [p for p in products if float(p.get('base_price', 0)) >= min_price]
         if max_price is not None:
             products = [p for p in products if float(p.get('base_price', 0)) <= max_price]
 
-        # Sorting
+        # --- Sorting ---
         if sort_by == 'price':
             products.sort(key=lambda x: float(x.get('base_price', 0)), reverse=(sort_order == 'desc'))
         elif sort_by == 'newest':
@@ -155,70 +150,77 @@ def get_products():
         else:
             products.sort(key=lambda x: x.get('product_name', '').lower(), reverse=(sort_order == 'desc'))
 
-        # Pagination using PaginationHelper
+        # --- Pagination ---
         paginated = PaginationHelper.paginate_list(products, page, per_page)
 
-        # Format response
         result = []
-        for product in paginated['items']:
-            category = category_model.get_by_id(product['category_id'])
+        for p in paginated['items']:
+            category = category_model.get_by_id(p['category_id'])
             result.append({
-                'product_id': product['product_id'],
-                'product_name': product['product_name'],
-                'slug': StringHelper.slugify(product['product_name']),
-                'description': StringHelper.truncate_text(product.get('description'), 120),
-                'base_price': float(product['base_price']),
-                'base_price_formatted': PriceHelper.format_currency(product['base_price']),
+                'product_id': p['product_id'],
+                'product_name': p['product_name'],
+                'slug': StringHelper.slugify(p['product_name']),
+                'description': StringHelper.truncate_text(p.get('description'), 120),
+                'base_price': float(p['base_price']),
+                'base_price_formatted': PriceHelper.format_currency(p['base_price']),
                 'category': {
                     'category_id': category['category_id'],
                     'category_name': category['category_name']
                 } if category else None,
-                'is_active': product.get('is_active'),
-                'created_at': product['created_at'].isoformat() if product.get('created_at') else None
+                'is_active': p.get('is_active'),
+                'created_at': p['created_at'].isoformat() if p.get('created_at') else None
             })
 
         pagination_data = {
             'page': paginated['page'],
             'per_page': paginated['per_page'],
             'total_items': paginated['total_items'],
-            'total_pages': paginated['total_pages']
+            'total_pages': max(1, paginated['total_pages']),
+            'has_next': paginated['page'] < paginated['total_pages'],
+            'has_prev': paginated['page'] > 1
         }
 
-        if request.accept_mimetypes.accept_json:
-            return jsonify({
-                'products': result,
-                'pagination': pagination_data
-            }), 200
+        # JSON for API / HTML for browsers
+        if wants_json:
+            return jsonify({'products': result, 'pagination': pagination_data}), 200
 
-        # Get all categories for filter
-        all_categories = category_model.get_all()
-        all_categories = [c for c in all_categories if c.get('is_active')]
+        # --- HTML Rendering ---
+        all_categories = [c for c in category_model.get_all() if c.get('is_active')]
+        categories_for_template = [{'category_id': c['category_id'], 'category_name': c['category_name']} for c in all_categories]
 
-        return render_template('products/list.html', 
-                             products=result, 
-                             pagination=pagination_data,
-                             categories=all_categories,
-                             current_category=category_id,
-                             search_term=search_term)
+        return render_template('products/list.html',
+                               products=result,
+                               pagination=pagination_data,
+                               categories=categories_for_template,
+                               current_category=category_id,
+                               search_term=search_term,
+                               sort_by=sort_by,
+                               sort_order=sort_order)
 
     except Exception as e:
-        return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
+        if wants_json:
+            return jsonify({'error': str(e)}), 500
+        flash(f'Failed to get products: {str(e)}', 'error')
+        return redirect(url_for('main.homepage'))
 
 
-# ============================================
+# ============================================================
 # PRODUCT DETAIL
-# ============================================
+# ============================================================
 
-# Get product details by ID
 @products_bp.route('/<int:product_id>', methods=['GET'])
-def get_product(product_id): 
+def get_product(product_id):
+    """Show single product details."""
+    wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
+
     try:
         product_model = Product()
         product = product_model.get_by_id(product_id)
 
         if not product or not product.get('is_active'):
-            if request.accept_mimetypes.accept_json:
+            if wants_json:
                 return jsonify({'error': 'Product not found'}), 404
+            flash('Product not found or unavailable', 'error')
             return render_template('errors/404.html'), 404
 
         category_model = Category()
@@ -241,10 +243,29 @@ def get_product(product_id):
             'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
         }
 
-        if request.accept_mimetypes.accept_json:
+        if wants_json:
             return jsonify({'product': product_data}), 200
 
         return render_template('products/detail.html', product=product_data)
 
     except Exception as e:
-        return jsonify({'error': f'Failed to get product: {str(e)}'}), 500
+        if wants_json:
+            return jsonify({'error': str(e)}), 500
+        flash(f'Failed to get product: {str(e)}', 'error')
+        return redirect(url_for('products.get_products'))
+
+
+# ============================================================
+# PRODUCT SEARCH
+# ============================================================
+
+@products_bp.route('/search', methods=['GET'])
+def search_products():
+    """Redirect to products list with search parameter."""
+    query = request.args.get('q', '').strip()
+    
+    if not query:
+        flash('Please enter a search term', 'error')
+        return redirect(url_for('products.get_products'))
+    
+    return redirect(url_for('products.get_products', search=query))
