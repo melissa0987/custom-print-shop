@@ -140,7 +140,7 @@ CREATE TABLE orders (
     order_id BIGSERIAL PRIMARY KEY,
     customer_id BIGINT REFERENCES customers(customer_id) ON DELETE SET NULL,
     session_id VARCHAR(255),
-    order_number VARCHAR(50) UNIQUE NOT NULL,
+    order_number VARCHAR(50) UNIQUE,
     order_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (order_status IN ('pending', 'processing', 'completed', 'cancelled')),
     total_amount DECIMAL(10, 2) NOT NULL CHECK (total_amount >= 0),
     shipping_address TEXT NOT NULL,

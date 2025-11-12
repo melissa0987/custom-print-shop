@@ -121,6 +121,33 @@ class Order:
             cur.execute(sql, (order_status, now, updated_by, order_id))
             return cur.rowcount > 0
 
+    def update(self, order_id, fields: dict): 
+        if not fields:
+            return False
+
+        allowed_fields = {
+            'order_number', 'order_status', 'total_amount', 'shipping_address',
+            'contact_phone', 'contact_email', 'notes', 'updated_by'
+        }
+
+        # Filter out invalid keys
+        updates = {k: v for k, v in fields.items() if k in allowed_fields}
+        if not updates:
+            return False
+
+        updates['updated_at'] = datetime.now()
+
+        # Build SET clause dynamically
+        set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+        values = list(updates.values()) + [order_id]
+
+        sql = f"UPDATE orders SET {set_clause} WHERE order_id = %s;"
+
+        with get_cursor() as cur:
+            cur.execute(sql, values)
+            return cur.rowcount > 0
+        
+        
     # ---------------------
     # DELETE
     # ---------------------

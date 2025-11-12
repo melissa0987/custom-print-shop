@@ -134,7 +134,7 @@ def format_cart_response(cart):
     
     return {
         'shopping_cart_id': cart['shopping_cart_id'],
-        'items': items,
+        'items': items,   
         'total_items': cart_model.get_total_items(cart['shopping_cart_id']),
         'total_quantity': cart_model.get_total_quantity(cart['shopping_cart_id']),
         'subtotal': subtotal,
@@ -293,6 +293,66 @@ def add_to_cart():
         flash(f'Failed to add to cart: {str(e)}', 'error')
         return redirect(request.referrer or url_for('products.get_products'))
 
+@cart_bp.route('/update/<int:cart_item_id>', methods=['POST'])
+def update_cart_item(cart_item_id):
+    """Update quantity of a cart item"""
+    try:
+        cart = get_or_create_cart()
+        if not cart:
+            if request.is_json:
+                return jsonify({'error': 'Cart not found'}), 404
+            flash('Cart not found', 'error')
+            return redirect(url_for('cart.view_cart'))
+        
+        # Get new quantity (from JSON or form)
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+        
+        new_quantity = int(data.get('quantity', 1))
+        
+        # Validate
+        is_valid, message = Validators.validate_quantity(new_quantity)
+        if not is_valid:
+            if request.is_json:
+                return jsonify({'error': message}), 400
+            flash(message, 'error')
+            return redirect(url_for('cart.view_cart'))
+        
+        cart_item_model = CartItem()
+        cart_item = cart_item_model.get_by_id(cart_item_id)
+        
+        if not cart_item or cart_item['shopping_cart_id'] != cart['shopping_cart_id']:
+            if request.is_json:
+                return jsonify({'error': 'Cart item not found'}), 404
+            flash('Cart item not found', 'error')
+            return redirect(url_for('cart.view_cart'))
+        
+        # Update quantity
+        cart_item_model.update(cart_item_id, quantity=new_quantity)
+        update_cart_count()
+        
+        # Recalculate totals
+        cart = get_or_create_cart()
+        cart_data = format_cart_response(cart)
+        
+        if request.is_json:
+            return jsonify({
+                'message': 'Cart item updated',
+                'cart': cart_data
+            }), 200
+        
+        flash('Cart updated successfully', 'success')
+        return redirect(url_for('cart.view_cart'))
+    
+    except Exception as e:
+        if request.is_json:
+            return jsonify({'error': f'Failed to update cart item: {str(e)}'}), 500
+        flash(f'Failed to update cart item: {str(e)}', 'error')
+        return redirect(url_for('cart.view_cart'))
+
+
 
 @cart_bp.route('/remove/<int:cart_item_id>', methods=['POST', 'DELETE'])
 def remove_cart_item(cart_item_id): 
@@ -383,62 +443,3 @@ def get_cart_count():
         return jsonify({'count': 0}), 200
     except Exception as e:
         return jsonify({'count': 0, 'error': str(e)}), 500
-    
-@cart_bp.route('/update/<int:cart_item_id>', methods=['POST'])
-def update_cart_item(cart_item_id):
-    """Update quantity of a cart item"""
-    try:
-        cart = get_or_create_cart()
-        if not cart:
-            if request.is_json:
-                return jsonify({'error': 'Cart not found'}), 404
-            flash('Cart not found', 'error')
-            return redirect(url_for('cart.view_cart'))
-        
-        # Get new quantity (from JSON or form)
-        if request.is_json:
-            data = request.get_json()
-        else:
-            data = request.form.to_dict()
-        
-        new_quantity = int(data.get('quantity', 1))
-        
-        # Validate
-        is_valid, message = Validators.validate_quantity(new_quantity)
-        if not is_valid:
-            if request.is_json:
-                return jsonify({'error': message}), 400
-            flash(message, 'error')
-            return redirect(url_for('cart.view_cart'))
-        
-        cart_item_model = CartItem()
-        cart_item = cart_item_model.get_by_id(cart_item_id)
-        
-        if not cart_item or cart_item['shopping_cart_id'] != cart['shopping_cart_id']:
-            if request.is_json:
-                return jsonify({'error': 'Cart item not found'}), 404
-            flash('Cart item not found', 'error')
-            return redirect(url_for('cart.view_cart'))
-        
-        # Update quantity
-        cart_item_model.update(cart_item_id, quantity=new_quantity)
-        update_cart_count()
-        
-        # Recalculate totals
-        cart = get_or_create_cart()
-        cart_data = format_cart_response(cart)
-        
-        if request.is_json:
-            return jsonify({
-                'message': 'Cart item updated',
-                'cart': cart_data
-            }), 200
-        
-        flash('Cart updated successfully', 'success')
-        return redirect(url_for('cart.view_cart'))
-    
-    except Exception as e:
-        if request.is_json:
-            return jsonify({'error': f'Failed to update cart item: {str(e)}'}), 500
-        flash(f'Failed to update cart item: {str(e)}', 'error')
-        return redirect(url_for('cart.view_cart'))

@@ -128,3 +128,31 @@ class CartItem:
         """Add a customization to this cart item"""
         cust_model = CartItemCustomization()
         return cust_model.create(cart_item_id, key, value)
+
+        # ---------------------
+    # ADD OR INCREMENT
+    # ---------------------
+    def add_or_increment(self, shopping_cart_id, product_id, quantity=1, design_file_url=None):
+        """
+        If a product already exists in the cart, increment its quantity.
+        Otherwise, create a new cart item.
+        """
+        # Fetch existing items in the cart
+        existing_items = self.get_by_cart(shopping_cart_id)
+        
+        # Look for the product
+        item = next((i for i in existing_items if i['product_id'] == product_id), None)
+        
+        if item:
+            # Update existing item quantity
+            new_quantity = item['quantity'] + int(quantity)
+            self.update(item['cart_item_id'], quantity=new_quantity)
+            return item['cart_item_id']
+        else:
+            # Create new cart item
+            return self.create(
+                shopping_cart_id=shopping_cart_id,
+                product_id=product_id,
+                quantity=int(quantity),
+                design_file_url=design_file_url
+            )

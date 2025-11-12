@@ -5,6 +5,8 @@ Handles order placement, tracking, and history
 """
 from flask import Blueprint, request, jsonify, session, render_template, flash, redirect, url_for
 from datetime import datetime
+from app.routes.cart import get_or_create_cart, format_cart_response
+import uuid
 
 from app.models import (
     Order, OrderItem, OrderItemCustomization, OrderStatusHistory,
@@ -91,27 +93,31 @@ def format_order_response(order, include_items=True):
 # CHECKOUT PAGE
 # ============================================
 
+# CHECKOUT GET
 @orders_bp.route('/checkout', methods=['GET'])
 def checkout_page():
     """Render checkout page"""
-    # Get cart data
-    from app.routes.cart import get_or_create_cart, format_cart_response
-    
-    cart = get_or_create_cart()
-    if not cart:
-        flash('No cart found', 'error')
-        return redirect(url_for('products.get_products'))
-    
-    cart_data = format_cart_response(cart)
-    
-    if not cart_data['items']:
-        flash('Your cart is empty', 'error')
+    try:
+        # Get cart for current session/user
+        cart = get_or_create_cart()
+        if not cart:
+            flash('No cart found', 'error')
+            return redirect(url_for('products.get_products'))
+
+        # Format cart data for template
+        cart_data = format_cart_response(cart)
+
+        if not cart_data['items']:
+            flash('Your cart is empty', 'error')
+            return redirect(url_for('cart.view_cart'))
+
+        return render_template('orders/checkout.html', cart=cart_data)
+
+    except Exception as e:
+        flash(f'Failed to load checkout: {str(e)}', 'error')
         return redirect(url_for('cart.view_cart'))
-    
-    return render_template('orders/checkout.html', cart=cart_data)
 
 
-# CHECKOUT Create order from shopping cart
 @orders_bp.route('/checkout', methods=['POST'])
 def checkout(): 
     data = request.form.to_dict() or request.get_json() or {}
@@ -120,12 +126,15 @@ def checkout():
     contact_email = data.get('contact_email', '').strip()
     notes = data.get('notes', '').strip()
 
+    # ============================
+    # INPUT VALIDATION
+    # ============================
     if not shipping_address:
         if request.is_json:
             return jsonify({'error': 'Shipping address is required'}), 400
         flash('Shipping address is required', 'error')
         return redirect(url_for('orders.checkout_page'))
-    
+
     if 'customer_id' not in session and not contact_email:
         if request.is_json:
             return jsonify({'error': 'Contact email is required for guest checkout'}), 400
@@ -133,6 +142,11 @@ def checkout():
         return redirect(url_for('orders.checkout_page'))
 
     try:
+        now = datetime.now()
+
+        # ============================
+        # LOAD CART
+        # ============================
         cart_model = ShoppingCart()
         cart_item_model = CartItem()
         order_model = Order()
@@ -141,36 +155,30 @@ def checkout():
         order_status_history_model = OrderStatusHistory()
         product_model = Product()
 
-        now = datetime.now()
         cart = None
+        customer_id = None
+        session_id = None
 
-        # Determine customer or guest cart
         if 'customer_id' in session:
-            carts = cart_model.get_by_customer(session['customer_id'])
-            for c in carts:
-                if c.get('expires_at') and c['expires_at'] > now:
-                    cart = c
-                    break
             customer_id = session['customer_id']
-            session_id = None
-        elif 'session_id' in session:
-            carts = cart_model.get_by_session(session['session_id'])
+            carts = cart_model.get_by_customer(customer_id)
             for c in carts:
                 if c.get('expires_at') and c['expires_at'] > now:
                     cart = c
                     break
-            customer_id = None
+        elif 'session_id' in session:
             session_id = session['session_id']
-        else:
-            if request.is_json:
-                return jsonify({'error': 'No cart found'}), 404
-            flash('No cart found', 'error')
-            return redirect(url_for('cart.view_cart'))
+            carts = cart_model.get_by_session(session_id)
+            for c in carts:
+                if c.get('expires_at') and c['expires_at'] > now:
+                    cart = c
+                    break
 
         if not cart:
+            error_msg = 'Cart not found or empty'
             if request.is_json:
-                return jsonify({'error': 'Cart not found'}), 404
-            flash('Cart not found', 'error')
+                return jsonify({'error': error_msg}), 404
+            flash(error_msg, 'error')
             return redirect(url_for('cart.view_cart'))
 
         cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
@@ -180,18 +188,22 @@ def checkout():
             flash('Cart is empty', 'error')
             return redirect(url_for('cart.view_cart'))
 
-        total_amount = OrderHelper.calculate_order_total(cart_items, product_model)
-        order_number = OrderHelper.generate_order_number()
+        # ============================
+        # CALCULATE TOTAL
+        # ============================
+        cart_data = format_cart_response(cart)
+        total_amount = cart_data['cart_total']
 
-        # Fetch customer email if needed
         if customer_id and not contact_email:
             customer_model = Customer()
             customer = customer_model.get_by_id(customer_id)
             contact_email = customer.get('email') if customer else None
 
-        # Create order
+        # ============================
+        # CREATE ORDER
+        # ============================
         order_id = order_model.create(
-            order_number=order_number,
+            order_number=None,  # temporarily None
             total_amount=total_amount,
             shipping_address=shipping_address,
             customer_id=customer_id,
@@ -202,7 +214,13 @@ def checkout():
             notes=notes or None
         )
 
-        # Create order items from cart
+        # Generate proper order number and update
+        order_number = OrderHelper.generate_order_number(order_id)
+        order_model.update(order_id, {'order_number': order_number})
+
+        # ============================
+        # CREATE ORDER ITEMS
+        # ============================
         for cart_item in cart_items:
             product = product_model.get_by_id(cart_item['product_id'])
             order_item_id = order_item_model.create(
@@ -213,7 +231,6 @@ def checkout():
                 design_file_url=cart_item.get('design_file_url')
             )
 
-            # Copy customizations
             for customization in cart_item.get('customizations', []):
                 order_item_customization_model.create(
                     order_item_id=order_item_id,
@@ -221,37 +238,43 @@ def checkout():
                     customization_value=customization['customization_value']
                 )
 
-        # Create initial status
+        # ============================
+        # CREATE INITIAL ORDER STATUS
+        # ============================
         order_status_history_model.create(
             order_id=order_id,
             status='pending',
             notes='Order created'
         )
 
-        # Clear cart
+        # ============================
+        # CLEAR CART
+        # ============================
         for item in cart_items:
             cart_item_model.delete(item['cart_item_id'])
-
-        # Update session cart count
         session['cart_count'] = 0
 
+        # Fetch the newly created order
         order = order_model.get_by_id(order_id)
-        
+
+        # ============================
+        # RETURN RESPONSE OR REDIRECT
+        # ============================
         if request.is_json:
             return jsonify({
                 'message': 'Order placed successfully',
                 'order': format_order_response(order)
             }), 201
-        
-        flash(f'Order #{order_number} placed successfully!', 'success')
-        return redirect(url_for('orders.get_order', order_id=order_id))
+
+        # For regular HTML request, redirect to order list page
+        flash('Order placed successfully', 'success')
+        return redirect(url_for('orders.get_orders'))
 
     except Exception as e:
         if request.is_json:
             return jsonify({'error': f'Failed to place order: {str(e)}'}), 500
         flash(f'Failed to place order: {str(e)}', 'error')
         return redirect(url_for('orders.checkout_page'))
-
 
 # ============================================
 # ORDER RETRIEVAL
@@ -534,8 +557,7 @@ def cancel_order(order_id):
 def get_order_stats(): 
     try:
         order_model = Order()
-        orders = order_model.get_by_customer(session['customer_id'])
-        
+        orders = order_model.get_by_customer(session['customer_id'])  # ✅ call method
         stats = {
             'total_orders': len(orders),
             'pending_orders': sum(1 for o in orders if o.get('order_status') == 'pending'),
@@ -543,11 +565,10 @@ def get_order_stats():
             'completed_orders': sum(1 for o in orders if o.get('order_status') == 'completed'),
             'cancelled_orders': sum(1 for o in orders if o.get('order_status') == 'cancelled'),
             'total_spent': float(sum(
-                o.get('total_amount', 0) for o in orders 
-                if o.get('order_status') == 'completed'
+                o.get('total_amount', 0) for o in orders if o.get('order_status') == 'completed'
             ))
         }
-        
+                
         return jsonify({'stats': stats}), 200
             
     except Exception as e:

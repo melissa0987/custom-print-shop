@@ -63,23 +63,24 @@
             <div class="order-summary">
                 <h2>Order Summary</h2>
                 
-                {% if cart and cart.items %}
+                {% if cart and cart['items'] %}
                     <div class="summary-items">
-                        {% for item in cart.items %}
+                        {% for item in cart['items'] %}
                         <div class="summary-item">
                             <div class="item-info">
-                                <h4>{{ item.product.product_name }}</h4>
-                                <p class="item-quantity">Qty: {{ item.quantity }}</p>
-                                {% if item.customizations %}
-                                    <div class="item-customizations">
-                                        {% for key, value in item.customizations.items() %}
-                                            <small>{{ key }}: {{ value }}</small><br>
-                                        {% endfor %}
-                                    </div>
+                                <h4>{{ item['product']['product_name'] }}</h4>
+                                <p class="item-quantity">Qty: {{ item['quantity'] }}</p>
+                                
+                                {% if item['customizations'] %}
+                                <div class="item-customizations">
+                                    {% for key, value in item['customizations'].items() %}
+                                        <small>{{ key }}: {{ value }}</small><br>
+                                    {% endfor %}
+                                </div>
                                 {% endif %}
                             </div>
                             <div class="item-price">
-                                {{ item.line_total_formatted }}
+                                {{ item['line_total_formatted'] }}
                             </div>
                         </div>
                         {% endfor %}
@@ -88,15 +89,15 @@
                     <div class="summary-totals">
                         <div class="total-row">
                             <span>Subtotal:</span>
-                            <span>{{ cart.subtotal_formatted }}</span>
+                            <span>{{ cart['subtotal_formatted'] }}</span>
                         </div>
                         <div class="total-row">
                             <span>Tax (13%):</span>
-                            <span>{{ cart.tax_formatted }}</span>
+                            <span>{{ cart['tax_formatted'] }}</span>
                         </div>
                         <div class="total-row grand-total">
                             <span><strong>Total:</strong></span>
-                            <span><strong>{{ cart.cart_total_formatted }}</strong></span>
+                            <span><strong>{{ cart['cart_total_formatted'] }}</strong></span>
                         </div>
                     </div>
                 {% else %}
@@ -105,10 +106,9 @@
                         Continue Shopping
                     </a>
                 {% endif %}
+
             </div>
         </div>
     </div>
 </section>
-
-
 {% endblock %}

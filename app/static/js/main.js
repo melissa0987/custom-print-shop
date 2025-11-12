@@ -42,37 +42,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // ===================================
-    // Cart Quantity Updates
-    // ===================================
-        document.querySelectorAll('.btn-update').forEach(button => {
-        button.addEventListener('click', async (e) => {
-            const itemId = e.target.dataset.itemId;
-            const qtyInput = e.target.closest('.item-quantity').querySelector('.quantity-input');
-            const newQty = qtyInput.value;
-
-            try {
-                const response = await fetch(`/cart/update/${itemId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ quantity: newQty })
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    // Reload page to reflect totals
-                    location.reload();
-                } else {
-                    alert(result.error || 'Failed to update item');
-                }
-            } catch (err) {
-                alert('Error updating cart item');
-                console.error(err);
-            }
-        });
-    });
-
     
     // ===================================
     // Form Validation
@@ -274,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 1000);
             }
         });
-    }); 
+    });
     
     // ===================================
     // Search Functionality
