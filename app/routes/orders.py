@@ -3,7 +3,7 @@ app/routes/orders.py
 Orders Routes
 Handles order placement, tracking, and history
 """
-from flask import Blueprint, request, jsonify, session, render_template, flash, redirect, url_for
+from flask import Blueprint, json, request, jsonify, session, render_template, flash, redirect, url_for
 from datetime import datetime
 from app.routes.cart import get_or_create_cart, format_cart_response
 import uuid
@@ -64,10 +64,17 @@ def format_order_response(order, include_items=True):
             category = category_model.get_by_id(product['category_id'])
 
             # Get customizations
-            customizations = {
-                c['customization_key']: c['customization_value']
-                for c in order_item.get('customizations', [])
-            }
+            customizations_raw = order_item.get('customizations', [])
+            customizations = {}
+            if isinstance(customizations_raw, (list, tuple)):
+                customizations = {
+                    c['customization_key']: c['customization_value']
+                    for c in customizations_raw
+                }
+            elif isinstance(customizations_raw, dict):
+                customizations = customizations_raw
+            else:
+                customizations = {}
 
             items.append({
                 'order_item_id': order_item['order_item_id'],
@@ -83,7 +90,7 @@ def format_order_response(order, include_items=True):
                 'customizations': customizations
             })
 
-        order_data['items'] = items
+        order_data['items'] = items if items else []
         order_data['total_items'] = len(items)
 
     return order_data
@@ -355,42 +362,57 @@ def get_orders():
 @orders_bp.route('/<int:order_id>', methods=['GET'])
 def get_order(order_id): 
     try:
-        order_model = Order()
-        order = order_model.get_by_id(order_id)
+         
+        from app.services.order_service import OrderService
         
-        if not order:
-            if request.accept_mimetypes.accept_json:
-                return jsonify({'error': 'Order not found'}), 404
-            flash('Order not found', 'error')
-            return redirect(url_for('orders.get_orders'))
+        customer_id = session.get('customer_id')
+        session_id = session.get('session_id')
         
-        # Check ownership (customer or guest session)
-        if 'customer_id' in session:
-            if order.get('customer_id') != session['customer_id']:
-                if request.accept_mimetypes.accept_json:
-                    return jsonify({'error': 'Access denied'}), 403
-                flash('Access denied', 'error')
-                return redirect(url_for('orders.get_orders'))
-        elif 'session_id' in session:
-            if order.get('session_id') != session['session_id']:
-                if request.accept_mimetypes.accept_json:
-                    return jsonify({'error': 'Access denied'}), 403
-                flash('Access denied', 'error')
-                return redirect(url_for('main.homepage'))
-        else:
+        # Check authentication
+        if not customer_id and not session_id:
             if request.accept_mimetypes.accept_json:
                 return jsonify({'error': 'Authentication required'}), 401
             flash('Please log in to view your order', 'error')
             return redirect(url_for('auth.login'))
         
-        order_data = format_order_response(order)
+        # Get order using service
+        success, result = OrderService.get_order_by_id(
+            order_id=order_id,
+            customer_id=customer_id,
+            session_id=session_id,
+            include_items=True
+        )
         
-        if request.accept_mimetypes.accept_json:
-            return jsonify({'order': order_data}), 200
+        if not success:
+            if request.accept_mimetypes.accept_json:
+                return jsonify({'error': result}), 404 if 'not found' in result.lower() else 403
+            flash(result, 'error')
+            return redirect(url_for('orders.get_orders'))
         
-        return render_template('orders/detail.html', order=order_data)
+        order_data = result
+        
+        # Format dates for display
+        if order_data.get('created_at'):
+            order_data['created_at'] = DateHelper.format_datetime(
+                datetime.fromisoformat(order_data['created_at'])
+            )
+        if order_data.get('updated_at'):
+            order_data['updated_at'] = DateHelper.format_datetime(
+                datetime.fromisoformat(order_data['updated_at'])
+            )
+        
+        # For JSON requests
+        if request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+            return jsonify({'order': order_data}), 200 
+        
+        # For HTML requests
+        return render_template("orders/detail.html", order=order_data)
             
     except Exception as e:
+        import traceback
+        print(f"Error in get_order route: {str(e)}")
+        print(traceback.format_exc())
+        
         if request.accept_mimetypes.accept_json:
             return jsonify({'error': f'Failed to get order: {str(e)}'}), 500
         flash(f'Failed to get order: {str(e)}', 'error')

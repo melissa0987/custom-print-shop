@@ -3,136 +3,126 @@
 
 {% block content %}
 <section class="order-detail-page">
-    <div class="container">
-        <!-- Breadcrumb -->
-        <nav class="breadcrumb">
-            <a href="{{ url_for('main.homepage') }}">Home</a> /
-            <a href="{{ url_for('orders.get_orders') }}">My Orders</a> /
-            <span>Order #{{ order.order_number }}</span>
-        </nav>
+  <div class="container">
 
-        <!-- Order Header -->
-        <div class="order-header-card">
-            <div class="order-title">
-                <h1>Order #{{ order.order_number }}</h1>
-                <span class="status-badge status-{{ order.order_status }}">
-                    {{ order.order_status | capitalize }}
-                </span>
-            </div>
-            
-            <div class="order-meta">
-                <div class="meta-item">
-                    <strong>Order Date:</strong> {{ order.created_at }}
-                </div>
-                <div class="meta-item">
-                    <strong>Last Updated:</strong> {{ order.updated_at }}
-                </div>
-                {% if order.customer and order.customer != 'Guest' %}
-                <div class="meta-item">
-                    <strong>Customer:</strong> {{ order.customer.full_name }}
-                </div>
-                {% endif %}
-            </div>
-        </div>
+    <nav class="breadcrumb">
+      <a href="{{ url_for('main.homepage') }}">Home</a> /
+      <a href="{{ url_for('orders.get_orders') }}">My Orders</a> /
+      <span>Order #{{ order.order_number }}</span>
+    </nav>
 
-        <div class="order-detail-grid">
-            <!-- Order Items -->
-            <div class="order-items-section">
-                <h2>Order Items</h2>
-                
-                {% if order.items %}
-                    {% for item in order.items %}
-                    <div class="order-item">
-                        <div class="item-image">
-                            {% if item.design_file_url %}
-                                <img src="{{ item.design_file_url }}" alt="{{ item.product.product_name }}">
-                            {% else %}
-                                <div class="placeholder">🖨️</div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="item-details">
-                            <h3>{{ item.product.product_name }}</h3>
-                            <p class="category">{{ item.product.category_name }}</p>
-                            
-                            {% if item.customizations %}
-                            <div class="customizations">
-                                <strong>Customizations:</strong>
-                                <ul>
-                                    {% for key, value in item.customizations.items() %}
-                                        <li>{{ key }}: {{ value }}</li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                            {% endif %}
-                            
-                            <div class="item-pricing">
-                                <p><strong>Quantity:</strong> {{ item.quantity }}</p>
-                                <p><strong>Unit Price:</strong> ${{ "%.2f"|format(item.unit_price) }}</p>
-                                <p><strong>Subtotal:</strong> ${{ "%.2f"|format(item.subtotal) }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-            </div>
+    <div class="order-header-card">
+      <div class="order-title">
+        <h1>Order #{{ order.order_number }}</h1>
+        <span class="status-badge status-{{ order.order_status }}">
+          {{ order.order_status | capitalize }}
+        </span>
+      </div>
+      <div class="order-meta">
+        <div class="meta-item"><strong>Order Date:</strong> {{ order.created_at }}</div>
+        <div class="meta-item"><strong>Last Updated:</strong> {{ order.updated_at }}</div>
+        {% if order.customer and order.customer != 'Guest' %}
+        <div class="meta-item"><strong>Customer:</strong> {{ order.customer.full_name }}</div>
+        {% endif %}
+      </div>
+    </div>
 
-            <!-- Order Summary -->
-            <div class="order-summary-section">
-                <!-- Shipping Information -->
-                <div class="info-card">
-                    <h3>Shipping Information</h3>
-                    <div class="info-content">
-                        <p><strong>Address:</strong></p>
-                        <p>{{ order.shipping_address }}</p>
-                        
-                        {% if order.contact_phone %}
-                        <p><strong>Phone:</strong> {{ order.contact_phone }}</p>
-                        {% endif %}
-                        
-                        {% if order.contact_email %}
-                        <p><strong>Email:</strong> {{ order.contact_email }}</p>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Order Total -->
-                <div class="info-card">
-                    <h3>Order Summary</h3>
-                    <div class="total-breakdown">
-                        <div class="total-row">
-                            <span>Total Amount:</span>
-                            <span class="total-amount">${{ "%.2f"|format(order.total_amount) }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Order Notes -->
-                {% if order.notes %}
-                <div class="info-card">
-                    <h3>Order Notes</h3>
-                    <div class="info-content">
-                        <p>{{ order.notes }}</p>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Order Actions -->
-                <div class="order-actions">
-                    <a href="{{ url_for('orders.get_order_status', order_id=order.order_id) }}" 
-                       class="btn-secondary">View Status History</a>
-                    
-                    {% if order.order_status in ['pending', 'processing'] %}
-                        <form method="POST" 
-                              action="{{ url_for('orders.cancel_order', order_id=order.order_id) }}"
-                              onsubmit="return confirm('Are you sure you want to cancel this order?')">
-                            <button type="submit" class="btn-cancel">Cancel Order</button>
-                        </form>
+    <div class="order-detail-grid">
+      <!-- Order Items Section -->
+      <div class="order-items-section">
+        <h2>Order Items</h2>
+        <div id="order-items-container">
+          {% if order["items"] %}
+            {% for item in order["items"] %}
+                <div class="order-item">
+                <div class="item-image">
+                    {% if item.design_file_url %}
+                    <img src="{{ item.design_file_url }}" alt="{{ item.product.product_name }}">
+                    {% else %}
+                    <div class="placeholder">🖨️</div>
                     {% endif %}
                 </div>
-            </div>
+                <div class="item-details">
+                    <h3>{{ item.product.product_name }}</h3>
+                    <p class="category">{{ item.product.category_name }}</p>
+                    {% if item.customizations %}
+                    <div class="customizations">
+                    <strong>Customizations:</strong>
+                    <ul>
+                        {% for key, value in item.customizations.items() %}
+                        <li>{{ key }}: {{ value }}</li>
+                        {% endfor %}
+                    </ul>
+                    </div>
+                    {% endif %}
+                    <div class="item-pricing">
+                    <p><strong>Quantity:</strong> {{ item.quantity }}</p>
+                    <p><strong>Unit Price:</strong> ${{ "%.2f"|format(item.unit_price) }}</p>
+                    <p><strong>Subtotal:</strong> ${{ "%.2f"|format(item.subtotal) }}</p>
+                    </div>
+                </div>
+                </div>
+            {% endfor %}
+            {% else %}
+            <p>No items found in this order.</p>
+            {% endif %}
         </div>
+      </div>
+
+      <!-- Order Summary Section -->
+      <div class="order-summary-section">
+        <div class="info-card">
+          <h3>Shipping Information</h3>
+          <div class="info-content">
+            <p><strong>Address:</strong></p>
+            <p>{{ order.shipping_address }}</p>
+            {% if order.contact_phone %}
+            <p><strong>Phone:</strong> {{ order.contact_phone }}</p>
+            {% endif %}
+            {% if order.contact_email %}
+            <p><strong>Email:</strong> {{ order.contact_email }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Order Summary</h3>
+          <div class="total-breakdown">
+            <div class="total-row">
+              <span>Total Items:</span>
+              <span>{{ order.total_items }}</span>
+            </div>
+            <div class="total-row">
+              <span>Total Amount:</span>
+              <span class="total-amount">${{ "%.2f"|format(order.total_amount) }}</span>
+            </div>
+          </div>
+        </div>
+
+        {% if order.notes %}
+        <div class="info-card">
+          <h3>Order Notes</h3>
+          <div class="info-content">
+            <p>{{ order.notes }}</p>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Order Actions -->
+        {% if order.order_status in ['pending', 'processing'] %}
+        <div class="info-card">
+          <h3>Order Actions</h3>
+          <div class="order-actions">
+            <form method="POST" action="{{ url_for('orders.cancel_order', order_id=order.order_id) }}"
+                  onsubmit="return confirm('Are you sure you want to cancel this order?')">
+              <button type="submit" class="btn-cancel">Cancel Order</button>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </section>
  
 {% endblock %}

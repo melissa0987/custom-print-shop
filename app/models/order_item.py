@@ -62,10 +62,40 @@ class OrderItem:
             return cur.fetchone()
 
     def get_by_order(self, order_id):
-        sql = "SELECT * FROM order_items WHERE order_id = %s;"
+        """Get all order items with product, category, and customizations"""
+        sql = """
+            SELECT 
+                oi.order_item_id,
+                oi.order_id,
+                oi.product_id,
+                oi.quantity,
+                oi.unit_price,
+                oi.design_file_url,
+                oi.subtotal,
+                oi.created_at,
+                p.product_name,
+                cat.category_id,
+                cat.category_name
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.product_id
+            JOIN categories cat ON p.category_id = cat.category_id
+            WHERE oi.order_id = %s
+            ORDER BY oi.created_at ASC;
+        """
         with get_cursor(commit=False) as cur:
             cur.execute(sql, (order_id,))
-            return cur.fetchall()
+            items = cur.fetchall()
+            
+            # Load customizations for each item
+            customization_model = OrderItemCustomization()
+            for item in items:
+                customizations = customization_model.get_by_order_item(item['order_item_id'])
+                item['customizations'] = {
+                    c['customization_key']: c['customization_value']
+                    for c in customizations
+                } if customizations else {}
+            
+            return items
 
     # ---------------------
     # UPDATE

@@ -9,9 +9,10 @@ from datetime import datetime
  
 import random,  string
 
+from app.database import get_cursor
 from app.models import (
     Order, OrderItem, OrderItemCustomization,
-    OrderStatusHistory, ShoppingCart, CartItem, Customer, Product, Category
+    OrderStatusHistory, ShoppingCart, CartItem, Customer, Product, Category, order_item
 )
 from app.utils.validators import Validators
 from app.utils.helpers import DateHelper 
@@ -214,12 +215,29 @@ class OrderService:
             return [], 0, 0
     
 
-    # Get order by ID with ownership check
+    # Get order by ID with ownership check 
     @staticmethod
     def get_order_by_id(order_id, customer_id=None, session_id=None, include_items=True): 
         try:
             order_model = Order()
-            order = order_model.get_by_id(order_id)
+            
+            # Use optimized query
+            sql = """
+                SELECT 
+                    o.*,
+                    c.customer_id,
+                    c.username,
+                    c.email,
+                    c.first_name,
+                    c.last_name
+                FROM orders o
+                LEFT JOIN customers c ON o.customer_id = c.customer_id
+                WHERE o.order_id = %s;
+            """
+            
+            with get_cursor(commit=False) as cur:
+                cur.execute(sql, (order_id,))
+                order = cur.fetchone()
             
             if not order:
                 return False, "Order not found"
@@ -246,45 +264,56 @@ class OrderService:
             
             # Add customer info if available
             if order.get('customer_id'):
-                customer_model = Customer()
-                customer = customer_model.get_by_id(order['customer_id'])
-                if customer:
-                    order_data['customer'] = {
-                        'customer_id': customer['customer_id'],
-                        'username': customer['username'],
-                        'email': customer['email'],
-                        'full_name': customer_model.full_name(customer)
-                    }
+                order_data['customer'] = {
+                    'customer_id': order['customer_id'],
+                    'username': order['username'],
+                    'email': order['email'],
+                    'full_name': f"{order['first_name']} {order['last_name']}"
+                }
             else:
                 order_data['customer'] = 'Guest'
             
             # Add items if requested
             if include_items:
-                order_item_model = OrderItem()
-                order_items = order_item_model.get_by_order(order_id)
+                items_sql = """
+                    SELECT 
+                        oi.order_item_id,
+                        oi.quantity,
+                        oi.unit_price,
+                        oi.subtotal,
+                        oi.design_file_url,
+                        p.product_id,
+                        p.product_name,
+                        cat.category_name
+                    FROM order_items oi
+                    JOIN products p ON oi.product_id = p.product_id
+                    JOIN categories cat ON p.category_id = cat.category_id
+                    WHERE oi.order_id = %s;
+                """
+                
+                with get_cursor(commit=False) as cur:
+                    cur.execute(items_sql, (order_id,))
+                    items_raw = cur.fetchall()
                 
                 items = []
-                for item in order_items:
-                    product_model = Product()
-                    product = product_model.get_by_id(item['product_id'])
-                    
-                    category_model = Category()
-                    category = category_model.get_by_id(product['category_id'])
-                    
+                order_item_customization_model = OrderItemCustomization()
+                
+                for item in items_raw:
                     # Get customizations
-                    customizations = {}
-                    if item.get('customizations'):
-                        customizations = {
-                            c['customization_key']: c['customization_value']
-                            for c in item['customizations']
-                        }
+                    customizations_raw = order_item_customization_model.get_by_order_item(
+                        item['order_item_id']
+                    )
+                    customizations = {
+                        c['customization_key']: c['customization_value']
+                        for c in customizations_raw
+                    } if customizations_raw else {}
                     
                     items.append({
                         'order_item_id': item['order_item_id'],
                         'product': {
-                            'product_id': product['product_id'],
-                            'product_name': product['product_name'],
-                            'category_name': category['category_name']
+                            'product_id': item['product_id'],
+                            'product_name': item['product_name'],
+                            'category_name': item['category_name']
                         },
                         'quantity': item['quantity'],
                         'unit_price': float(item['unit_price']),
@@ -300,7 +329,6 @@ class OrderService:
                 
         except Exception as e:
             return False, f"Failed to get order: {str(e)}"
-    
     # Get order by order number
     @staticmethod
     def get_order_by_number(order_number, customer_id=None, session_id=None): 

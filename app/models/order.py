@@ -6,7 +6,9 @@ Represents customer orders
 
 
 from app.database import get_cursor
-from datetime import datetime  
+from datetime import datetime
+
+from app.models.order_item_customization import OrderItemCustomization  
  
 
 
@@ -191,3 +193,55 @@ class Order:
         with get_cursor(commit=False) as cur:
             cur.execute(sql, (order_number,))
             return cur.fetchone()
+        
+    def get_order_with_details(self, order_id):
+        """Get order with all related information including items"""
+        sql = """
+            SELECT 
+                o.*,
+                c.username, c.email, c.first_name, c.last_name
+            FROM orders o
+            LEFT JOIN customers c ON o.customer_id = c.customer_id
+            WHERE o.order_id = %s;
+        """
+        with get_cursor(commit=False) as cur:
+            cur.execute(sql, (order_id,))
+            order = cur.fetchone()
+            
+            if not order:
+                return None
+            
+            # Get order items with product and category details
+            items_sql = """
+                SELECT 
+                    oi.order_item_id,
+                    oi.quantity,
+                    oi.unit_price,
+                    oi.subtotal,
+                    oi.design_file_url,
+                    p.product_id,
+                    p.product_name,
+                    cat.category_name
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.product_id
+                JOIN categories cat ON p.category_id = cat.category_id
+                WHERE oi.order_id = %s;
+            """
+            cur.execute(items_sql, (order_id,))
+            items = cur.fetchall()
+            
+            # Get customizations for each item
+            order_item_customization_model = OrderItemCustomization()
+            for item in items:
+                customizations = order_item_customization_model.get_by_order_item(
+                    item['order_item_id']
+                )
+                item['customizations'] = {
+                    c['customization_key']: c['customization_value'] 
+                    for c in customizations
+                } if customizations else {}
+            
+            # Attach items to order
+            order['items'] = items
+            
+            return order
