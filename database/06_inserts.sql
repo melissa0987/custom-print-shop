@@ -24,8 +24,7 @@ INSERT INTO categories (category_name, description, is_active, display_order, cr
 INSERT INTO products (category_id, product_name, description, base_price, is_active, created_by, updated_by) VALUES
     -- Mugs (category_id = 1)
     (1, 'Ceramic Mug 11oz', 'Classic white ceramic mug, dishwasher safe', 12.99, TRUE, 2, 2),
-    (1, 'Ceramic Mug 15oz', 'Large ceramic mug, perfect for coffee lovers', 14.99, TRUE, 2, 2),
-    (1, 'Travel Mug', 'Insulated stainless steel travel mug with lid', 19.99, TRUE, 2, 2),
+    (1, 'Ceramic Mug 15oz', 'Large ceramic mug, perfect for coffee lovers', 14.99, TRUE, 2, 2), 
     
     -- Tumblers (category_id = 2)
     (2, 'Stainless Tumbler 20oz', 'Double-wall insulated tumbler', 24.99, TRUE, 2, 2),
@@ -33,8 +32,7 @@ INSERT INTO products (category_id, product_name, description, base_price, is_act
     
     -- Bags (category_id = 3)
     (3, 'Canvas Tote Bag', 'Durable canvas tote bag, 15x16 inches', 16.99, TRUE, 2, 2),
-    (3, 'Cotton Drawstring Bag', 'Lightweight cotton drawstring bag', 9.99, TRUE, 2, 2),
-    (3, 'Cotton Shopping Bag', 'Reusable cotton shopping bag with handles', 12.99, TRUE, 2, 2),
+    (3, 'Cotton Drawstring Bag', 'Lightweight cotton drawstring bag', 9.99, TRUE, 2, 2), 
     
     -- T-Shirts (category_id = 4)
     (4, 'Cotton T-Shirt - S', 'Premium 100% cotton t-shirt, size Small', 19.99, TRUE, 2, 2),

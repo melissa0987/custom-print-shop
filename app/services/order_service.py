@@ -506,3 +506,55 @@ class OrderService:
                 
         except Exception as e:
             return False, f"Failed to update order status: {str(e)}"
+        
+    @staticmethod
+    def get_customer_orders_with_previews(customer_id, page=1, per_page=20, status_filter=None):
+        """
+        Get customer orders with preview images
+        """
+        try:
+            order_model = Order()
+            order_item_model = OrderItem()
+            orders = order_model.get_by_customer(customer_id)
+            
+            # Apply status filter
+            if status_filter:
+                orders = [o for o in orders if o.get('order_status') == status_filter]
+            
+            # Sort by created_at descending
+            orders.sort(key=lambda x: x.get('created_at') or datetime.min, reverse=True)
+            
+            total_count = len(orders)
+            total_pages = (total_count + per_page - 1) // per_page
+            
+            # Pagination
+            offset = (page - 1) * per_page
+            orders_page = orders[offset:offset + per_page]
+            
+            # Format results with preview images
+            result = []
+            for o in orders_page:
+                order_items = order_item_model.get_by_order(o['order_id'])
+                
+                # Collect preview images (design_file_url from order items)
+                preview_images = []
+                for item in order_items[:4]:  # Limit to first 4 items
+                    if item.get('design_file_url'):
+                        preview_images.append(item['design_file_url'])
+                
+                result.append({
+                    'order_id': o['order_id'],
+                    'order_number': o['order_number'],
+                    'order_status': o['order_status'],
+                    'total_amount': float(o['total_amount']),
+                    'total_items': len(order_items),
+                    'created_at': DateHelper.format_datetime(o.get('created_at')),
+                    'updated_at': DateHelper.format_datetime(o.get('updated_at')),
+                    'preview_images': preview_images  # Add preview images
+                })
+            
+            return result, total_count, total_pages
+                
+        except Exception as e:
+            print(f"Error getting customer orders: {str(e)}")
+            return [], 0, 0

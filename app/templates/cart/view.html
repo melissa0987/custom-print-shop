@@ -9,21 +9,43 @@
         {% if session.get('customer_id') %}
             <p class="user-info">Logged in as: <strong>{{ session.get('username') }}</strong></p>
         {% elif session.get('session_id') %}
-            <p class="user-info">Shopping as Guest | <a href="{{ url_for('auth.login') }}">Login</a> to save your cart</p>
+            <p class="user-info">Shopping as Guest | 
+                <a href="{{ url_for('auth.login') }}">Login</a> to save your cart
+            </p>
         {% endif %}
 
         {% if cart['items'] %}
             <div class="cart-items">
                 {% for item in cart['items'] %}
                 <div class="cart-item">
+                    
+                    <!-- Image + Upload -->
                     <div class="item-image">
                         {% if item.design_file_url %}
-                            <img src="{{ item.design_file_url }}" alt="{{ item.product.product_name }}">
+                            <img src="{{ item.design_file_url }}" 
+                                 alt="{{ item.product.product_name }}" 
+                                 class="design-preview"
+                                 onclick="openLightbox({{ item.design_file_url | tojson }})">
+                            <div class="design-badge">Custom Design</div>
                         {% else %}
-                            <div class="placeholder-image">📦</div>
+                            <div class="placeholder-image" onclick="document.getElementById('file-input-{{ item.cart_item_id }}').click()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M4.5 9.5A.5.5 0 0 1 5 9h2V7a.5.5 0 0 1 1 0v2h2a.5.5 0 0 1 0 1H8v2a.5.5 0 0 1-1 0v-2H5a.5.5 0 0 1-.5-.5z"/>
+                                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5zM4.5 3A1.5 1.5 0 0 0 3 4.5V14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5A1.5 1.5 0 0 0 11.5 3h-7z"/>
+                                </svg>
+                                <p>Upload Design</p>
+                            </div>
                         {% endif %}
+
+                        <form method="POST" action="{{ url_for('cart.update_cart_item', cart_item_id=item.cart_item_id) }}" enctype="multipart/form-data" class="upload-form">
+                            <input type="file" name="design_file" accept="image/*" id="file-input-{{ item.cart_item_id }}" style="display:none" onchange="this.form.submit()">
+                            <button type="button" class="btn-upload" onclick="document.getElementById('file-input-{{ item.cart_item_id }}').click()">
+                                {% if item.design_file_url %}Change Design{% else %}Upload Design{% endif %}
+                            </button>
+                        </form>
                     </div>
                     
+                    <!-- Item Info -->
                     <div class="item-details">
                         <h3>{{ item.product.product_name }}</h3>
                         <p class="category">{{ item.product.category_name }}</p>
@@ -42,6 +64,7 @@
                         <p class="price">{{ item.product.base_price_formatted }} each</p>
                     </div>
                     
+                    <!-- Quantity -->
                     <div class="item-quantity">
                         <label>Quantity:</label>
                         <input type="number" value="{{ item.quantity }}" min="1" 
@@ -49,10 +72,12 @@
                         <button type="button" class="btn-update" data-item-id="{{ item.cart_item_id }}">Update</button>
                     </div>
                     
+                    <!-- Subtotal -->
                     <div class="item-total">
                         <p class="line-total">{{ item.line_total_formatted }}</p>
                     </div>
                     
+                    <!-- Remove -->
                     <div class="item-actions">
                         <form method="POST" action="{{ url_for('cart.remove_cart_item', cart_item_id=item.cart_item_id) }}">
                             <button type="submit" class="btn-remove">Remove</button>
@@ -100,6 +125,76 @@
     </div>
 </section>
 
+<!-- Optional Lightbox for Image Preview -->
+<div id="imageLightbox" class="image-lightbox" onclick="closeLightbox()">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+        <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+        <img id="lightboxImage" src="" alt="Design preview">
+    </div>
+</div>
 
- 
+<script>
+function openLightbox(imageSrc) {
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImage = document.getElementById('lightboxImage');
+    lightboxImage.src = imageSrc;
+    lightbox.classList.add('active');
+}
+
+function closeLightbox() {
+    document.getElementById('imageLightbox').classList.remove('active');
+}
+</script>
+
+<style>
+.item-image {
+    position: relative;
+    text-align: center;
+}
+.design-preview {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid #ddd;
+}
+.design-badge {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: #4caf50;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+}
+.btn-upload {
+    margin-top: 8px;
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.btn-upload:hover {
+    background: #0056b3;
+}
+.placeholder-image {
+    width: 120px;
+    height: 120px;
+    background: #f5f5f5;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #888;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border: 1px dashed #ccc;
+}
+</style>
 {% endblock %}

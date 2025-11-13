@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(config_class=None):
     """Application factory"""
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder="static")
     config_class = config_class or get_config()
     app.config.from_object(config_class)
 
@@ -149,6 +149,8 @@ def register_cli_commands(app):
             "database/03_functions.sql",
             "database/04_triggers.sql",
             "database/05_views.sql",
+            "database/06_inserts.sql",
+            "database/07_updates.sql",
         ]
         for f in files:
             if os.path.exists(f):

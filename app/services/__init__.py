@@ -11,6 +11,7 @@ from .order_service import OrderService
 from .admin_service import AdminService
 from .file_service import FileService
 from .customer_service import CustomerService
+from .design_service import DesignService
 
 __all__ = [
     'AuthService',
@@ -19,5 +20,6 @@ __all__ = [
     'OrderService',
     'AdminService',
     'FileService', 
-    'CustomerService'
+    'CustomerService',
+    'DesignService'
 ]

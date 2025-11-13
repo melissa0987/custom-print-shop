@@ -35,30 +35,55 @@
           {% if order["items"] %}
             {% for item in order["items"] %}
                 <div class="order-item">
-                <div class="item-image">
+                <div class="item-image" onclick="openLightbox({{ (item.design_file_url or '/static/images/products/default.png') | tojson }})">
                     {% if item.design_file_url %}
-                    <img src="{{ item.design_file_url }}" alt="{{ item.product.product_name }}">
+                    <img src="{{ item.design_file_url }}" 
+                         alt="{{ item.product.product_name }}"
+                         loading="lazy"
+                         onerror="this.onerror=null; this.src='/static/images/products/default.png';">
+                    <div class="design-badge">Custom Design</div>
                     {% else %}
-                    <div class="placeholder">🖨️</div>
+                    <div class="placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/>
+                        </svg>
+                    </div>
                     {% endif %}
                 </div>
                 <div class="item-details">
                     <h3>{{ item.product.product_name }}</h3>
-                    <p class="category">{{ item.product.category_name }}</p>
+                    <p class="category">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+                        </svg>
+                        {{ item.product.category_name }}
+                    </p>
                     {% if item.customizations %}
                     <div class="customizations">
                     <strong>Customizations:</strong>
                     <ul>
                         {% for key, value in item.customizations.items() %}
-                        <li>{{ key }}: {{ value }}</li>
+                        <li>
+                            <span class="custom-key">{{ key }}:</span>
+                            <span class="custom-value">{{ value }}</span>
+                        </li>
                         {% endfor %}
                     </ul>
                     </div>
                     {% endif %}
                     <div class="item-pricing">
-                    <p><strong>Quantity:</strong> {{ item.quantity }}</p>
-                    <p><strong>Unit Price:</strong> ${{ "%.2f"|format(item.unit_price) }}</p>
-                    <p><strong>Subtotal:</strong> ${{ "%.2f"|format(item.subtotal) }}</p>
+                    <div class="pricing-row">
+                        <span class="pricing-label">Quantity:</span>
+                        <span class="pricing-value">{{ item.quantity }}</span>
+                    </div>
+                    <div class="pricing-row">
+                        <span class="pricing-label">Unit Price:</span>
+                        <span class="pricing-value">${{ "%.2f"|format(item.unit_price) }}</span>
+                    </div>
+                    <div class="pricing-row total">
+                        <span class="pricing-label"><strong>Subtotal:</strong></span>
+                        <span class="pricing-value"><strong>${{ "%.2f"|format(item.subtotal) }}</strong></span>
+                    </div>
                     </div>
                 </div>
                 </div>
@@ -72,28 +97,49 @@
       <!-- Order Summary Section -->
       <div class="order-summary-section">
         <div class="info-card">
-          <h3>Shipping Information</h3>
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 8px;">
+                <path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A32 32 0 0 1 8 14.58a32 32 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10"/>
+                <path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4m0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
+            </svg>
+            Shipping Information
+          </h3>
           <div class="info-content">
             <p><strong>Address:</strong></p>
-            <p>{{ order.shipping_address }}</p>
+            <p class="address">{{ order.shipping_address }}</p>
             {% if order.contact_phone %}
-            <p><strong>Phone:</strong> {{ order.contact_phone }}</p>
+            <p class="contact-info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.6 17.6 0 0 0 4.168 6.608 17.6 17.6 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.68.68 0 0 0-.58-.122l-2.19.547a1.75 1.75 0 0 1-1.657-.459L5.482 8.062a1.75 1.75 0 0 1-.46-1.657l.548-2.19a.68.68 0 0 0-.122-.58z"/>
+                </svg>
+                <strong>Phone:</strong> {{ order.contact_phone }}
+            </p>
             {% endif %}
             {% if order.contact_email %}
-            <p><strong>Email:</strong> {{ order.contact_email }}</p>
+            <p class="contact-info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414zM0 4.697v7.104l5.803-3.558zM6.761 8.83l-6.57 4.027A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.027L8 9.586zm3.436-.586L16 11.801V4.697z"/>
+                </svg>
+                <strong>Email:</strong> {{ order.contact_email }}
+            </p>
             {% endif %}
           </div>
         </div>
 
         <div class="info-card">
-          <h3>Order Summary</h3>
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 8px;">
+                <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5M5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+            </svg>
+            Order Summary
+          </h3>
           <div class="total-breakdown">
             <div class="total-row">
               <span>Total Items:</span>
               <span>{{ order.total_items }}</span>
             </div>
-            <div class="total-row">
-              <span>Total Amount:</span>
+            <div class="total-row grand-total">
+              <span><strong>Total Amount:</strong></span>
               <span class="total-amount">${{ "%.2f"|format(order.total_amount) }}</span>
             </div>
           </div>
@@ -101,9 +147,15 @@
 
         {% if order.notes %}
         <div class="info-card">
-          <h3>Order Notes</h3>
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 8px;">
+                <path d="M5 0h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2 2 2 0 0 1-2 2H3a2 2 0 0 1-2-2h1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1H1a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v9a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1H3a2 2 0 0 1 2-2"/>
+                <path d="M1 6v-.5a.5.5 0 0 1 1 0V6h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V9h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 2.5v.5H.5a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1H2v-.5a.5.5 0 0 0-1 0"/>
+            </svg>
+            Order Notes
+          </h3>
           <div class="info-content">
-            <p>{{ order.notes }}</p>
+            <p class="notes-text">{{ order.notes }}</p>
           </div>
         </div>
         {% endif %}
@@ -116,7 +168,12 @@
             <form method="POST"
                 action="{{ url_for('orders.cancel_order', order_id=order['order_id']) }}"
                 onsubmit="return confirm('Are you sure you want to cancel this order?')">
-                <button type="submit" class="btn-cancel">Cancel Order</button>
+                <button type="submit" class="btn-cancel-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293z"/>
+                    </svg>
+                    Cancel Order
+                </button>
             </form> 
           </div>
         </div>
@@ -125,5 +182,170 @@
     </div>
   </div>
 </section>
- 
+
+<!-- Image Lightbox -->
+<div id="imageLightbox" class="image-lightbox" onclick="closeLightbox()">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+        <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+        <img id="lightboxImage" src="" alt="Design preview">
+    </div>
+</div>
+
+<style>
+/* Enhanced Order Item Styles */
+.order-item {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.order-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.item-details h3 {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.category {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #667eea;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.customizations {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.customizations ul {
+    list-style: none;
+    margin: 0.5rem 0 0 0;
+    padding: 0;
+}
+
+.customizations li {
+    padding: 0.25rem 0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.custom-key {
+    font-weight: 600;
+    color: #666;
+}
+
+.custom-value {
+    color: #333;
+}
+
+.item-pricing {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+
+.pricing-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+}
+
+.pricing-row.total {
+    border-top: 2px solid #333;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+}
+
+.pricing-label {
+    color: #666;
+}
+
+.pricing-value {
+    color: #333;
+    font-weight: 500;
+}
+
+.address {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 0.5rem 0;
+    line-height: 1.6;
+}
+
+.contact-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+    color: #666;
+}
+
+.notes-text {
+    background: #fff8dc;
+    padding: 1rem;
+    border-radius: 6px;
+    border-left: 4px solid #ffc107;
+    line-height: 1.6;
+}
+
+.btn-cancel-full {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-cancel-full:hover {
+    background: #c82333;
+}
+
+.grand-total {
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+</style>
+
+<script>
+function openLightbox(imageSrc) {
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImage = document.getElementById('lightboxImage');
+    lightboxImage.src = imageSrc;
+    lightbox.classList.add('active');
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('imageLightbox');
+    lightbox.classList.remove('active');
+}
+
+// Close on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeLightbox();
+    }
+});
+</script>
 {% endblock %}

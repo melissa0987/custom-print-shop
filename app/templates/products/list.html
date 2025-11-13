@@ -65,8 +65,12 @@
             <div class="products-grid">
                 {% for product in products %}
                 <div class="product-card">
-                    <div class="product-image">
-                        <div class="placeholder">🖨️</div>
+                    <div class="product-image" style="width: 100%; height: 200px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <img 
+                            src="{{ product.image_url }}" 
+                            alt="{{ product.product_name }}"
+                            style="max-width: 100%; max-height: 100%; object-fit: contain;"
+                        >
                     </div>
                     
                     <div class="product-info">
@@ -80,8 +84,9 @@
                     
                     <div class="product-actions">
                         <a href="{{ url_for('products.get_product', product_id=product.product_id) }}" 
-                           class="btn-view">View Details</a>
-                        
+                        class="btn-design">
+                            🎨 Design Your Own
+                        </a>
                         <form method="POST" action="{{ url_for('cart.add_to_cart') }}" class="add-to-cart-form">
                             <input type="hidden" name="product_id" value="{{ product.product_id }}">
                             <input type="number" name="quantity" value="1" min="1" max="100" class="quantity-input">

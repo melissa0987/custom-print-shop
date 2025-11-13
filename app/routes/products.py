@@ -108,7 +108,7 @@ def get_category(category_id):
 # PRODUCT LISTING ROUTES
 # ============================================================
 
-@products_bp.route('/', methods=['GET'])
+
 @products_bp.route('/list', methods=['GET'])
 def get_products():
     """Display all products with filtering, search, and pagination."""
@@ -156,6 +156,25 @@ def get_products():
         result = []
         for p in paginated['items']:
             category = category_model.get_by_id(p['category_id'])
+            product_name_lower = p['product_name'].lower()
+
+            # Determine image based on product name
+            if 'mug' in product_name_lower:
+                image_filename = 'images/mug.png'
+            elif 'tote' in product_name_lower:
+                image_filename = 'images/tote.png'
+            elif 'drawstring' in product_name_lower:
+                image_filename = 'images/drawstring-bag.png'
+            elif 'shopping' in product_name_lower:
+                image_filename = 'images/shopping-bag.png'
+            elif 't-shirt' in product_name_lower or 'tshirt' in product_name_lower:
+                image_filename = 'images/shirt.png'
+            elif 'tumbler' in product_name_lower:
+                image_filename = 'images/tumbler.png'
+            else:
+                image_filename = 'images/mug.png'  # fallback
+
+            
             result.append({
                 'product_id': p['product_id'],
                 'product_name': p['product_name'],
@@ -167,6 +186,7 @@ def get_products():
                     'category_id': category['category_id'],
                     'category_name': category['category_name']
                 } if category else None,
+                'image_url': url_for('static', filename=image_filename),
                 'is_active': p.get('is_active'),
                 'created_at': p['created_at'].isoformat() if p.get('created_at') else None
             })
@@ -205,21 +225,17 @@ def get_products():
 
 
 # ============================================================
-# PRODUCT DETAIL
+# PRODUCT DESIGN PAGE (NEW)
 # ============================================================
 
 @products_bp.route('/<int:product_id>', methods=['GET'])
 def get_product(product_id):
-    """Show single product details."""
-    wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
-
+    """Show product design customization page."""
     try:
         product_model = Product()
         product = product_model.get_by_id(product_id)
 
         if not product or not product.get('is_active'):
-            if wants_json:
-                return jsonify({'error': 'Product not found'}), 404
             flash('Product not found or unavailable', 'error')
             return render_template('errors/404.html'), 404
 
@@ -243,16 +259,60 @@ def get_product(product_id):
             'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
         }
 
-        if wants_json:
-            return jsonify({'product': product_data}), 200
-
-        return render_template('products/detail.html', product=product_data)
+        return render_template('products/design.html', product=product_data)
 
     except Exception as e:
-        if wants_json:
-            return jsonify({'error': str(e)}), 500
         flash(f'Failed to get product: {str(e)}', 'error')
         return redirect(url_for('products.get_products'))
+
+
+@products_bp.route('/<int:product_id>/upload-design', methods=['POST'])
+def upload_design(product_id):
+    """Handle design upload for a product."""
+    if 'design' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['design']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    try:
+        from app.services.design_service import DesignService
+        from flask import current_app
+        
+        # Get customer/session info
+        customer_id = session.get('customer_id')
+        session_id = session.get('session_id')
+        
+        # Ensure guest has session
+        if not customer_id and not session_id:
+            import uuid
+            session_id = str(uuid.uuid4())
+            session['session_id'] = session_id
+            session.permanent = True
+        
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        
+        # Process design upload
+        success, result = DesignService.process_design_upload(
+            file=file,
+            product_id=product_id,
+            customer_id=customer_id,
+            session_id=session_id,
+            upload_folder=upload_folder
+        )
+        
+        if not success:
+            return jsonify({'error': result}), 400
+        
+        return jsonify({
+            'message': 'Design uploaded successfully',
+            'design': result
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 
 # ============================================================

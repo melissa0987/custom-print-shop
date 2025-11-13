@@ -14,6 +14,7 @@ from app.models import (
 )
 from app.utils.helpers import OrderHelper, DateHelper
 from app.utils import login_required
+from app.services import OrderService
 
 # Create blueprint
 orders_bp = Blueprint('orders', __name__)
@@ -297,6 +298,21 @@ def get_orders():
     per_page = min(request.args.get('per_page', 10, type=int), 50)
     
     try:
+        result, total_orders, total_pages = OrderService.get_customer_orders_with_previews(
+            customer_id=session['customer_id'],
+            page=page,
+            per_page=per_page,
+            status_filter=status_filter
+        )
+        pagination = {
+            'page': page,
+            'per_page': per_page,
+            'total_orders': total_orders,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
+
         order_model = Order()
         order_item_model = OrderItem()
         
@@ -342,8 +358,7 @@ def get_orders():
             'has_prev': page > 1
         }
         
-        # Get stats
-        from app.services.order_service import OrderService
+        # Get stats 
         stats = OrderService.get_customer_order_stats(session['customer_id'])
         
         if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
@@ -361,9 +376,7 @@ def get_orders():
 # Get order details by ID
 @orders_bp.route('/<int:order_id>', methods=['GET'])
 def get_order(order_id): 
-    try:
-         
-        from app.services.order_service import OrderService
+    try: 
         
         customer_id = session.get('customer_id')
         session_id = session.get('session_id')

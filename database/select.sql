@@ -981,4 +981,16 @@ ORDER BY revenue_rank;
 SELECT username, password_hash FROM customers WHERE username='johndoe';
 
 select * from customers;
+select * from admin_activity_log;
+select * from order_status_history;
+select * from order_item_customizations;
+select * from order_items;  
+select * from orders;
+select * from shopping_carts;
+select * from products;
+select * from categories;
+select * from cart_items;
+select * from uploaded_files;
+select * from admin_users; 
+
 select * from orders where customer_id=1 ;

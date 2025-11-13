@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% block title %}Design {{ product.product_name }} - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="design-page">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav class="breadcrumb">
+            <a href="{{ url_for('main.homepage') }}">Home</a> /
+            <a href="{{ url_for('products.get_products') }}">Products</a> /
+            <span>{{ product.product_name }}</span>
+        </nav>
+
+        <div class="design-header">
+            <h1>Design Your {{ product.product_name }}</h1>
+            <p class="product-price">{{ product.base_price_formatted }} each</p>
+        </div>
+
+        <div class="design-grid">
+            <!-- Preview Section -->
+            <div class="preview-section">
+                <div class="product-preview">
+                    <div id="preview-container" class="preview-container">
+                        <img id="preview-image" 
+                             src="/static/images/products/mockups/product_{{ product.product_id }}_mockup.png" 
+                             alt="{{ product.product_name }}"
+                             onerror="this.src='/static/images/products/mockups/default_mockup.png'">
+                        <div id="design-overlay" class="design-overlay"></div>
+                    </div>
+                    <p class="preview-note">Preview of your design on {{ product.product_name }}</p>
+                </div>
+            </div>
+
+            <!-- Design Controls Section -->
+            <div class="controls-section">
+                <div class="control-card">
+                    <h2>Upload Your Design</h2>
+                    
+                    <!-- Upload Area -->
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-icon">📁</div>
+                        <p class="upload-text">Drag & drop your design here</p>
+                        <p class="upload-subtext">or</p>
+                        <label for="design-input" class="btn-upload">Browse Files</label>
+                        <input type="file" 
+                               id="design-input" 
+                               accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                               style="display: none;">
+                        <p class="upload-info">Supported: PNG, JPG, GIF, WEBP (Max 5MB)</p>
+                    </div>
+
+                    <!-- Current Design Info -->
+                    <div id="design-info" class="design-info" style="display: none;">
+                        <h3>Current Design</h3>
+                        <p id="design-filename"></p>
+                        <button type="button" id="remove-design" class="btn-remove-design">
+                            Remove Design
+                        </button>
+                    </div>
+
+                    <!-- Product Details -->
+                    <div class="product-details">
+                        <h3>Product Details</h3>
+                        <p><strong>Category:</strong> {{ product.category.category_name }}</p>
+                        <p><strong>Description:</strong> {{ product.description or 'High-quality custom printed product' }}</p>
+                    </div>
+
+                    <!-- Quantity & Add to Cart -->
+                    <div class="order-section">
+                        <div class="quantity-selector">
+                            <label for="quantity">Quantity:</label>
+                            <input type="number" id="quantity" value="1" min="1" max="100">
+                        </div>
+                        
+                        <button type="button" id="add-to-cart-btn" class="btn-add-cart" disabled>
+                            Add to Cart
+                        </button>
+                        
+                        <p class="cart-note">*Please upload a design first</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Hidden form for adding to cart -->
+<form id="add-to-cart-form" action="{{ url_for('cart.add_to_cart') }}" method="POST" style="display: none;">
+    <input type="hidden" name="product_id" value="{{ product.product_id }}">
+    <input type="hidden" name="quantity" id="cart-quantity">
+    <input type="hidden" name="design_file_url" id="cart-design-url">
+</form>
+
+<style>
+.design-page {
+    padding: 100px 2rem 60px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 200px);
+}
+
+.design-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.design-header h1 {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.product-price {
+    font-size: 1.5rem;
+    color: #667eea;
+    font-weight: bold;
+}
+
+.design-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+/* Preview Section */
+.preview-section {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 100px;
+    height: fit-content;
+}
+
+.preview-container {
+    position: relative;
+    width: 100%;
+    background: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.preview-container img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.design-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 50%;
+    max-height: 50%;
+    pointer-events: none;
+}
+
+.design-overlay img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.preview-note {
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+}
+
+/* Controls Section */
+.controls-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.control-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.control-card h2 {
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+/* Upload Area */
+.upload-area {
+    border: 3px dashed #667eea;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: #f8f9fa;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.upload-area.dragover {
+    background: #e3f2fd;
+    border-color: #2196f3;
+}
+
+.upload-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    font-size: 1.2rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.upload-subtext {
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.btn-upload {
+    display: inline-block;
+    padding: 0.75rem 2rem;
+    background: #667eea;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn-upload:hover {
+    background: #5a67d8;
+}
+
+.upload-info {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+/* Design Info */
+.design-info {
+    background: #e3f2fd;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.design-info h3 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.btn-remove-design {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn-remove-design:hover {
+    background: #c82333;
+}
+
+/* Product Details */
+.product-details {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.product-details h3 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.product-details p {
+    margin-bottom: 0.5rem;
+    color: #666;
+}
+
+/* Order Section */
+.order-section {
+    border-top: 2px solid #eee;
+    padding-top: 1.5rem;
+}
+
+.quantity-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.quantity-selector label {
+    font-weight: 600;
+    color: #333;
+}
+
+.quantity-selector input {
+    width: 80px;
+    padding: 0.5rem;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.btn-add-cart {
+    width: 100%;
+    padding: 1rem;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-add-cart:hover:not(:disabled) {
+    background: #5a67d8;
+    transform: translateY(-2px);
+}
+
+.btn-add-cart:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.cart-note {
+    text-align: center;
+    color: #666;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+/* Loading State */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '⏳';
+    margin-left: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+    .design-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .preview-section {
+        position: static;
+        order: 2;
+    }
+    
+    .controls-section {
+        order: 1;
+    }
+}
+</style>
+
+<script src="{{ url_for('static', filename='js/design.js') }}"></script>
+{% endblock %}

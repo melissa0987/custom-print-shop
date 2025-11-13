@@ -39,6 +39,9 @@ from .helpers import (
     generate_unique_filename
 )
 
+from .image_processor import ImageProcessor
+from .image_helpers import ImageHelper
+
 __all__ = [
     # Validators
     'Validators',  
@@ -70,4 +73,7 @@ __all__ = [
     'format_datetime',
     'truncate_text',
     'generate_unique_filename',
+
+    'ImageProcessor',
+    'ImageHelper'
 ]
