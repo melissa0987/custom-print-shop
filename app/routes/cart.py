@@ -151,7 +151,6 @@ def format_cart_response(cart):
 # CART ROUTES
 # ============================================
 
-@cart_bp.route('/', methods=['GET'])
 @cart_bp.route('/view', methods=['GET'])
 def view_cart(): 
     """View shopping cart"""
@@ -168,6 +167,24 @@ def view_cart():
             return redirect(url_for('main.homepage'))
             
         cart_data = format_cart_response(cart)
+        image_mapping = {
+            'mug': 'images/mug.png',
+            'tote': 'images/tote.png',
+            'drawstring': 'images/drawstring-bag.png',
+            'shopping': 'images/shopping-bag.png',
+            't-shirt': 'images/shirt.png',
+            'tshirt': 'images/shirt.png',
+            'tumbler': 'images/tumbler.png'
+        }
+        for item in cart_data['items']:
+            name_lower = item['product']['product_name'].lower()
+            fallback_image = 'images/mug.png'  # default
+            for keyword, filename in image_mapping.items():
+                if keyword in name_lower:
+                    fallback_image = filename
+                    break
+            # Use design if uploaded, otherwise fallback
+            item['image_url'] = item.get('design_file_url') or url_for('static', filename=fallback_image)
         
         # Update cart count in session
         session['cart_count'] = cart_data['total_items']

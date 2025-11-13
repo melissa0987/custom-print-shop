@@ -28,72 +28,71 @@
     </div>
 
     <div class="order-detail-grid">
-      <!-- Order Items Section -->
-      <div class="order-items-section">
-        <h2>Order Items</h2>
-        <div id="order-items-container">
-          {% if order["items"] %}
-            {% for item in order["items"] %}
-                <div class="order-item">
-                <div class="item-image" onclick="openLightbox({{ (item.design_file_url or '/static/images/products/default.png') | tojson }})">
-                    {% if item.design_file_url %}
-                    <img src="{{ item.design_file_url }}" 
-                         alt="{{ item.product.product_name }}"
-                         loading="lazy"
-                         onerror="this.onerror=null; this.src='/static/images/products/default.png';">
-                    <div class="design-badge">Custom Design</div>
-                    {% else %}
-                    <div class="placeholder">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/>
-                        </svg>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="item-details">
-                    <h3>{{ item.product.product_name }}</h3>
-                    <p class="category">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
-                        </svg>
-                        {{ item.product.category_name }}
-                    </p>
-                    {% if item.customizations %}
-                    <div class="customizations">
-                    <strong>Customizations:</strong>
-                    <ul>
-                        {% for key, value in item.customizations.items() %}
-                        <li>
-                            <span class="custom-key">{{ key }}:</span>
-                            <span class="custom-value">{{ value }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    </div>
-                    {% endif %}
-                    <div class="item-pricing">
-                    <div class="pricing-row">
-                        <span class="pricing-label">Quantity:</span>
-                        <span class="pricing-value">{{ item.quantity }}</span>
-                    </div>
-                    <div class="pricing-row">
-                        <span class="pricing-label">Unit Price:</span>
-                        <span class="pricing-value">${{ "%.2f"|format(item.unit_price) }}</span>
-                    </div>
-                    <div class="pricing-row total">
-                        <span class="pricing-label"><strong>Subtotal:</strong></span>
-                        <span class="pricing-value"><strong>${{ "%.2f"|format(item.subtotal) }}</strong></span>
-                    </div>
-                    </div>
-                </div>
-                </div>
-            {% endfor %}
-            {% else %}
-            <p>No items found in this order.</p>
-            {% endif %}
-        </div>
-      </div>
 
+        <!-- Order Items Section -->
+        <div class="order-items-section">
+            <h2>Order Items</h2>
+            <div id="order-items-container" class="order-items-grid">
+                {% if order["items"] %}
+                    {% for item in order["items"] %}
+                    <div class="order-item-card">
+                        <!-- Product Image -->
+                        <div class="product-image">
+                            <img src="{{ item.product.image_url }}" 
+                                alt="{{ item.product.product_name }}"
+                                loading="lazy"
+                                onerror="this.onerror=null; this.src='/static/images/products/default.png';">
+
+                        </div>
+
+                        <!-- Design Overlay (if exists) -->
+                        {% if item.design_file_url %}
+                        <div class="design-overlay" onclick="openLightbox({{ item.design_file_url | tojson }})">
+                            <img src="{{ item.design_file_url }}" alt="Custom Design Preview">
+                            <span class="design-badge">Custom Design</span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Item Info -->
+                        <div class="item-info">
+                            <h3>{{ item.product.product_name }}</h3>
+                            <p class="category">{{ item.product.category_name }}</p>
+
+                            {% if item.customizations %}
+                            <div class="customizations">
+                                <strong>Customizations:</strong>
+                                <ul>
+                                    {% for key, value in item.customizations.items() %}
+                                    <li>{{ key }}: {{ value }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+
+                            <div class="item-pricing">
+                                <div class="pricing-row">
+                                    <span>Quantity:</span>
+                                    <span>{{ item.quantity }}</span>
+                                </div>
+                                <div class="pricing-row">
+                                    <span>Unit Price:</span>
+                                    <span>${{ "%.2f"|format(item.unit_price) }}</span>
+                                </div>
+                                <div class="pricing-row total">
+                                    <strong>Subtotal:</strong>
+                                    <strong>${{ "%.2f"|format(item.subtotal) }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No items found in this order.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        
       <!-- Order Summary Section -->
       <div class="order-summary-section">
         <div class="info-card">
@@ -137,6 +136,10 @@
             <div class="total-row">
               <span>Total Items:</span>
               <span>{{ order.total_items }}</span>
+            </div>
+            <div class="total-row">
+              <span>Total quantity:</span>
+              <span>{{ order["items"] | sum(attribute='quantity') }}</span>
             </div>
             <div class="total-row grand-total">
               <span><strong>Total Amount:</strong></span>

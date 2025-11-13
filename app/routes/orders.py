@@ -92,7 +92,7 @@ def format_order_response(order, include_items=True):
             })
 
         order_data['items'] = items if items else []
-        order_data['total_items'] = len(items)
+        order_data['total_items'] = sum(item['quantity'] for item in order_items)
 
     return order_data
 
@@ -288,8 +288,7 @@ def checkout():
 # ORDER RETRIEVAL
 # ============================================
 
-# Get customer's order history
-@orders_bp.route('/', methods=['GET'])
+# Get customer's order history 
 @orders_bp.route('/list', methods=['GET'])
 @login_required
 def get_orders(): 
@@ -413,6 +412,29 @@ def get_order(order_id):
             order_data['updated_at'] = DateHelper.format_datetime(
                 datetime.fromisoformat(order_data['updated_at'])
             )
+        
+        for item in order_data.get("items", []):
+            # Determine fallback image based on product name
+            product_name_lower = item["product"]["product_name"].lower()
+        
+            if 'mug' in product_name_lower:
+                image_filename = '/static/images/mug.png'
+            elif 'tote' in product_name_lower:
+                image_filename = '/static/images/tote.png'
+            elif 'drawstring' in product_name_lower:
+                image_filename = '/static/images/drawstring-bag.png'
+            elif 'shopping' in product_name_lower:
+                image_filename = '/static/images/shopping-bag.png'
+            elif 't-shirt' in product_name_lower or 'tshirt' in product_name_lower:
+                image_filename = '/static/images/shirt.png'
+            elif 'tumbler' in product_name_lower:
+                image_filename = '/static/images/tumbler.png'
+            else:
+                image_filename = '/static/images/mug.png'  # fallback
+
+            # Only set image_url if not already set
+            if not item["product"].get("image_url"):
+                item["product"]["image_url"] = image_filename
         
         # For JSON requests
         if request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
@@ -595,7 +617,7 @@ def cancel_order(order_id):
 def get_order_stats(): 
     try:
         order_model = Order()
-        orders = order_model.get_by_customer(session['customer_id'])  # ✅ call method
+        orders = order_model.get_by_customer(session['customer_id'])   
         stats = {
             'total_orders': len(orders),
             'pending_orders': sum(1 for o in orders if o.get('order_status') == 'pending'),

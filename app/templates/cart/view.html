@@ -21,20 +21,13 @@
                     
                     <!-- Image + Upload -->
                     <div class="item-image">
+                        <img src="{{ item.image_url }}" 
+                            alt="{{ item.product.product_name }}" 
+                            class="{% if item.design_file_url %}design-preview{% endif %}"
+                            {% if item.design_file_url %}onclick="openLightbox({{ item.design_file_url | tojson }})"{% endif %}>
+                        
                         {% if item.design_file_url %}
-                            <img src="{{ item.design_file_url }}" 
-                                 alt="{{ item.product.product_name }}" 
-                                 class="design-preview"
-                                 onclick="openLightbox({{ item.design_file_url | tojson }})">
                             <div class="design-badge">Custom Design</div>
-                        {% else %}
-                            <div class="placeholder-image" onclick="document.getElementById('file-input-{{ item.cart_item_id }}').click()">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M4.5 9.5A.5.5 0 0 1 5 9h2V7a.5.5 0 0 1 1 0v2h2a.5.5 0 0 1 0 1H8v2a.5.5 0 0 1-1 0v-2H5a.5.5 0 0 1-.5-.5z"/>
-                                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5zM4.5 3A1.5 1.5 0 0 0 3 4.5V14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5A1.5 1.5 0 0 0 11.5 3h-7z"/>
-                                </svg>
-                                <p>Upload Design</p>
-                            </div>
                         {% endif %}
 
                         <form method="POST" action="{{ url_for('cart.update_cart_item', cart_item_id=item.cart_item_id) }}" enctype="multipart/form-data" class="upload-form">
@@ -124,14 +117,6 @@
         {% endif %}
     </div>
 </section>
-
-<!-- Optional Lightbox for Image Preview -->
-<div id="imageLightbox" class="image-lightbox" onclick="closeLightbox()">
-    <div class="lightbox-content" onclick="event.stopPropagation()">
-        <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
-        <img id="lightboxImage" src="" alt="Design preview">
-    </div>
-</div>
 
 <script>
 function openLightbox(imageSrc) {
