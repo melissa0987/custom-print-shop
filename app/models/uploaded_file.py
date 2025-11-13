@@ -50,6 +50,17 @@ class UploadedFile:
                               order_item_id, cart_item_id, uploaded_at))
             
             return cur.fetchone()["file_id"]
+        
+    def update_session_to_customer(self, session_id, customer_id):
+        """Update uploaded files from session to customer after registration"""
+        sql = """
+            UPDATE uploaded_files 
+            SET customer_id = %s, session_id = NULL 
+            WHERE session_id = %s;
+        """
+        with get_cursor() as cur:
+            cur.execute(sql, (customer_id, session_id))
+            return cur.rowcount > 0
 
     # ---------------------
     # READ

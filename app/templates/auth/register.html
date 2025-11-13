@@ -10,6 +10,16 @@
     </div>
 
     <h2>Create Account</h2>
+    
+    {% if session.get('session_id') %}
+      {% set cart_count = session.get('cart_count', 0) %}
+      {% if cart_count > 0 %}
+        <div class="info-notice">
+          <p>📦 You have {{ cart_count }} item{{ 's' if cart_count != 1 else '' }} in your cart. 
+          Register to save your cart and checkout!</p>
+        </div>
+      {% endif %}
+    {% endif %}
 
     <form method="POST" action="{{ url_for('auth.register') }}">
       <input type="text" name="username" placeholder="Username" required>
@@ -27,5 +37,19 @@
   </div>
 </main>
 
- 
+<style>
+.info-notice {
+  background: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+}
+
+.info-notice p {
+  margin: 0;
+  color: #1976d2;
+  font-size: 0.95rem;
+}
+</style>
 {% endblock %}

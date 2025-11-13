@@ -75,6 +75,18 @@ def register():
             flash(error_msg, 'error')
             return redirect(url_for('auth.register'))
         
+        # Check if email exists
+        existing_email = customer_model.get_by_email(data['email'].lower())
+        if existing_email:
+            error_msg = 'Email already exists'
+            if request.is_json:
+                return jsonify({'error': error_msg}), 409
+            flash(error_msg, 'error')
+            return redirect(url_for('auth.register'))
+        
+        # Store guest session_id before registration
+        guest_session_id = session.get('session_id')
+        
         # Use PasswordHelper for hashing
         password_hash = PasswordHelper.hash_password(data['password'])
         
@@ -93,10 +105,37 @@ def register():
         session['username'] = customer['username']
         session.permanent = True
         
+        # Merge guest cart if exists
+        if guest_session_id:
+            merge_guest_cart_to_user(customer['customer_id'])
+        
+        # Check if user has items in cart after merge
+        from app.routes.cart import get_or_create_cart, update_cart_count
+        cart = get_or_create_cart()
+        update_cart_count()
+        
+        has_cart_items = False
+        if cart:
+            from app.models.cart_item import CartItem
+            cart_item_model = CartItem()
+            cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
+            has_cart_items = len(cart_items) > 0
+        
         if request.is_json:
-            return jsonify({'message': 'Registration successful', 'customer': customer}), 201
-        flash('Registration successful! You are now logged in.', 'success')
-        return redirect(url_for('main.home'))
+            return jsonify({
+                'message': 'Registration successful', 
+                'customer': customer,
+                'redirect': url_for('orders.checkout') if has_cart_items else url_for('main.homepage')
+            }), 201
+        
+        flash('Registration successful! Welcome to PrintCraft.', 'success')
+        
+        # Redirect to checkout if cart has items, otherwise to homepage
+        if has_cart_items:
+            flash('Your cart items have been saved. You can now proceed to checkout.', 'success')
+            return redirect(url_for('orders.checkout'))
+        else:
+            return redirect(url_for('main.homepage'))
             
     except Exception as e:
         error_msg = f'Registration failed: {str(e)}'
@@ -104,6 +143,8 @@ def register():
             return jsonify({'error': error_msg}), 500
         flash(error_msg, 'error')
         return redirect(url_for('auth.register'))
+
+
 
 # Customer login
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -227,59 +268,83 @@ def merge_guest_cart_to_user(customer_id):
     cart_item_model = CartItem()
     customization_model = CartItemCustomization()
 
-    # Get guest cart
-    guest_carts = cart_model.get_by_session(session_id)
-    if not guest_carts:
-        return
-    guest_cart = guest_carts[0]
+    try:
+        # Get guest cart
+        guest_carts = cart_model.get_by_session(session_id)
+        if not guest_carts:
+            return
+        guest_cart = guest_carts[0]
 
-    # Get user cart (or create if none)
-    user_carts = cart_model.get_by_customer(customer_id)
-    now = datetime.now()
-    if user_carts:
-        user_cart = user_carts[0]
-    else:
-        cart_id = cart_model.create(
-            customer_id=customer_id,
-            expires_at=now + timedelta(days=30)
-        )
-        user_cart = cart_model.get_by_id(cart_id)
-
-    # Merge guest cart items
-    guest_items = cart_item_model.get_by_cart(guest_cart['shopping_cart_id'])
-    user_items = cart_item_model.get_by_cart(user_cart['shopping_cart_id'])
-    user_item_map = {item['product_id']: item for item in user_items}
-
-    for item in guest_items:
-        if item['product_id'] in user_item_map:
-            # Increment quantity if product exists in user cart
-            existing_item = user_item_map[item['product_id']]
-            new_qty = existing_item['quantity'] + item['quantity']
-            cart_item_model.update(existing_item['cart_item_id'], quantity=new_qty)
-        else:
-            # Move item to user cart
-            new_item_id = cart_item_model.create(
-                shopping_cart_id=user_cart['shopping_cart_id'],
-                product_id=item['product_id'],
-                quantity=item['quantity'],
-                design_file_url=item.get('design_file_url')
-            )
-            # Move customizations if any
-            customizations = customization_model.get_by_cart_item(item['cart_item_id'])
-            for c in customizations:
-                customization_model.create(
-                    cart_item_id=new_item_id,
-                    customization_key=c['customization_key'],
-                    customization_value=c['customization_value']
+        # Get user cart (or create if none)
+        user_carts = cart_model.get_by_customer(customer_id)
+        now = datetime.now()
+        if user_carts:
+            # Find active cart
+            user_cart = None
+            for cart in user_carts:
+                if cart.get('expires_at') and cart['expires_at'] > now:
+                    user_cart = cart
+                    break
+            
+            # If no active cart, create one
+            if not user_cart:
+                cart_id = cart_model.create(
+                    customer_id=customer_id,
+                    expires_at=now + timedelta(days=30)
                 )
+                user_cart = cart_model.get_by_id(cart_id)
+        else:
+            cart_id = cart_model.create(
+                customer_id=customer_id,
+                expires_at=now + timedelta(days=30)
+            )
+            user_cart = cart_model.get_by_id(cart_id)
 
-    # Delete guest cart
-    for item in guest_items:
-        cart_item_model.delete(item['cart_item_id'])
-    cart_model.delete(guest_cart['shopping_cart_id'])
+        # Merge guest cart items
+        guest_items = cart_item_model.get_by_cart(guest_cart['shopping_cart_id'])
+        user_items = cart_item_model.get_by_cart(user_cart['shopping_cart_id'])
+        user_item_map = {item['product_id']: item for item in user_items}
 
-    # Remove session_id
-    session.pop('session_id', None)
+        for item in guest_items:
+            if item['product_id'] in user_item_map:
+                # Increment quantity if product exists in user cart
+                existing_item = user_item_map[item['product_id']]
+                new_qty = existing_item['quantity'] + item['quantity']
+                cart_item_model.update(existing_item['cart_item_id'], quantity=new_qty)
+            else:
+                # Move item to user cart
+                new_item_id = cart_item_model.create(
+                    shopping_cart_id=user_cart['shopping_cart_id'],
+                    product_id=item['product_id'],
+                    quantity=item['quantity'],
+                    design_file_url=item.get('design_file_url')
+                )
+                # Move customizations if any
+                if item.get('customizations'):
+                    for c in item['customizations']:
+                        customization_model.create(
+                            cart_item_id=new_item_id,
+                            customization_key=c['customization_key'],
+                            customization_value=c['customization_value']
+                        )
 
-    # Update cart count
-    session['cart_count'] = cart_item_model.get_total_items(user_cart['shopping_cart_id'])
+        # Update uploaded files to link to customer
+        from app.models.uploaded_file import UploadedFile
+        uploaded_file_model = UploadedFile()
+        uploaded_file_model.update_session_to_customer(session_id, customer_id)
+
+        # Delete guest cart items and cart
+        for item in guest_items:
+            cart_item_model.delete(item['cart_item_id'])
+        cart_model.delete(guest_cart['shopping_cart_id'])
+
+        # Remove session_id from session
+        session.pop('session_id', None)
+
+        # Update cart count
+        session['cart_count'] = cart_item_model.get_total_items(user_cart['shopping_cart_id'])
+        
+    except Exception as e:
+        print(f"Error merging guest cart: {str(e)}")
+        # Don't fail registration if cart merge fails
+        pass
