@@ -159,15 +159,30 @@ class Customer:
             cur.execute(sql)
             return cur.fetchall()
 
+    def get_by_email(self, email):
+        """Get customer by email"""
+        sql = "SELECT * FROM customers WHERE email = %s;"
+        with get_cursor(commit=False) as cur:
+            cur.execute(sql, (email,))
+            return cur.fetchone()
+
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField
-from wtforms.validators import DataRequired, Email, Optional
+from wtforms.validators import DataRequired, Email, Optional, Length, Regexp
 
 class EditProfileForm(FlaskForm):
+    username = StringField('Username', validators=[
+        DataRequired(),
+        Length(min=3, max=50),
+        Regexp('^[a-z0-9_-]+$', message="Username must contain only lowercase letters, numbers, underscores, and hyphens")
+    ])
     first_name = StringField('First Name', validators=[DataRequired()])
     last_name = StringField('Last Name', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     phone = StringField('Phone', validators=[Optional()])
-    password = PasswordField('New Password', validators=[Optional()])
+    password = PasswordField('New Password (leave blank to keep current)', validators=[
+        Optional(),
+        Length(min=8, message="Password must be at least 8 characters")
+    ])
     confirm_password = PasswordField('Confirm Password', validators=[Optional()])

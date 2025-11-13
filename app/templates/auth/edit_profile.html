@@ -23,84 +23,138 @@
         {{ form.hidden_tag() }}
 
         <div class="form-group">
+            {{ form.username.label }}
+            {{ form.username(class="form-control") }}
+            {% if form.username.errors %}
+                <span class="error">{{ form.username.errors[0] }}</span>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
             {{ form.first_name.label }}
             {{ form.first_name(class="form-control") }}
+            {% if form.first_name.errors %}
+                <span class="error">{{ form.first_name.errors[0] }}</span>
+            {% endif %}
         </div>
 
         <div class="form-group">
             {{ form.last_name.label }}
             {{ form.last_name(class="form-control") }}
+            {% if form.last_name.errors %}
+                <span class="error">{{ form.last_name.errors[0] }}</span>
+            {% endif %}
         </div>
 
         <div class="form-group">
             {{ form.email.label }}
             {{ form.email(class="form-control") }}
+            {% if form.email.errors %}
+                <span class="error">{{ form.email.errors[0] }}</span>
+            {% endif %}
         </div>
 
         <div class="form-group">
             {{ form.phone.label }}
             {{ form.phone(class="form-control") }}
+            {% if form.phone.errors %}
+                <span class="error">{{ form.phone.errors[0] }}</span>
+            {% endif %}
+        </div> 
+        <div class="button-group">
+            <button type="submit" class="btn-submit">Update Profile</button>
+            <a href="{{ url_for('customer.profile') }}" class="btn-cancel">Cancel</a>
         </div>
-
-        <div class="form-group">
-            {{ form.password.label }}
-            {{ form.password(class="form-control") }}
-        </div>
-
-        <div class="form-group">
-            {{ form.confirm_password.label }}
-            {{ form.confirm_password(class="form-control") }}
-        </div>
-
-        <button type="submit" class="btn-submit">Update Profile</button>
     </form>
 </div>
 
 <style>
 .profile-edit-container {
-    max-width: 500px;
-    margin: 2rem auto;
+    max-width: 600px;
+    margin: 120px auto 60px;
     padding: 2rem;
-    background: #f7f7f7;
-    border-radius: 8px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .profile-edit-container h2 {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    color: #333;
 }
 
 .form-group {
-    margin-bottom: 1rem;
-    display: flex;
-    flex-direction: column;
+    margin-bottom: 1.5rem;
 }
 
 .form-group label {
+    display: block;
     margin-bottom: 0.5rem;
     font-weight: 600;
+    color: #333;
 }
 
 .form-group input {
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-.btn-submit {
     width: 100%;
     padding: 0.75rem;
-    background-color: #f5a623;
-    color: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.error {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.btn-submit, .btn-cancel {
+    flex: 1;
+    padding: 0.75rem;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
     font-size: 1rem;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.btn-submit {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
 }
 
 .btn-submit:hover {
-    background-color: #d48806;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-cancel {
+    background: #f0f0f0;
+    color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-cancel:hover {
+    background: #e0e0e0;
 }
 </style>
 {% endblock %}

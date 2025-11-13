@@ -25,26 +25,6 @@ def profile():
     return render_template('auth/profile.html', customer=customer, stats=stats)
 
 
-# Update customer profile
-@customer_bp.route('/profile/update', methods=['POST'])
-@login_required
-def update_profile():
-    customer_id = session.get('customer_id')
-    data = request.get_json(silent=True) or request.form.to_dict()
-
-    success, result = CustomerService.update_profile(customer_id, **data)
-    if not success:
-        if request.is_json:
-            return jsonify({'error': result}), 400
-        flash(result, "error")
-        return redirect(url_for('customer.profile'))
-
-    if request.is_json:
-        return jsonify({'message': 'Profile updated successfully', 'customer': result}), 200
-
-    flash("Profile updated successfully", "success")
-    return redirect(url_for('customer.profile'))
-
 
 @customer_bp.route('/profile/edit', methods=['GET', 'POST'])
 @login_required
@@ -55,12 +35,62 @@ def edit_profile():
         flash("Customer not found", "error")
         return redirect(url_for('main.homepage'))
 
-    form = EditProfileForm(obj=customer)
+    form = EditProfileForm()
+    
     if form.validate_on_submit():
-        # Call your service to update customer info
-        CustomerService.update_customer(customer_id, form.data)
-        flash("Profile updated successfully!", "success")
-        return redirect(url_for('customer.profile'))
+        # Check if username changed and is unique
+        if form.username.data != customer['username']:
+            from app.models.customer import Customer
+            existing = Customer().get_by_username(form.username.data)
+            if existing:
+                flash("Username already taken", "error")
+                return render_template('auth/edit_profile.html', form=form, customer=customer)
+        
+        # Check if email changed and is unique
+        if form.email.data != customer['email']:
+            from app.models.customer import Customer
+            # You'll need to add get_by_email method to Customer model
+            existing = Customer().get_by_email(form.email.data)
+            if existing:
+                flash("Email already taken", "error")
+                return render_template('auth/edit_profile.html', form=form, customer=customer)
+        
+        # Update customer info
+        update_data = {
+            'first_name': form.first_name.data,
+            'last_name': form.last_name.data,
+            'email': form.email.data,
+            'username': form.username.data,
+            'phone_number': form.phone.data or None
+        }
+        
+        # Handle password change if provided
+        if form.password.data:
+            if form.password.data != form.confirm_password.data:
+                flash("Passwords do not match", "error")
+                return render_template('auth/edit_profile.html', form=form, customer=customer)
+            
+            from werkzeug.security import generate_password_hash
+            update_data['password_hash'] = generate_password_hash(form.password.data)
+        
+        success, result = CustomerService.update_profile(customer_id, **update_data)
+        if success:
+            # Update session username if changed
+            if form.username.data != customer['username']:
+                session['username'] = form.username.data
+            
+            flash("Profile updated successfully!", "success")
+            return redirect(url_for('customer.profile'))
+        else:
+            flash(result, "error")
+    
+    # Pre-populate form with current data on GET request
+    if request.method == 'GET':
+        form.first_name.data = customer['first_name']
+        form.last_name.data = customer['last_name']
+        form.email.data = customer['email']
+        form.username.data = customer['username']
+        form.phone.data = customer.get('phone_number')
 
     return render_template('auth/edit_profile.html', form=form, customer=customer)
 
@@ -87,4 +117,4 @@ def change_password():
 @customer_bp.route('/profile/change-password-page', methods=['GET'])
 @login_required
 def change_password_page():
-    return render_template('customer/change_password.html')
+    return render_template('auth/change_password.html')

@@ -980,5 +980,5 @@ ORDER BY revenue_rank;
 
 SELECT username, password_hash FROM customers WHERE username='johndoe';
 
-select * from customers where username='test';
+select * from customers;
 select * from orders where customer_id=1 ;

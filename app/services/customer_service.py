@@ -13,13 +13,24 @@ class CustomerService:
     @staticmethod
     def update_profile(customer_id, **kwargs):
         model = Customer()
-        # Basic validation (optional)
-        if 'email' in kwargs and not Validators.validate_email(kwargs['email']):
+        
+        # Remove None values
+        update_data = {k: v for k, v in kwargs.items() if v is not None}
+        
+        if not update_data:
+            return False, "No changes to update"
+        
+        # Validate email if provided
+        if 'email' in update_data and not Validators.validate_email(update_data['email']):
             return False, "Invalid email address"
         
-        updated = model.update(customer_id, **kwargs)
+        # Validate username if provided
+        if 'username' in update_data and not Validators.validate_username(update_data['username']):
+            return False, "Invalid username format"
+        
+        updated = model.update(customer_id, **update_data)
         if not updated:
-            return False, "No changes were made"
+            return False, "Failed to update profile"
         
         customer = model.get_by_id(customer_id)
         return True, customer
