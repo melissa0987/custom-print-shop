@@ -1,5 +1,5 @@
 from app.models.customer import Customer
-from app.utils import Validators, StringHelper, PriceHelper
+from app.utils import Validators, StringHelper, PriceHelper 
 from werkzeug.security import check_password_hash, generate_password_hash
 
 class CustomerService:
@@ -37,17 +37,31 @@ class CustomerService:
 
     @staticmethod
     def change_password(customer_id, current_password, new_password):
-        model = Customer()
-        customer = model.get_by_id(customer_id)
-        if not customer:
-            return False, "Customer not found"
-
-        if not check_password_hash(customer['password_hash'], current_password):
-            return False, "Current password is incorrect"
-
-        new_hash = generate_password_hash(new_password)
-        updated = model.update(customer_id, password_hash=new_hash)
-        if not updated:
-            return False, "Failed to update password"
-
-        return True, "Password updated successfully"
+        """Change customer password"""
+        
+        try:
+            model = Customer()
+            customer = model.get_by_id(customer_id)
+            
+            if not customer:
+                return False, "Customer not found"
+            
+            # Verify current password
+            if not check_password_hash(customer['password_hash'], current_password):
+                return False, "Current password is incorrect"
+            
+            # Don't allow same password
+            if check_password_hash(customer['password_hash'], new_password):
+                return False, "New password must be different from current password"
+            
+            # Update password
+            new_hash = generate_password_hash(new_password)
+            updated = model.update(customer_id, password_hash=new_hash)
+            
+            if not updated:
+                return False, "Failed to update password"
+            
+            return True, "Password updated successfully"
+            
+        except Exception as e:
+            return False, f"Error: {str(e)}"

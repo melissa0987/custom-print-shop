@@ -95,26 +95,44 @@ def edit_profile():
     return render_template('auth/edit_profile.html', form=form, customer=customer)
 
 # Change password
-@customer_bp.route('/profile/change-password', methods=['POST'])
-@login_required
-def change_password():
-    customer_id = session.get('customer_id')
-    data = request.get_json()
-    current_password = data.get('current_password')
-    new_password = data.get('new_password')
-
-    if not current_password or not new_password:
-        return jsonify({'error': 'Both current and new password are required'}), 400
-
-    success, result = CustomerService.change_password(customer_id, current_password, new_password)
-    if not success:
-        return jsonify({'error': result}), 400
-
-    return jsonify({'message': result}), 200 
-
-
-# Change Password page
-@customer_bp.route('/profile/change-password-page', methods=['GET'])
+@customer_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password_page():
-    return render_template('auth/change_password.html')
+    """Change password page and handler"""
+    if request.method == 'GET':
+        return render_template('auth/change_password.html')
+    
+    # POST request - handle password change
+    customer_id = session.get('customer_id')
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    # Validation
+    if not current_password or not new_password or not confirm_password:
+        flash('All fields are required', 'error')
+        return render_template('auth/change_password.html')
+    
+    if new_password != confirm_password:
+        flash('New passwords do not match', 'error')
+        return render_template('auth/change_password.html')
+    
+    # Validate password strength
+    from app.utils import Validators
+    is_valid, message = Validators.validate_password_strength(new_password)
+    if not is_valid:
+        flash(message, 'error')
+        return render_template('auth/change_password.html')
+    
+    # Attempt to change password
+    success, result = CustomerService.change_password(customer_id, current_password, new_password)
+    
+    if success:
+        flash('Password changed successfully!', 'success')
+        return redirect(url_for('customer.profile'))
+    else:
+        flash(result, 'error')
+        return render_template('auth/change_password.html')
+
+
+

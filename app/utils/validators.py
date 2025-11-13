@@ -36,7 +36,15 @@ class Validators:
     # Validate password strength
     # Requirements: min 8 chars, at least 1 letter and 1 number
     @staticmethod
-    def validate_password_strength(password): 
+    def validate_password_strength(password):
+        """
+        Validate password strength
+        Requirements: 
+        - Min 8 chars
+        - At least 1 letter
+        - At least 1 number
+        - At least 1 special character
+        """
         if not password or not isinstance(password, str):
             return False, "Password is required"
         
@@ -48,6 +56,9 @@ class Validators:
         
         if not re.search(r'\d', password):
             return False, "Password must contain at least one number"
+        
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:\'",.<>?/\\|`~]', password):
+            return False, "Password must contain at least one special character (!@#$%^&* etc.)"
         
         return True, "Password is valid"
     
