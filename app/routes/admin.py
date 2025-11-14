@@ -11,7 +11,7 @@ from app.models import (
     Customer, AdminUser, AdminActivityLog
 )
 from app.utils import admin_required, permission_required
-from app.utils.helpers import PasswordHelper
+from datetime import datetime
 
  
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -26,9 +26,10 @@ def admin_login():
     if request.method == 'GET':
         return render_template('admin/admin_login.html')
 
+    # Get form data
     data = request.get_json(silent=True) or request.form.to_dict()
-    email = data.get('email')
-    password = data.get('password')
+    email = data.get('email', '').strip()
+    password = data.get('password', '')
 
     if not email or not password:
         error_msg = 'Email and password are required'
@@ -39,18 +40,22 @@ def admin_login():
 
     try:
         admin_model = AdminUser()
-        admin = admin_model.get_by_email(email.lower())  # lookup by email
+        admin = admin_model.get_by_email(email.lower())
 
-        if not admin or not admin.get('password_hash'):
-            error_msg = 'Invalid credentials'
+        print("DEBUG: admin fetched from DB:", admin)
+        print("DEBUG: admin type:", type(admin))
+
+        # Check if admin exists
+        if not admin:
+            error_msg = 'Invalid email or password'
             if request.is_json:
                 return jsonify({'error': error_msg}), 401
             flash(error_msg, 'danger')
             return render_template('admin/admin_login.html')
 
-        # Verify password
-        if not PasswordHelper.verify_password(admin['password_hash'], password):
-            error_msg = 'Invalid credentials'
+        # Verify password using the AdminUser static method
+        if not AdminUser.verify_password(admin, password):
+            error_msg = 'Invalid email or password'
             if request.is_json:
                 return jsonify({'error': error_msg}), 401
             flash(error_msg, 'danger')
@@ -58,7 +63,7 @@ def admin_login():
 
         # Check if active
         if not admin.get('is_active', True):
-            error_msg = 'Admin account is inactive'
+            error_msg = 'Admin account is inactive. Please contact support.'
             if request.is_json:
                 return jsonify({'error': error_msg}), 403
             flash(error_msg, 'danger')
@@ -67,33 +72,46 @@ def admin_login():
         # Update last login
         admin_model.update_last_login(admin['admin_id'])
 
-        # Set session
+        # Store admin info in session
         session['admin_id'] = admin['admin_id']
         session['admin_username'] = admin['username']
-        session['admin_role'] = admin.get('role', 'admin')
-        session['permissions'] = admin_model.get_permissions(admin['admin_id'])
+        session['admin_role'] = admin.get('role', 'staff')
+        session['admin_email'] = admin['email']
+        session['admin_first_name'] = admin.get('first_name', '')
+        
+        # Get permissions for this admin
+        permissions = admin_model.get_permissions(admin['admin_id'])
+        session['permissions'] = permissions
         session.permanent = True
 
         # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=admin['admin_id'],
-            action='login',
-            table_name='admin_users',
-            record_id=admin['admin_id'],
-            old_values=None,
-            new_values={'status': 'success'}
-        )
-
-        if request.is_json:
-            return jsonify({'message': 'Login successful', 'admin': admin}), 200
+        try:
+            activity_log_model = AdminActivityLog()
+            activity_log_model.create_log(
+                admin_id=admin['admin_id'],
+                action='login',
+                table_name='admin_users',
+                record_id=admin['admin_id'],
+                old_values=None,
+                new_values={'status': 'success', 'timestamp': datetime.now().isoformat()}
+            )
+        except Exception as log_error:
+            print(f"Warning: Failed to log admin activity: {log_error}")
 
         flash(f'Welcome back, {admin.get("first_name", admin["username"])}!', 'success')
-        next_page = request.args.get('next') or request.form.get('next') or url_for('admin.get_dashboard')
-        return redirect(next_page)
+        
+        # Handle redirect
+        next_page = request.args.get('next') or request.form.get('next')
+        if next_page:
+            return redirect(next_page)
+        return redirect(url_for('admin.get_dashboard'))
 
     except Exception as e:
+        import traceback
         error_msg = f'Login failed: {str(e)}'
+        print("DEBUG: Full error traceback:")
+        print(traceback.format_exc())
+        
         if request.is_json:
             return jsonify({'error': error_msg}), 500
         flash(error_msg, 'danger')

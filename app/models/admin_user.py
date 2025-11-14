@@ -72,34 +72,20 @@ class AdminUser:
         sql = "SELECT * FROM admin_users WHERE admin_id = %s;"
         with get_cursor(commit=False) as cur:
             cur.execute(sql, (admin_id,))
-            row = cur.fetchone()
-            if row:
-                # Convert tuple to dict
-                columns = [desc[0] for desc in cur.description]
-                return dict(zip(columns, row))
-            return None
+            return cur.fetchone()
 
     def get_by_username(self, username):
         sql = "SELECT * FROM admin_users WHERE username = %s ;"
         with get_cursor(commit=False) as cur:
             cur.execute(sql, (username,))
-            row = cur.fetchone()
-            if row:
-                # Convert tuple to dict
-                columns = [desc[0] for desc in cur.description]
-                return dict(zip(columns, row))
-            return None
+            return cur.fetchone()
     
     def get_by_email(self, email):
         sql = "SELECT * FROM admin_users WHERE email = %s;"
         with get_cursor(commit=False) as cur:
-            cur.execute(sql, (email,)) 
-            row = cur.fetchone()
-            if row:
-                # Convert tuple to dict
-                columns = [desc[0] for desc in cur.description]
-                return dict(zip(columns, row))
-            return None
+            cur.execute(sql, (email,))
+            return cur.fetchone()
+        
 
     def get_all(self, limit=50):
         sql = "SELECT * FROM admin_users ORDER BY created_at DESC LIMIT %s;"

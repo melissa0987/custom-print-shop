@@ -1,21 +1,70 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}Admin Login - PrintCraft{% endblock %}
 
 {% block content %}
-<main class="auth-page">
-    <section class="auth-form-section">
-        <h1>Admin Login</h1>
+<main class="auth-container">
+  <div class="auth-card">
 
-        <form id="admin-login-form" method="POST" action="{{ url_for('admin.admin_login') }}">
+    <h2>Admin Login Form</h2>
 
-            <label for="email">Email</label>
-            <input type="email" name="email" id="email" required>
+    <!-- Flash messages (already in base.html but repeated here for clarity) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div style="margin-bottom: 1rem;">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}"  >
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 
-            <label for="password">Password</label>
-            <input  type="password"  name="password"  id="password"   required >
+    <form id="admin-login-form" method="POST" 
+        action="{{ url_for('admin.admin_login') }}">
+      <!-- Preserve next parameter -->
+      {% if request.args.get('next') %}
+        <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+      {% endif %}
 
-            <button type="submit">Login</button>
-        </form>
-    </section>
-</main>
+      
+        <label for="email">Email Address</label>
+        <input 
+          type="email" 
+          name="email" 
+          id="email" 
+          value="{{ request.form.get('email', '') }}" 
+          placeholder="admin@printcraft.com"
+          required
+          autocomplete="email"
+        >
+      
+
+      
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          name="password" 
+          id="password" 
+          placeholder="Enter your password"
+          required
+          autocomplete="current-password"
+        >
+      
+
+      <button type="submit" class="btn-login">Login </button>
+    </form>
+
+    <br/>
+    
+    <!-- admin -->
+    <p style="font-size: 0.875rem; color: #666; margin-top: 1rem;">
+        For admin access only. Unauthorized access is prohibited.
+    </p>
+    
+    <p class="switch-text">
+        <a href="{{ url_for('auth.login') }}">Back to Customer Login</a>
+    </p>
+  </div>
+</main> 
 {% endblock %}

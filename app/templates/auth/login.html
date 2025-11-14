@@ -4,6 +4,7 @@
 {% block content %}
 <main class="auth-container">
   <div class="auth-card">
+
     <div class="auth-tabs">
       <a href="{{ url_for('auth.login') }}" class="tab active">Login</a>
       <a href="{{ url_for('auth.register') }}" class="tab">Signup</a>
@@ -20,7 +21,8 @@
       {% endif %}
     {% endwith %}
 
-     <form id="login-form" method="POST" action="{{ url_for('auth.login') }}">
+     <form id="login-form" method="POST" 
+      action="{{ url_for('auth.login') }}">
             <!-- Preserve next parameter -->
             {% if request.args.get('next') %}
                 <input type="hidden" name="next" value="{{ request.args.get('next') }}">
