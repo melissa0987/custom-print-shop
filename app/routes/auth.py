@@ -167,7 +167,7 @@ def login():
         customer_model = Customer()
         customer = customer_model.get_by_username(username_or_email.lower())
 
-        # Make sure there is a hash to check
+         
         if not customer or not customer.get('password_hash'):
             error_msg = 'Invalid credentials'
             if request.is_json:
@@ -257,6 +257,8 @@ def change_password():
             
     except Exception as e:
         return jsonify({'error': f'Failed to change password: {str(e)}'}), 500
+
+
 
 def merge_guest_cart_to_user(customer_id):
     """Merge guest cart items into logged-in user's cart"""

@@ -25,9 +25,8 @@
                         <li><a href="{{ url_for('main.homepage') }}">Home</a></li>
                         <li><a href="{{ url_for('products.get_products') }}">Products</a></li>
                         <li><a href="{{ url_for('admin.get_dashboard') }}">Admin Dashboard</a></li>
-                        <li><span style="color: #f5a623;">Admin: {{ session.get('admin_username') }}</span></li>
                         <li>
-                            <form method="POST" action="{{ url_for('auth.admin_logout') }}" style="display: inline;">
+                            <form method="POST" action="{{ url_for('admin.admin_logout') }}" style="display: inline;">
                                 <button type="submit" 
                                     style="display: inline-block; padding: 8px 16px; background-color: #f5a623; color: white; border-radius: 4px; text-decoration: none;">
                                     Logout

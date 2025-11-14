@@ -72,13 +72,34 @@ class AdminUser:
         sql = "SELECT * FROM admin_users WHERE admin_id = %s;"
         with get_cursor(commit=False) as cur:
             cur.execute(sql, (admin_id,))
-            return cur.fetchone()
+            row = cur.fetchone()
+            if row:
+                # Convert tuple to dict
+                columns = [desc[0] for desc in cur.description]
+                return dict(zip(columns, row))
+            return None
 
     def get_by_username(self, username):
-        sql = "SELECT * FROM admin_users WHERE username = %s;"
+        sql = "SELECT * FROM admin_users WHERE username = %s ;"
         with get_cursor(commit=False) as cur:
             cur.execute(sql, (username,))
-            return cur.fetchone()
+            row = cur.fetchone()
+            if row:
+                # Convert tuple to dict
+                columns = [desc[0] for desc in cur.description]
+                return dict(zip(columns, row))
+            return None
+    
+    def get_by_email(self, email):
+        sql = "SELECT * FROM admin_users WHERE email = %s;"
+        with get_cursor(commit=False) as cur:
+            cur.execute(sql, (email,)) 
+            row = cur.fetchone()
+            if row:
+                # Convert tuple to dict
+                columns = [desc[0] for desc in cur.description]
+                return dict(zip(columns, row))
+            return None
 
     def get_all(self, limit=50):
         sql = "SELECT * FROM admin_users ORDER BY created_at DESC LIMIT %s;"
@@ -167,3 +188,34 @@ class AdminUser:
             return action in staff_permissions
 
         return False
+
+    def get_permissions(self, admin_id):
+            """
+            Return a list of permission strings for the given admin user.
+            """
+            user = self.get_by_id(admin_id)
+            if not user or not user.get('is_active', True):
+                return []
+
+            role = user.get('role', 'staff')
+
+            admin_permissions = [
+                'view_orders', 'update_order_status', 'view_customers',
+                'view_products', 'add_product', 'update_product',
+                'view_categories', 'add_category', 'update_category',
+                'view_staff', 'view_reports'
+            ]
+
+            staff_permissions = [
+                'view_orders', 'update_order_status',
+                'view_customers', 'view_products', 'view_categories'
+            ]
+
+            if role == 'super_admin':
+                return admin_permissions  # super_admin gets all
+            elif role == 'admin':
+                return admin_permissions
+            elif role == 'staff':
+                return staff_permissions
+
+            return []
