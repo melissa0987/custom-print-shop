@@ -18,12 +18,13 @@ products_bp = Blueprint('products', __name__)
 
 @products_bp.route('/categories', methods=['GET'])
 def get_categories():
-    """Display all product categories."""
+    """Display all product categories with their products."""
     include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
     wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
 
     try:
         category_model = Category()
+        product_model = Product()  # Assuming you have a Product model
         categories = category_model.get_all()
 
         if not include_inactive:
@@ -32,19 +33,39 @@ def get_categories():
         # Sort by order and name
         categories.sort(key=lambda x: (x.get('display_order', 0), x.get('category_name', '')))
 
-        # Format data
-        result = [{
-            'category_id': c['category_id'],
-            'category_name': c['category_name'],
-            'description': StringHelper.truncate_text(c.get('description'), 100),
-            'is_active': c.get('is_active'),
-            'display_order': c.get('display_order'),
-            'product_count': category_model.get_active_product_count(c['category_id']),
-            'slug': StringHelper.slugify(c['category_name']),
-            'created_at': c['created_at'].isoformat() if c.get('created_at') else None
-        } for c in categories]
+        result = []
+        for c in categories:
+            # Fetch products for this category
+            products = product_model.get_by_category(c['category_id'])
+            if not include_inactive:
+                products = [p for p in products if p.get('is_active')]
 
-        # JSON only if explicitly requested
+            # Format products for template
+            formatted_products = []
+            for p in products:
+                image_path = ImageHelper.get_product_image_url(p['product_id'], p['product_name'])
+                image_url = url_for('static', filename=image_path)
+                formatted_products.append({
+                    'product_id': p['product_id'],
+                    'product_name': p['product_name'],
+                    'description': StringHelper.truncate_text(p.get('description'), 100),
+                    'base_price_formatted': f"${p.get('base_price', 0):.2f}",
+                    'image_url': image_url,
+                    'category': {'category_name': c['category_name']}
+                })
+
+            result.append({
+                'category_id': c['category_id'],
+                'category_name': c['category_name'],
+                'description': StringHelper.truncate_text(c.get('description'), 100),
+                'is_active': c.get('is_active'),
+                'display_order': c.get('display_order'),
+                'product_count': len(formatted_products),
+                'products': formatted_products,
+                'slug': StringHelper.slugify(c['category_name']),
+                'created_at': c['created_at'].isoformat() if c.get('created_at') else None
+            })
+
         if wants_json:
             return jsonify({'categories': result}), 200
 
@@ -55,6 +76,7 @@ def get_categories():
             return jsonify({'error': str(e)}), 500
         flash(f'Failed to get categories: {str(e)}', 'error')
         return redirect(url_for('main.homepage'))
+
 
 
 @products_bp.route('/categories/<int:category_id>', methods=['GET'])

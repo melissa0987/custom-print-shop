@@ -1,96 +1,69 @@
 {% extends "base.html" %}
-{% block title %}{{ product.product_name }} - PrintCraft{% endblock %}
+{% block title %}Categories - PrintCraft{% endblock %}
 
 {% block content %}
-<section class="product-detail-page">
+<section class="category-detail-page">
     <div class="container">
         <!-- Breadcrumb -->
         <nav class="breadcrumb">
-            <a href="{{ url_for('main.homepage') }}">Home</a> /
             <a href="{{ url_for('products.get_products') }}">Products</a> /
-            {% if product.category %}
-            <a href="{{ url_for('products.get_category', category_id=product.category.category_id) }}">
-                {{ product.category.category_name }}
-            </a> /
-            {% endif %}
-            <span>{{ product.product_name }}</span>
+            <span>Categories</span>
         </nav>
 
-        <div class="product-detail-grid">
-            <!-- Product Image -->
-            <div class="product-image-section">
-                <div class="main-image">
-                    <div class="placeholder-image">🖨️</div>
-                </div>
-            </div>
+        <h1>Product Categories</h1>
 
-            <!-- Product Info -->
-            <div class="product-info-section">
-                <h1>{{ product.product_name }}</h1>
-                
-                {% if product.category %}
-                <p class="category-badge">{{ product.category.category_name }}</p>
-                {% endif %}
-                
-                <div class="price-section">
-                    <span class="price">{{ product.base_price_formatted }}</span>
-                    <span class="price-label">Base Price</span>
-                </div>
-
-                {% if product.description %}
-                <div class="description">
-                    <h3>Description</h3>
-                    <p>{{ product.description }}</p>
-                </div>
-                {% endif %}
-
-                <!-- Add to Cart Form -->
-                <form method="POST" action="{{ url_for('cart.add_to_cart') }}" class="add-to-cart-form">
-                    <input type="hidden" name="product_id" value="{{ product.product_id }}">
-                    
-                    <div class="form-group">
-                        <label for="quantity">Quantity:</label>
-                        <input type="number" id="quantity" name="quantity" value="1" min="1" max="100" required>
+        {% if categories %}
+            {% for category in categories %}
+            <div class="category-section">
+                <!-- Category Header -->
+                <div class="category-header"> 
+                    <div>
+                        <h1>{{ category.category_name }}</h1>
+                        {% if category.description %}
+                        <p class="description">{{ category.description }}</p>
+                        {% endif %}
+                        <p class="product-count">{{ category.product_count }} products</p>
                     </div>
-
-                    <div class="form-group">
-                        <label for="customizations">Customization Notes (optional):</label>
-                        <textarea id="customizations" name="notes" rows="3" 
-                                  placeholder="Add any special customization requests..."></textarea>
-                    </div>
-
-                    <button type="submit" class="btn-add-to-cart">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5"/>
-                        </svg>
-                        Add to Cart
-                    </button>
-                </form>
-
-                <!-- Product Features -->
-                <div class="product-features">
-                    <h3>Features</h3>
-                    <ul>
-                        <li>✓ High-quality printing</li>
-                        <li>✓ Custom designs welcome</li>
-                        <li>✓ Fast turnaround time</li>
-                        <li>✓ 100% satisfaction guarantee</li>
-                    </ul>
                 </div>
-            </div>
-        </div>
 
-        <!-- Related Products -->
-        {% if product.category %}
-        <div class="related-products">
-            <h2>More in {{ product.category.category_name }}</h2>
-            <a href="{{ url_for('products.get_category', category_id=product.category.category_id) }}" 
-               class="btn-view-all">View All</a>
-        </div>
+                <!-- Products Grid for this category -->
+                {% if category.products %}
+                <div class="products-grid">
+                    {% for product in category.products %}
+                    <div class="product-card">
+                        <div class="product-image">
+                            <img src="{{ product.image_url }}" alt="{{ product.product_name }}">
+                        </div>
+                        <div class="product-info">
+                            <h3>{{ product.product_name }}</h3>
+                            {% if product.description %}
+                            <p class="description">{{ product.description }}</p>
+                            {% endif %}
+                            <p class="price">{{ product.base_price_formatted }}</p>
+                        </div>
+                        <div class="product-actions">
+                            <a href="{{ url_for('products.get_product', product_id=product.product_id) }}" class="btn-design">
+                                🎨 Design Your Own
+                            </a>
+                            <form method="POST" action="{{ url_for('cart.add_to_cart') }}" class="add-to-cart-form">
+                                <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                                <input type="number" name="quantity" value="1" min="1" max="100" class="quantity-input">
+                                <button type="submit" class="btn-add-cart">Add to Cart</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    <p>No products available in this category.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-products">
+                <p>No categories found.</p>
+            </div>
         {% endif %}
     </div>
 </section>
-
-
-
 {% endblock %}

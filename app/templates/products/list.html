@@ -5,7 +5,8 @@
 <section class="products-page">
     <div class="container"> 
         <nav class="breadcrumb">  
-            <a href="{{ url_for('products.get_products') }}">Products</a>
+            <a href="{{ url_for('products.get_products') }}">Products</a>/
+            <a href="{{ url_for('products.get_categories') }}">Categories</a>
             {% if current_category %}
                 <span class="breadcrumb-separator">/</span>
                 {% for category in categories %}
