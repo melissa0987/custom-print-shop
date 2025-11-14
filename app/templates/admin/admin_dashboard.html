@@ -1,9 +1,10 @@
 {% extends "admin_base.html" %}
 
 {% block title %}Admin Dashboard - PrintCraft{% endblock %}
-
 {% block content %}
 <div class="admin-container">
+
+    <!-- Header -->
     <div class="admin-header">
         <h1>Admin Dashboard</h1>
         <div class="admin-info">
@@ -14,13 +15,14 @@
         </div>
     </div>
 
+    <!-- Dashboard Stats -->
     <div class="dashboard-stats">
         <div class="stat-card stat-orders">
             <div class="stat-content">
                 <h3>Total Orders</h3>
                 <p class="stat-number">{{ stats.orders.total if stats else 0 }}</p>
                 <span class="stat-subtext">
-                    <span class="pending-count">{{ stats.orders.pending if stats else 0 }} pending</span> | 
+                    <span class="pending-count">{{ stats.orders.pending if stats else 0 }} pending</span> |
                     <span class="processing-count">{{ stats.orders.processing if stats else 0 }} processing</span>
                 </span>
             </div>
@@ -30,7 +32,9 @@
             <div class="stat-content">
                 <h3>Total Revenue</h3>
                 <p class="stat-number">${{ "%.2f"|format(stats.revenue.total) if stats else "0.00" }}</p>
-                <span class="stat-subtext" id="month-revenue">${{ "%.2f"|format(stats.revenue.month) if stats else "0.00" }} this month</span>
+                <span class="stat-subtext">
+                    ${{ "%.2f"|format(stats.revenue.month) if stats else "0.00" }} this month
+                </span>
             </div>
         </div>
 
@@ -38,7 +42,7 @@
             <div class="stat-content">
                 <h3>Customers</h3>
                 <p class="stat-number">{{ stats.customers.total if stats else 0 }}</p>
-                <span class="stat-subtext"><span id="active-customers">{{ stats.customers.active if stats else 0 }}</span> active</span>
+                <span class="stat-subtext">{{ stats.customers.active if stats else 0 }} active</span>
             </div>
         </div>
 
@@ -46,416 +50,92 @@
             <div class="stat-content">
                 <h3>Products</h3>
                 <p class="stat-number">{{ stats.products.total if stats else 0 }}</p>
-                <span class="stat-subtext"><span id="active-products">{{ stats.products.active if stats else 0 }}</span> active</span>
+                <span class="stat-subtext">{{ stats.products.active if stats else 0 }} active</span>
             </div>
         </div>
     </div>
 
-       
-        
-    </div>
-
     <!-- Recent Orders -->
-    <div class="dashboard-section">
-        <div class="section-header">
-            <h2>Recent Orders</h2>
-            <a href="{{ url_for('admin.get_orders') }}" class="btn-link">View All</a>
-        </div>
-        <div class="orders-table-container">
-            <table class="admin-table" id="recent-orders-table">
-                <thead>
-                    <tr>
-                        <th>Order #</th>
-                        <th>Customer</th>
-                        <th>Status</th>
-                        <th>Amount</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="recent-orders-body">
-                    {% if recent_orders and recent_orders|length > 0 %}
-                        {% for order in recent_orders %}
-                            <tr>
-                                <td>#{{ order.order_number }}</td>
-                                <td>{{ order.customer_name or 'N/A' }}</td>
-                                <td>
-                                    <span class="status-badge status-{{ order.order_status }}">
-                                        {{ order.order_status | capitalize }}
-                                    </span>
-                                </td>
-                                <td>${{ '%.2f'|format(order.total_amount) }}</td>
-                                <td>{{ order.created_at.strftime("%Y-%m-%d") }}</td>
-                                <td>
-                                    <a href="{{ url_for('admin.get_order_details', order_id=order['order_id']) }}" 
-                                        class="btn-action">View</a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center">No recent orders</td>
-                        </tr>
-                    {% endif %}
-                </tbody>
-
-            </table>
-        </div>
+<div class="dashboard-section">
+    <div class="section-header">
+        <h2>Recent Orders</h2>
+        <a href="{{ url_for('admin.get_orders') }}" class="btn-link">View All</a>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="dashboard-section">
-        <div class="section-header">
-            <h2>Quick Actions</h2>
-        </div>
-        <div class="quick-actions">
-            {% if session.get('admin_role') in ['super_admin', 'admin'] %}
-            <a href="{{ url_for('admin.create_product') }}" class="action-card">
-                <i class="bi bi-plus-circle"></i>
-                <span>Add Product</span>
-            </a>
-            <a href="{{ url_for('admin.create_category') }}" class="action-card">
-                <i class="bi bi-tag"></i>
-                <span>Add Category</span>
-            </a>
-            {% endif %}
-            <a href="{{ url_for('admin.get_orders') }}?status=pending" class="action-card">
-                <i class="bi bi-clock"></i>
-                <span>Pending Orders</span>
-            </a>
-            <a href="{{ url_for('admin.get_reports') }}" class="action-card">
-                <i class="bi bi-file-earmark-text"></i>
-                <span>Generate Report</span>
-            </a>
-        </div>
+    <div class="orders-table-container">
+        <table class="admin-table" id="recent-orders-table">
+            <thead>
+                <tr>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody id="recent-orders-body">
+                {% if recent_orders and recent_orders|length > 0 %}
+                    {% for order in recent_orders %}
+                        <tr>
+                            <td>#{{ order.order_number }}</td>
+                            <td>{{ order.customer_name or 'N/A' }}</td>
+                            <td>
+                                <span class="status-badge status-{{ order.order_status }}">
+                                    {{ order.order_status | capitalize }}
+                                </span>
+                            </td>
+                            <td>${{ '%.2f'|format(order.total_amount) }}</td>
+                            <td>{{ order.created_at.strftime("%Y-%m-%d") }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.get_order_details', order_id=order.order_id) }}" class="btn-action">
+                                    View
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">No recent orders</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<style>
-.admin-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem;
-}
 
-.admin-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e0e0e0;
-}
+<!-- Quick Actions -->
+<div class="dashboard-section">
+    <div class="section-header">
+        <h2>Quick Actions</h2>
+    </div>
 
-.admin-header h1 {
-    color: #333;
-    font-size: 2rem;
-    margin: 0;
-}
+    <div class="quick-actions">
+        {% if session.get('admin_role') in ['super_admin', 'admin'] %}
+        <a href="{{ url_for('admin.create_product') }}" class="action-card">
+            <i class="bi bi-plus-circle"></i>
+            <span>Add Product</span>
+        </a>
 
-.admin-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
+        <a href="{{ url_for('admin.create_category') }}" class="action-card">
+            <i class="bi bi-tag"></i>
+            <span>Add Category</span>
+        </a>
+        {% endif %}
 
-.admin-badge {
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
+        <a href="{{ url_for('admin.get_orders') }}?status=pending" class="action-card">
+            <i class="bi bi-clock"></i>
+            <span>Pending Orders</span>
+        </a>
 
-.admin-badge-super_admin {
-    background-color: #ff6b6b;
-    color: white;
-}
+        <a href="{{ url_for('admin.get_reports') }}" class="action-card">
+            <i class="bi bi-file-earmark-text"></i>
+            <span>Generate Report</span>
+        </a>
+    </div>
+</div>
+</div>  
 
-.admin-badge-admin {
-    background-color: #f5a623;
-    color: white;
-}
-
-.admin-badge-staff {
-    background-color: #4a90e2;
-    color: white;
-}
-
-.admin-name {
-    font-weight: 500;
-    color: #666;
-}
-
-/* Dashboard Stats */
-.dashboard-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.stat-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
-.stat-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.75rem;
-}
-
-.stat-orders .stat-icon {
-    background-color: #e3f2fd;
-    color: #2196f3;
-}
-
-.stat-revenue .stat-icon {
-    background-color: #e8f5e9;
-    color: #4caf50;
-}
-
-.stat-customers .stat-icon {
-    background-color: #fff3e0;
-    color: #ff9800;
-}
-
-.stat-products .stat-icon {
-    background-color: #f3e5f5;
-    color: #9c27b0;
-}
-
-.stat-content h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.875rem;
-    color: #666;
-    font-weight: 500;
-    text-transform: uppercase;
-}
-
-.stat-number {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #333;
-    margin: 0 0 0.25rem 0;
-}
-
-.stat-subtext {
-    font-size: 0.875rem;
-    color: #999;
-}
-
-/* Admin Navigation Menu */
-.admin-nav-menu {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.admin-nav-item {
-    background: white;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 1.5rem 1rem;
-    text-align: center;
-    text-decoration: none;
-    color: #333;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.admin-nav-item:hover {
-    border-color: #f5a623;
-    background-color: #fff8f0;
-    transform: translateY(-2px);
-}
-
-.admin-nav-item i {
-    font-size: 2rem;
-    color: #f5a623;
-}
-
-.admin-nav-item span {
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-/* Dashboard Section */
-.dashboard-section {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.section-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #333;
-}
-
-.btn-link {
-    color: #f5a623;
-    text-decoration: none;
-    font-weight: 500;
-    transition: color 0.2s;
-}
-
-.btn-link:hover {
-    color: #d89420;
-}
-
-/* Orders Table */
-.orders-table-container {
-    overflow-x: auto;
-}
-
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.admin-table thead {
-    background-color: #f8f9fa;
-}
-
-.admin-table th {
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: #666;
-    border-bottom: 2px solid #e0e0e0;
-    font-size: 0.875rem;
-    text-transform: uppercase;
-}
-
-.admin-table td {
-    padding: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.admin-table tbody tr:hover {
-    background-color: #f8f9fa;
-}
-
-.text-center {
-    text-align: center;
-}
-
-.status-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: capitalize;
-}
-
-.status-pending {
-    background-color: #fff3cd;
-    color: #856404;
-}
-
-.status-processing {
-    background-color: #cce5ff;
-    color: #004085;
-}
-
-.status-completed {
-    background-color: #d4edda;
-    color: #155724;
-}
-
-.status-cancelled {
-    background-color: #f8d7da;
-    color: #721c24;
-}
-
-/* Quick Actions */
-.quick-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-}
-
-.action-card {
-    background: #f8f9fa;
-    border: 2px dashed #d0d0d0;
-    border-radius: 8px;
-    padding: 2rem 1rem;
-    text-align: center;
-    text-decoration: none;
-    color: #666;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.action-card:hover {
-    border-color: #f5a623;
-    background-color: #fff8f0;
-    color: #333;
-}
-
-.action-card i {
-    font-size: 2.5rem;
-    color: #f5a623;
-}
-
-.action-card span {
-    font-weight: 600;
-}
-
-.btn-action {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-decoration: none;
-    display: inline-block;
-}
-
-.btn-view {
-    background-color: #4a90e2;
-    color: white;
-}
-
-.btn-view:hover {
-    background-color: #357abd;
-}
-</style>
- 
 {% endblock %}

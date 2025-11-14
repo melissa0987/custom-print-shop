@@ -701,81 +701,56 @@ def create_product():
         flash(f'Failed to create product: {str(e)}', 'danger')
         return redirect(url_for('admin.create_product'))
 
-
-
-@admin_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
-@permission_required('manage_products')
-def edit_product(product_id):
-    """Edit product"""
-    product_model = Product()
-    
-    if request.method == 'GET':
-        # Render edit form
-        try:
-            product = product_model.get_by_id(product_id)
-            if not product:
-                flash('Product not found', 'danger')
-                return redirect(url_for('admin.get_products_admin'))
-            
-            category_model = Category()
-            categories = category_model.get_all()
-            
-            return render_template('admin/admin_product_form.html', 
-                                 product=product,
-                                 categories=categories,
-                                 action='edit')
-        except Exception as e:
-            flash(f'Failed to load product: {str(e)}', 'danger')
-            return redirect(url_for('admin.get_products_admin'))
-    
-    # POST - handle form submission
-    data = request.form.to_dict()
-    
+@admin_bp.route('/products/<int:product_id>', methods=['GET'])
+@permission_required('view_products')
+def get_product_detail(product_id):
+    """
+    Display details for a single product in the admin panel.
+    """
     try:
+        product_model = Product()
+        category_model = Category()
+
+        # Fetch the product by ID (including inactive for admin)
         product = product_model.get_by_id(product_id)
         if not product:
-            flash('Product not found', 'danger')
+            flash(f'Product with ID {product_id} not found.', 'warning')
             return redirect(url_for('admin.get_products_admin'))
-        
-        # Update product
-        update_data = {}
-        if 'product_name' in data:
-            update_data['product_name'] = data['product_name']
-        if 'category_id' in data:
-            update_data['category_id'] = int(data['category_id'])
-        if 'description' in data:
-            update_data['description'] = data['description']
-        if 'base_price' in data:
-            update_data['base_price'] = float(data['base_price'])
-        
-        update_data['is_active'] = data.get('is_active') == 'on'
-        update_data['updated_by'] = session.get('admin_id')
-        
-        success = product_model.update(product_id, **update_data)
-        
-        if not success:
-            flash('Failed to update product', 'danger')
-            return redirect(url_for('admin.edit_product', product_id=product_id))
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='update_product',
-            table_name='products',
-            record_id=product_id,
-            old_values=product,
-            new_values=data
-        )
-        
-        flash('Product updated successfully', 'success')
-        return redirect(url_for('admin.get_products_admin'))
-            
+
+        # Get category info
+        category = category_model.get_by_id(product.get('category_id'))
+
+        # Get product image URL
+        image_path = ImageHelper.get_product_image_url(product['product_id'], product['product_name'])
+        image_url = url_for('static', filename=image_path)
+
+        # Format product data
+        formatted_product = {
+            'product_id': product['product_id'],
+            'product_name': product['product_name'],
+            'slug': StringHelper.slugify(product['product_name']),
+            'description': product.get('description'),
+            'base_price': float(product['base_price']),
+            'base_price_formatted': PriceHelper.format_currency(product['base_price']),
+            'category': {
+                'category_id': category['category_id'],
+                'category_name': category['category_name']
+            } if category else None,
+            'image_url': image_url,
+            'is_active': product.get('is_active'),
+            'created_at': product['created_at'].isoformat() if product.get('created_at') else None,
+            'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
+        }
+
+        return render_template('admin/admin_product_detail.html', product=formatted_product)
+
     except Exception as e:
-        flash(f'Failed to update product: {str(e)}', 'danger')
-        return redirect(url_for('admin.edit_product', product_id=product_id))
+        flash(f'Failed to load product details: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_products_admin'))
 
 
+
+ 
 
 @admin_bp.route('/products/<int:product_id>/toggle', methods=['POST'])
 @permission_required('manage_products')

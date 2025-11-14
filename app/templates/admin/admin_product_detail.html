@@ -1,0 +1,70 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Edit Product - {{ product.product_name }}{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="section-header">
+        <h1>Edit Product - {{ product.product_name }}</h1>
+        <a href="{{ url_for('admin.get_products_admin') }}" class="btn-link">Back to Products</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="product-edit-form" style="display:flex; gap:20px; flex-wrap:wrap;">
+        <!-- Product Image -->
+        <div class="image-section" style="flex:1; min-width:300px; text-align:center;">
+            <label for="product_image"><strong>Product Image</strong></label>
+            <input type="file" name="product_image" id="product_image" accept="image/*" style="margin-top:10px;">
+            <img src="{{ product.image_url }}" alt="{{ product.product_name }}"
+                 style="max-width:100%; height:auto; object-fit:contain; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.1); margin-top:10px;">
+        </div>
+
+        <!-- Product Info -->
+        <div class="product-info" style="flex:2; min-width:300px;">
+            <div class="form-group">
+                <label>Product Name</label>
+                <input type="text" name="product_name" value="{{ product.product_name }}" required class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label>Category</label>
+                <select name="category_id" class="form-control">
+                    {% for cat in categories %}
+                        <option value="{{ cat.category_id }}" {% if product.category and cat.category_id == product.category.category_id %}selected{% endif %}>
+                            {{ cat.category_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Price</label>
+                <input type="number" name="base_price" value="{{ product.base_price }}" step="0.01" required class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" class="form-control" rows="4">{{ product.description }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" {% if product.is_active %}checked{% endif %}>
+                    Active
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-top:20px;">
+                <button type="submit" class="btn-primary">Save Changes</button>
+                <a href="{{ url_for('admin.get_products_admin') }}" class="btn-secondary">Cancel</a>
+            </div>
+
+            <div style="margin-top:20px;">
+                <p><strong>Created At:</strong> {{ product.created_at or 'N/A' }}</p>
+                {% if product.updated_at %}
+                <p><strong>Updated At:</strong> {{ product.updated_at }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
