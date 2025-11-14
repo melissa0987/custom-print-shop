@@ -449,3 +449,140 @@
         flex-direction: column;
     }
 }
+
+/* Container */
+.customer-orders .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+/* Title */
+.orders-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-dark, #222);
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+/* No Orders */
+.no-orders {
+    text-align: center;
+    padding: 2rem;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+.no-orders p {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+.no-orders .btn-primary {
+    background: var(--primary-color, #007bff);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    text-decoration: none;
+}
+.no-orders .btn-primary:hover {
+    background: var(--primary-dark, #0056b3);
+}
+
+/* Table Wrapper */
+.orders-table-wrapper {
+    overflow-x: auto;
+    margin-top: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Orders Table */
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+.orders-table th,
+.orders-table td {
+    padding: 0.8rem 1rem;
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+}
+.orders-table thead {
+    background: var(--bg-light, #f7f7f7);
+}
+.orders-table th {
+    font-weight: 600;
+    color: var(--text-dark, #222);
+}
+
+/* Status Badges */
+.order-status {
+    padding: 0.35rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: inline-block;
+    text-align: center;
+    min-width: 80px;
+    text-transform: capitalize;
+}
+.status-pending { background: #fff3cd; color: #856404; }
+.status-processing { background: #cce5ff; color: #004085; }
+.status-completed { background: #d4edda; color: #155724; }
+.status-cancelled { background: #f8d7da; color: #721c24; }
+
+/* Actions */
+.actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.btn-view,
+.btn-cancel {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+}
+.btn-view { background: #4a90e2; }
+.btn-view:hover { background-color: #357abd; }
+.btn-cancel { background: #d9534f; }
+.btn-cancel:hover { background: #c9302c; }
+
+/* Pagination */
+.orders-pagination {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+.page-btn {
+    padding: 0.5rem 0.9rem;
+    border-radius: 4px;
+    background: #e0e0e0;
+    color: #222;
+    text-decoration: none;
+}
+.page-btn.active {
+    background: var(--primary-color, #007bff);
+    color: white;
+}
+.page-btn:hover {
+    background: var(--primary-dark, #0056b3);
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .orders-table th, .orders-table td {
+        padding: 0.6rem 0.8rem;
+    }
+    .actions {
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+}
