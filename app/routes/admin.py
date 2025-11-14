@@ -641,7 +641,6 @@ def get_products_data():
         return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
 
 
-
 @admin_bp.route('/products/create', methods=['GET', 'POST'])
 @permission_required('manage_products')
 def create_product():
@@ -741,16 +740,18 @@ def get_product_detail(product_id):
             'created_at': product['created_at'].isoformat() if product.get('created_at') else None,
             'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
         }
+        categories = Category().get_all()
 
-        return render_template('admin/admin_product_detail.html', product=formatted_product)
+        return render_template(
+            'admin/admin_product_detail.html',
+            product=formatted_product,
+            categories=categories
+        )
 
     except Exception as e:
         flash(f'Failed to load product details: {str(e)}', 'danger')
         return redirect(url_for('admin.get_products_admin'))
 
-
-
- 
 
 @admin_bp.route('/products/<int:product_id>/toggle', methods=['POST'])
 @permission_required('manage_products')
@@ -800,7 +801,7 @@ def toggle_product_status(product_id):
 @admin_bp.route('/products/<int:product_id>/delete', methods=['POST'])
 @permission_required('manage_products')
 def delete_product(product_id):
-    """Delete product"""
+    """Delete product: soft delete if there are related orders, else hard delete"""
     try:
         product_model = Product()
         product = product_model.get_by_id(product_id)
@@ -809,30 +810,74 @@ def delete_product(product_id):
             flash('Product not found', 'danger')
             return redirect(url_for('admin.get_products_admin'))
         
-        # Log activity before deletion
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='delete_product',
-            table_name='products',
-            record_id=product_id,
-            old_values=product,
-            new_values=None
-        )
+        # Check if product has orders
+        total_orders = product_model.get_total_orders(product_id)
         
-        success = product_model.delete(product_id)
+        if total_orders > 0:
+            # Soft delete: deactivate product
+            success = product_model.update(
+                product_id,
+                is_active=False,
+                updated_by=session.get('admin_id')
+            )
+            if success:
+                flash('Product has existing orders, so it was deactivated.', 'info')
+            else:
+                flash('Failed to deactivate product.', 'danger')
+        else:
+            # Hard delete: no related orders
+            success = product_model.delete(product_id)
+            if success:
+                flash('Product deleted successfully.', 'success')
+            else:
+                flash('Failed to delete product.', 'danger')
         
-        if not success:
-            flash('Failed to delete product', 'danger')
-            return redirect(url_for('admin.get_products_admin'))
-        
-        flash('Product deleted successfully', 'success')
         return redirect(url_for('admin.get_products_admin'))
             
     except Exception as e:
         flash(f'Failed to delete product: {str(e)}', 'danger')
         return redirect(url_for('admin.get_products_admin'))
-    
+
+@admin_bp.route('/products/<int:product_id>', methods=['POST'])
+@permission_required('manage_products')
+def update_product(product_id):
+    """Update existing product"""
+    try:
+        product_model = Product()
+        product = product_model.get_by_id(product_id)
+        if not product:
+            flash('Product not found', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
+
+        data = request.form.to_dict()
+        file = request.files.get('product_image')
+
+        # Update product
+        product_model.update(
+            product_id,
+            product_name=data.get('product_name'),
+            category_id=int(data.get('category_id')),
+            base_price=float(data.get('base_price')),
+            description=data.get('description'),
+            is_active=data.get('is_active') == 'on',
+            updated_by=session.get('admin_id')
+        )
+
+        # Update image if uploaded
+        if file and ImageHelper.validate_image_file(file.filename):
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            filename = f"{secure_filename(data['product_name'])}.{ext}"
+            path = os.path.join(current_app.root_path, ImageHelper.PRODUCT_IMAGES_DIR, filename)
+            file.save(path)
+            product_model.update(product_id, image_url=f"images/products/{filename}")
+
+        flash('Product updated successfully', 'success')
+        return redirect(url_for('admin.get_product_detail', product_id=product_id))
+
+    except Exception as e:
+        flash(f'Failed to update product: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_products_admin'))
+
 
 # ============================================
 # CATEGORY MANAGEMENT
@@ -949,42 +994,7 @@ def create_category():
             
     except Exception as e:
         flash(f'Failed to create category: {str(e)}', 'danger')
-        return redirect(url_for('admin.create_category'))
-
-    """Add new category"""
-    data = request.get_json()
-    
-    try:
-        category_model = Category()
-        
-        category_id = category_model.create(
-            category_name=data['category_name'],
-            description=data.get('description', ''),
-            display_order=data.get('display_order', 0),
-            is_active=data.get('is_active', True),
-            created_by=session['admin_id']
-        )
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='add_category',
-            table_name='categories',
-            record_id=category_id,
-            old_values=None,
-            new_values=data
-        )
-        
-        return jsonify({
-            'message': 'Category added successfully',
-            'category_id': category_id
-        }), 201
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to add category: {str(e)}'}), 500
-
-
+        return redirect(url_for('admin.create_category')) 
 
 @admin_bp.route('/categories/<int:category_id>/edit', methods=['GET', 'POST'])
 @permission_required('manage_categories')

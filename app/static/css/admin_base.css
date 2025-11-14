@@ -241,6 +241,8 @@
     text-decoration: none;
     display: inline-block;
     transition: all 0.2s;
+    background-color: #4a90e2;
+    color: white;
 }
 
 .btn-view {
@@ -406,10 +408,11 @@
 }
 
 .form-group label {
-    display: block;
+    display: flex;
     margin-bottom: 0.5rem;
     font-weight: 600;
     color: #333;
+    flex-direction: row;
 }
 
 .form-control, select, textarea {
@@ -1984,6 +1987,53 @@
     color: var(--text-medium);
     font-size: 0.875rem;
     margin-top: 0.75rem;
+}
+
+
+
+.product-edit-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+.image-section {
+    flex: 1;
+    min-width: 300px;
+    text-align: center;
+}
+.product-image-preview {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    margin-top: 10px;
+}
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+textarea.form-control {
+    resize: vertical;
+}
+
+.timestamps {
+    margin-top: 20px;
+    font-size: 13px;
+    color: #555;
+}
+.active-row {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between checkbox and label/badge */
+}
+
+.active-row label {
+    margin: 0;
+    font-weight: 500;
 }
 
 /* ===================================
