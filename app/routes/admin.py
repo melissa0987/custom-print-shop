@@ -1152,48 +1152,82 @@ def delete_category(category_id):
 # ============================================
 # CUSTOMER MANAGEMENT
 # ============================================
-
 @admin_bp.route('/customers', methods=['GET'])
 @permission_required('view_customers')
 def get_customers_admin():
-    """Render customers management page"""
+    """Render customers management page with totals and optional filters/sorting"""
+    status_filter = request.args.get('status')  # 'active', 'inactive', or None
+    search_term = request.args.get('search', '').strip()
+    sort_by = request.args.get('sort_by', 'id')
+    sort_order = request.args.get('sort_order', 'asc')
+
     try:
         customer_model = Customer()
+        order_model = Order()
+
         customers = customer_model.get_all()
-        
-        # Format customers
+
+        # Compute totals for each customer
         formatted_customers = []
         for c in customers:
+            orders = order_model.get_by_customer(c['customer_id'])
+            total_orders = len(orders)
+            total_spent = sum(order['total_amount'] for order in orders)
             formatted_customers.append({
                 'customer_id': c['customer_id'],
                 'username': c['username'],
                 'email': c['email'],
-                'first_name': c.get('first_name'),
-                'last_name': c.get('last_name'),
-                'phone_number': c.get('phone_number'),
-                'is_active': c.get('is_active'),
+                'first_name': c.get('first_name', ''),
+                'last_name': c.get('last_name', ''),
+                'phone_number': c.get('phone_number', ''),
+                'is_active': c.get('is_active', True),
                 'created_at': c['created_at'].isoformat() if c.get('created_at') else None,
-                'last_login': c['last_login'].isoformat() if c.get('last_login') else None
+                'last_login': c['last_login'].isoformat() if c.get('last_login') else None,
+                'total_orders': total_orders,
+                'total_spent': total_spent
             })
-        
-        return render_template('admin/admin_customers.html', 
-                             customers=formatted_customers)
-            
+
+        # Apply status filter
+        if status_filter == 'active':
+            formatted_customers = [c for c in formatted_customers if c['is_active']]
+        elif status_filter == 'inactive':
+            formatted_customers = [c for c in formatted_customers if not c['is_active']]
+
+        # Apply search filter
+        if search_term:
+            formatted_customers = [
+                c for c in formatted_customers
+                if search_term.lower() in (c['username'] + c['first_name'] + c['last_name'] + c['email']).lower()
+            ]
+
+        # Sort
+        reverse = (sort_order == 'desc')
+        sort_key_map = {
+            'id': lambda x: x['customer_id'],
+            'username': lambda x: x['username'].lower(),
+            'name': lambda x: (x['first_name'] + x['last_name']).lower(),
+            'orders': lambda x: x['total_orders'],
+            'spent': lambda x: x['total_spent'],
+            'joined': lambda x: x['created_at'] or ''
+        }
+        if sort_by in sort_key_map:
+            formatted_customers.sort(key=sort_key_map[sort_by], reverse=reverse)
+        else:
+            # default to ID sort
+            formatted_customers.sort(key=lambda x: x['customer_id'])
+
+        return render_template(
+            'admin/admin_customers.html',
+            customers=formatted_customers,
+            status=status_filter,
+            search=search_term,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+
     except Exception as e:
         flash(f'Failed to load customers: {str(e)}', 'danger')
         return redirect(url_for('admin.get_dashboard'))
-    
-
-@admin_bp.route('/customers', methods=['GET'])
-@permission_required('view_customers')
-def get_customers():
-    """Render customers management page or return JSON for AJAX"""
-    # If it's an AJAX request, return JSON
-    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return get_customers_data()
-    
-    # Otherwise render the HTML page
-    return render_template('admin/admin_customers.html')
 
 
 @admin_bp.route('/customers/<int:customer_id>/edit', methods=['GET', 'POST'])
@@ -1299,7 +1333,6 @@ def toggle_customer_status(customer_id):
         return redirect(url_for('admin.get_customers_admin'))
 
 
-
 def get_customers_data():
     """API endpoint to get all customers"""
     page = request.args.get('page', 1, type=int)
@@ -1348,7 +1381,6 @@ def get_customers_data():
             
     except Exception as e:
         return jsonify({'error': f'Failed to get customers: {str(e)}'}), 500
-
 
 @admin_bp.route('/customers/<int:customer_id>', methods=['GET'])
 @permission_required('view_customers')

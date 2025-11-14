@@ -11,931 +11,104 @@
         </a>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters Section -->
     <div class="filters-section">
-        <div class="filter-group">
-            <label for="status-filter">Status:</label>
-            <select id="status-filter" class="filter-select">
-                <option value="true">Active Only</option>
-                <option value="false">All Customers</option>
-            </select>
-        </div>
+        <form method="GET" action="{{ url_for('admin.get_customers_admin') }}">
+            <div class="filter-group">
+                <label for="status-filter">Status:</label>
+                <select name="status" id="status-filter" class="filter-select" onchange="this.form.submit()">
+                    <option value="">All</option>
+                    <option value="active" {% if status == 'active' %}selected{% endif %}>Active Only</option>
+                    <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive Only</option>
+                </select>
+            </div>
 
-        <div class="filter-group">
-            <label for="search-input">Search:</label>
-            <input type="text" id="search-input" class="filter-input" 
-                   placeholder="Username, email, or name...">
-        </div>
+            <div class="filter-group">
+                <label for="search-input">Search:</label>
+                <input type="text" name="search" id="search-input" class="filter-input" value="{{ search or '' }}" placeholder="Username, email, or name...">
+            </div>
 
-        <button class="btn-primary" onclick="applyFilters()">
-            <i class="bi bi-funnel"></i> Apply Filters
-        </button>
-        <button class="btn-secondary" onclick="resetFilters()">
-            <i class="bi bi-x-circle"></i> Reset
-        </button>
+            <div class="filter-group">
+                <label for="sort-by">Sort by:</label>
+                <select name="sort_by" id="sort-by" class="filter-select" onchange="this.form.submit()">
+                    <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
+                    <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Username</option>
+                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+                    <option value="orders" {% if sort_by == 'orders' %}selected{% endif %}>Orders</option>
+                    <option value="spent" {% if sort_by == 'spent' %}selected{% endif %}>Spent</option>
+                    <option value="joined" {% if sort_by == 'joined' %}selected{% endif %}>Joined</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="sort-order">Order:</label>
+                <select name="sort_order" id="sort-order" class="filter-select" onchange="this.form.submit()">
+                    <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                    <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+                </select>
+            </div>
+
+             <div class="filter-group">
+                 <button type="submit" class="btn-primary">Apply Filters</button>
+                <a href="{{ url_for('admin.get_customers_admin') }}" class="btn-secondary">Reset</a>
+             </div>
+        </form>
     </div>
 
     <!-- Customers Table -->
     <div class="content-section">
         <div class="table-header">
-            <h2>All Customers (<span id="customer-count">0</span>)</h2>
-            <button class="btn-export" onclick="exportCustomers()">
-                <i class="bi bi-download"></i> Export
-            </button>
+            <h2>All Customers (<span id="customer-count">{{ customers|length }}</span>)</h2>
         </div>
 
         <div class="table-container">
             <table class="admin-table" id="customers-table">
                 <thead>
                     <tr>
-                        <th>Customer ID</th>
+                        <th>ID</th>
                         <th>Username</th>
                         <th>Name</th>
                         <th>Email</th>
                         <th>Phone</th>
                         <th>Status</th>
-                        <th>Total Orders</th>
-                        <th>Total Spent</th>
+                        <th>Orders</th>
+                        <th>Spent</th>
                         <th>Joined</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="customers-body">
-                    <tr>
-                        <td colspan="10" class="text-center">Loading customers...</td>
-                    </tr>
+                <tbody>
+                    {% if customers %}
+                        {% for c in customers %}
+                        <tr>
+                            <td>#{{ c.customer_id }}</td>
+                            <td>{{ c.username }}</td>
+                            <td>{{ c.first_name }} {{ c.last_name }}</td>
+                            <td>{{ c.email }}</td>
+                            <td>{{ c.phone_number or 'N/A' }}</td>
+                            <td>
+                                <span class="status-badge {{ 'status-active' if c.is_active else 'status-inactive' }}">
+                                    {{ 'Active' if c.is_active else 'Deactivated' }}
+                                </span>
+                            </td>
+                            <td>{{ c.total_orders }}</td>
+                            <td>${{ '%.2f'|format(c.total_spent) }}</td>
+                            <td>{{ c.created_at[:10] if c.created_at else '' }}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{{ url_for('admin.edit_customer', customer_id=c.customer_id) }}" class="btn-action btn-view">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="10" class="text-center">No customers found</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
-
-        <!-- Pagination -->
-        <div class="pagination" id="pagination"></div>
     </div>
 </div>
-
-<!-- Customer Detail Modal -->
-<div id="customer-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Customer Details</h2>
-            <span class="close" onclick="closeCustomerModal()">&times;</span>
-        </div>
-        <div class="modal-body" id="customer-detail-content">
-            <!-- Customer details will be loaded here -->
-        </div>
-    </div>
-</div>
-
-<!-- Change Password Modal -->
-<div id="password-modal" class="modal">
-    <div class="modal-content modal-small">
-        <div class="modal-header">
-            <h2>Change Customer Password</h2>
-            <span class="close" onclick="closePasswordModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <form id="password-form" onsubmit="changePassword(event)">
-                <input type="hidden" id="password-customer-id">
-                
-                <div class="form-group">
-                    <label for="new-password">New Password: <span class="required">*</span></label>
-                    <input type="password" id="new-password" class="form-control" 
-                           required minlength="8">
-                    <small>Minimum 8 characters</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="confirm-password">Confirm Password: <span class="required">*</span></label>
-                    <input type="password" id="confirm-password" class="form-control" 
-                           required minlength="8">
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Change Password</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Deactivate Customer Modal -->
-<div id="deactivate-modal" class="modal">
-    <div class="modal-content modal-small">
-        <div class="modal-header">
-            <h2>Confirm Deactivation</h2>
-            <span class="close" onclick="closeDeactivateModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <p>Are you sure you want to deactivate this customer account?</p>
-            <p class="warning-text">
-                <i class="bi bi-exclamation-triangle"></i> 
-                This customer will no longer be able to log in or place orders.
-            </p>
-            <input type="hidden" id="deactivate-customer-id">
-            <div class="form-actions">
-                <button class="btn-secondary" onclick="closeDeactivateModal()">Cancel</button>
-                <button class="btn-danger" onclick="confirmDeactivate()">Deactivate</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-.admin-container {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 2rem;
-}
-
-.admin-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e0e0e0;
-}
-
-.admin-header h1 {
-    color: #333;
-    font-size: 1.75rem;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* Filters Section */
-.filters-section {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: flex-end;
-}
-
-.filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-width: 200px;
-    flex: 1;
-}
-
-.filter-group label {
-    font-weight: 600;
-    color: #666;
-    font-size: 0.875rem;
-}
-
-.filter-select,
-.filter-input {
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-}
-
-.filter-select:focus,
-.filter-input:focus {
-    outline: none;
-    border-color: #f5a623;
-}
-
-/* Content Section */
-.content-section {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.table-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.table-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: #333;
-}
-
-.btn-export {
-    padding: 0.75rem 1.5rem;
-    background-color: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.2s;
-}
-
-.btn-export:hover {
-    background-color: #218838;
-}
-
-/* Table */
-.table-container {
-    overflow-x: auto;
-}
-
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.admin-table thead {
-    background-color: #f8f9fa;
-}
-
-.admin-table th {
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: #666;
-    border-bottom: 2px solid #e0e0e0;
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.admin-table td {
-    padding: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-    vertical-align: middle;
-}
-
-.admin-table tbody tr:hover {
-    background-color: #f8f9fa;
-}
-
-.text-center {
-    text-align: center;
-}
-
-.status-badge {
-    padding: 0.4rem 0.8rem;
-    border-radius: 12px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    display: inline-block;
-}
-
-.status-active {
-    background-color: #d4edda;
-    color: #155724;
-}
-
-.status-inactive {
-    background-color: #f8d7da;
-    color: #721c24;
-}
-
-/* Action Buttons */
-.action-buttons {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.btn-action {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-decoration: none;
-    display: inline-block;
-    white-space: nowrap;
-}
-
-.btn-view {
-    background-color: #4a90e2;
-    color: white;
-}
-
-.btn-view:hover {
-    background-color: #357abd;
-}
-
-.btn-password {
-    background-color: #6f42c1;
-    color: white;
-}
-
-.btn-password:hover {
-    background-color: #5a32a3;
-}
-
-.btn-deactivate {
-    background-color: #ffc107;
-    color: #000;
-}
-
-.btn-deactivate:hover {
-    background-color: #e0a800;
-}
-
-.btn-activate {
-    background-color: #28a745;
-    color: white;
-}
-
-.btn-activate:hover {
-    background-color: #218838;
-}
-
-.btn-primary {
-    padding: 0.75rem 1.5rem;
-    background-color: #f5a623;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.2s;
-}
-
-.btn-primary:hover {
-    background-color: #d89420;
-}
-
-.btn-secondary {
-    padding: 0.75rem 1.5rem;
-    background-color: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.2s;
-    text-decoration: none;
-    display: inline-block;
-}
-
-.btn-secondary:hover {
-    background-color: #5a6268;
-}
-
-.btn-danger {
-    padding: 0.75rem 1.5rem;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.2s;
-}
-
-.btn-danger:hover {
-    background-color: #c82333;
-}
-
-/* Pagination */
-.pagination {
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-top: 2rem;
-}
-
-.page-btn {
-    padding: 0.5rem 1rem;
-    border: 1px solid #ddd;
-    background: white;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.page-btn:hover {
-    background-color: #f8f9fa;
-}
-
-.page-btn.active {
-    background-color: #f5a623;
-    color: white;
-    border-color: #f5a623;
-}
-
-/* Modal Styles */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.5);
-}
-
-.modal-content {
-    background-color: white;
-    margin: 5% auto;
-    padding: 0;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 800px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-
-.modal-small {
-    max-width: 500px;
-}
-
-.modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #e0e0e0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #333;
-}
-
-.close {
-    color: #aaa;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    line-height: 1;
-}
-
-.close:hover {
-    color: #000;
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.detail-section {
-    margin-bottom: 1.5rem;
-}
-
-.detail-section h3 {
-    color: #333;
-    margin-bottom: 1rem;
-    font-size: 1.1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #f5a623;
-}
-
-.detail-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-}
-
-.detail-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.detail-label {
-    font-weight: 600;
-    color: #666;
-    font-size: 0.875rem;
-}
-
-.detail-value {
-    color: #333;
-}
-
-/* Form Styles */
-.form-group {
-    margin-bottom: 1.5rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: #333;
-}
-
-.form-group small {
-    display: block;
-    margin-top: 0.25rem;
-    color: #666;
-    font-size: 0.875rem;
-}
-
-.required {
-    color: #dc3545;
-}
-
-.form-control {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: #f5a623;
-}
-
-.form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-.warning-text {
-    background-color: #fff3cd;
-    border-left: 3px solid #ffc107;
-    padding: 1rem;
-    margin: 1rem 0;
-    color: #856404;
-}
-
-.order-list {
-    list-style: none;
-    padding: 0;
-}
-
-.order-item {
-    padding: 0.75rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    margin-bottom: 0.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.order-item:hover {
-    background-color: #f8f9fa;
-}
-</style>
-
-<script>
-let currentPage = 1;
-let currentFilters = {};
-
-// Load customers on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadCustomers();
-});
-
-async function loadCustomers(page = 1) {
-    currentPage = page;
-    
-    try {
-        let url = `/admin/customers?page=${page}&per_page=20`;
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        const tbody = document.getElementById('customers-body');
-        const customerCount = document.getElementById('customer-count');
-        
-        if (data.customers && data.customers.length > 0) {
-            let filteredCustomers = data.customers;
-            
-            // Apply filters on client side
-            if (currentFilters.status !== undefined) {
-                filteredCustomers = filteredCustomers.filter(c => 
-                    c.is_active === (currentFilters.status === 'true')
-                );
-            }
-            
-            if (currentFilters.search) {
-                const search = currentFilters.search.toLowerCase();
-                filteredCustomers = filteredCustomers.filter(customer => 
-                    (customer.username && customer.username.toLowerCase().includes(search)) ||
-                    (customer.email && customer.email.toLowerCase().includes(search)) ||
-                    (customer.first_name && customer.first_name.toLowerCase().includes(search)) ||
-                    (customer.last_name && customer.last_name.toLowerCase().includes(search))
-                );
-            }
-            
-            customerCount.textContent = filteredCustomers.length;
-            
-            tbody.innerHTML = filteredCustomers.map(customer => `
-                <tr>
-                    <td><strong>#${customer.customer_id}</strong></td>
-                    <td>${customer.username}</td>
-                    <td>${customer.first_name} ${customer.last_name}</td>
-                    <td>${customer.email}</td>
-                    <td>${customer.phone_number || 'N/A'}</td>
-                    <td>
-                        <span class="status-badge status-${customer.is_active ? 'active' : 'inactive'}">
-                            ${customer.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                    </td>
-                    <td>${customer.total_orders || 0}</td>
-                    <td>$${parseFloat(customer.total_spent || 0).toFixed(2)}</td>
-                    <td>${new Date(customer.created_at).toLocaleDateString()}</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn-action btn-view" onclick="viewCustomer(${customer.customer_id})">
-                                <i class="bi bi-eye"></i> View
-                            </button>
-                            <button class="btn-action btn-password" onclick="openPasswordModal(${customer.customer_id})">
-                                <i class="bi bi-key"></i> Password
-                            </button>
-                            ${customer.is_active ? `
-                                <button class="btn-action btn-deactivate" onclick="openDeactivateModal(${customer.customer_id})">
-                                    <i class="bi bi-x-circle"></i> Deactivate
-                                </button>
-                            ` : `
-                                <button class="btn-action btn-activate" onclick="activateCustomer(${customer.customer_id})">
-                                    <i class="bi bi-check-circle"></i> Activate
-                                </button>
-                            `}
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-            
-            // Update pagination
-            if (data.pagination) {
-                updatePagination(data.pagination);
-            }
-        } else {
-            customerCount.textContent = '0';
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center">No customers found</td></tr>';
-        }
-    } catch (error) {
-        console.error('Error loading customers:', error);
-        document.getElementById('customers-body').innerHTML = 
-            '<tr><td colspan="10" class="text-center">Error loading customers</td></tr>';
-    }
-}
-
-function applyFilters() {
-    currentFilters.status = document.getElementById('status-filter').value;
-    currentFilters.search = document.getElementById('search-input').value;
-    loadCustomers(1);
-}
-
-function resetFilters() {
-    document.getElementById('status-filter').value = 'true';
-    document.getElementById('search-input').value = '';
-    currentFilters = {};
-    loadCustomers(1);
-}
-
-function updatePagination(pagination) {
-    const container = document.getElementById('pagination');
-    const totalPages = Math.ceil(pagination.total_customers / pagination.per_page);
-    
-    if (totalPages <= 1) {
-        container.innerHTML = '';
-        return;
-    }
-    
-    let html = '';
-    for (let i = 1; i <= totalPages; i++) {
-        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" 
-                        onclick="loadCustomers(${i})">${i}</button>`;
-    }
-    container.innerHTML = html;
-}
-
-async function viewCustomer(customerId) {
-    try {
-        // You'll need to implement this endpoint
-        const response = await fetch(`/admin/customers/${customerId}`);
-        const data = await response.json();
-        
-        if (data.customer) {
-            const customer = data.customer;
-            const content = document.getElementById('customer-detail-content');
-            
-            content.innerHTML = `
-                <div class="detail-section">
-                    <h3>Customer Information</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <span class="detail-label">Customer ID:</span>
-                            <span class="detail-value"><strong>#${customer.customer_id}</strong></span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Username:</span>
-                            <span class="detail-value">${customer.username}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Full Name:</span>
-                            <span class="detail-value">${customer.first_name} ${customer.last_name}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Email:</span>
-                            <span class="detail-value">${customer.email}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Phone:</span>
-                            <span class="detail-value">${customer.phone_number || 'N/A'}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Status:</span>
-                            <span class="detail-value">
-                                <span class="status-badge status-${customer.is_active ? 'active' : 'inactive'}">
-                                    ${customer.is_active ? 'Active' : 'Inactive'}
-                                </span>
-                            </span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Member Since:</span>
-                            <span class="detail-value">${new Date(customer.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Last Login:</span>
-                            <span class="detail-value">${customer.last_login ? new Date(customer.last_login).toLocaleDateString() : 'Never'}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="detail-section">
-                    <h3>Order Statistics</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <span class="detail-label">Total Orders:</span>
-                            <span class="detail-value"><strong>${customer.total_orders || 0}</strong></span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Total Spent:</span>
-                            <span class="detail-value"><strong>$${parseFloat(customer.total_spent || 0).toFixed(2)}</strong></span>
-                        </div>
-                    </div>
-                </div>
-
-                ${customer.recent_orders && customer.recent_orders.length > 0 ? `
-                    <div class="detail-section">
-                        <h3>Recent Orders</h3>
-                        <ul class="order-list">
-                            ${customer.recent_orders.map(order => `
-                                <li class="order-item">
-                                    <div>
-                                        <strong>${order.order_number}</strong>
-                                        <span class="status-badge status-${order.order_status}">${order.order_status}</span>
-                                    </div>
-                                    <div>
-                                        <strong>$${parseFloat(order.total_amount).toFixed(2)}</strong>
-                                        <small>${new Date(order.created_at).toLocaleDateString()}</small>
-                                    </div>
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
-            `;
-            
-            document.getElementById('customer-modal').style.display = 'block';
-        }
-    } catch (error) {
-        console.error('Error loading customer details:', error);
-        alert('Failed to load customer details');
-    }
-}
-
-function closeCustomerModal() {
-    document.getElementById('customer-modal').style.display = 'none';
-}
-
-function openPasswordModal(customerId) {
-    document.getElementById('password-customer-id').value = customerId;
-    document.getElementById('password-form').reset();
-    document.getElementById('password-modal').style.display = 'block';
-}
-
-function closePasswordModal() {
-    document.getElementById('password-modal').style.display = 'none';
-}
-
-async function changePassword(event) {
-    event.preventDefault();
-    
-    const customerId = document.getElementById('password-customer-id').value;
-    const newPassword = document.getElementById('new-password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
-    
-    if (newPassword !== confirmPassword) {
-        alert('Passwords do not match');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/admin/customers/${customerId}/password`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ password: newPassword })
-        });
-        
-        if (response.ok) {
-            alert('Password changed successfully');
-            closePasswordModal();
-        } else {
-            const data = await response.json();
-            alert(data.error || 'Failed to change password');
-        }
-    } catch (error) {
-        console.error('Error changing password:', error);
-        alert('Failed to change password');
-    }
-}
-
-function openDeactivateModal(customerId) {
-    document.getElementById('deactivate-customer-id').value = customerId;
-    document.getElementById('deactivate-modal').style.display = 'block';
-}
-
-function closeDeactivateModal() {
-    document.getElementById('deactivate-modal').style.display = 'none';
-}
-
-async function confirmDeactivate() {
-    const customerId = document.getElementById('deactivate-customer-id').value;
-    
-    try {
-        const response = await fetch(`/admin/customers/${customerId}/deactivate`, {
-            method: 'PUT'
-        });
-        
-        if (response.ok) {
-            alert('Customer deactivated successfully');
-            closeDeactivateModal();
-            loadCustomers(currentPage);
-        } else {
-            const data = await response.json();
-            alert(data.error || 'Failed to deactivate customer');
-        }
-    } catch (error) {
-        console.error('Error deactivating customer:', error);
-        alert('Failed to deactivate customer');
-    }
-}
-
-async function activateCustomer(customerId) {
-    if (!confirm('Are you sure you want to activate this customer account?')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/admin/customers/${customerId}/activate`, {
-            method: 'PUT'
-        });
-        
-        if (response.ok) {
-            alert('Customer activated successfully');
-            loadCustomers(currentPage);
-        } else {
-            const data = await response.json();
-            alert(data.error || 'Failed to activate customer');
-        }
-    } catch (error) {
-        console.error('Error activating customer:', error);
-        alert('Failed to activate customer');
-    }
-}
-
-function exportCustomers() {
-    alert('Export functionality will be implemented');
-    // TODO: Implement export to CSV/Excel
-}
-
-// Close modals when clicking outside
-window.onclick = function(event) {
-    const customerModal = document.getElementById('customer-modal');
-    const passwordModal = document.getElementById('password-modal');
-    const deactivateModal = document.getElementById('deactivate-modal');
-    
-    if (event.target == customerModal) {
-        closeCustomerModal();
-    }
-    if (event.target == passwordModal) {
-        closePasswordModal();
-    }
-    if (event.target == deactivateModal) {
-        closeDeactivateModal();
-    }
-}
-</script>
 {% endblock %}
