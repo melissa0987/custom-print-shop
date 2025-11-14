@@ -13,6 +13,9 @@ from app.models import (
 from app.utils import admin_required, permission_required
 from datetime import datetime
 
+from app.utils.helpers import PaginationHelper, PriceHelper, StringHelper
+from app.utils.image_helpers import ImageHelper
+
  
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -23,6 +26,10 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 def admin_login():
     """Admin login page + login handler"""
 
+    # If already logged in, redirect to dashboard
+    if session.get('admin_id'):
+        return redirect(url_for('admin.get_dashboard'))
+      
     if request.method == 'GET':
         return render_template('admin/admin_login.html')
 
@@ -118,19 +125,9 @@ def admin_login():
         return render_template('admin/admin_login.html')
 
 
-
 # ============================================
 # DASHBOARD - HTML PAGE
-# ============================================
-@admin_bp.route('/dashboard', methods=['GET'])
-@admin_required
-def get_dashboard(): 
-    """Render admin dashboard page"""
-    return render_template('admin/admin_dashboard.html')
-
-
-
-
+# ============================================ 
 @admin_bp.route('/logout', methods=['POST'])
 @admin_required
 def admin_logout():
@@ -138,6 +135,69 @@ def admin_logout():
     session.clear()
     flash('Admin logged out successfully', 'success')
     return redirect(url_for('main.homepage'))
+
+
+
+@admin_bp.route('/dashboard', methods=['GET'])
+@permission_required('view_dashboard')
+def get_dashboard():
+    """Render admin dashboard with stats"""
+    try:
+        from app.models import Order, Customer, Product
+
+        order_model = Order()
+        customer_model = Customer()
+        product_model = Product()
+
+        # Orders
+        all_orders = order_model.get_all()
+        total_orders = len(all_orders)
+        pending_orders = sum(1 for o in all_orders if o['order_status'] == 'pending')
+        processing_orders = sum(1 for o in all_orders if o['order_status'] == 'processing')
+
+        # Revenue
+        total_revenue = sum(o['total_amount'] for o in all_orders)
+        month_revenue = sum(
+            o['total_amount'] for o in all_orders
+            if o['created_at'].month == datetime.now().month
+        )
+
+        # Customers
+        all_customers = customer_model.get_all()
+        total_customers = len(all_customers)
+        active_customers = sum(1 for c in all_customers if c.get('is_active'))
+
+        # Products
+        all_products = product_model.get_all(active_only=False)
+        total_products = len(all_products)
+        active_products = sum(1 for p in all_products if p.get('is_active'))
+
+        return render_template(
+            'admin/admin_dashboard.html',
+            stats={
+                'orders': {
+                    'total': total_orders,
+                    'pending': pending_orders,
+                    'processing': processing_orders
+                },
+                'revenue': {
+                    'total': total_revenue,
+                    'month': month_revenue
+                },
+                'customers': {
+                    'total': total_customers,
+                    'active': active_customers
+                },
+                'products': {
+                    'total': total_products,
+                    'active': active_products
+                }
+            }
+        )
+
+    except Exception as e:
+        flash(f"Failed to load dashboard: {str(e)}", "danger")
+        return render_template('admin/admin_dashboard.html', stats=None)
 
 
 # ============================================
@@ -355,19 +415,85 @@ def update_order_status(order_id):
 # ============================================
 # PRODUCT MANAGEMENT
 # ============================================
-
 @admin_bp.route('/products', methods=['GET'])
 @permission_required('view_products')
-def get_products():
-    """Render products management page or return JSON for AJAX"""
-    # If it's an AJAX request, return JSON
-    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return get_products_data()
-    
-    # Otherwise render the HTML page
-    return render_template('admin/admin_products.html')
+def get_products_admin():
+    wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
 
 
+    category_id = request.args.get('category_id', type=int)
+    search_term = request.args.get('search', '').strip()
+    min_price = request.args.get('min_price', type=float)
+    max_price = request.args.get('max_price', type=float)
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 20, type=int), 100)
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
+
+    """Render products management page"""
+    try:
+        product_model = Product()
+        category_model = Category()
+        
+        # Get all products (including inactive for admin)
+        products = product_model.get_all(active_only=False)
+        paginated = PaginationHelper.paginate_list(products, page, per_page)
+        
+        # Format products with category info
+        formatted_products = []
+        for p in paginated['items']:
+            category = category_model.get_by_id(p['category_id'])
+
+            image_path = ImageHelper.get_product_image_url(p['product_id'], p['product_name'])
+            image_url = url_for('static', filename=image_path)
+
+            
+            formatted_products.append({
+                'product_id': p['product_id'],
+                'product_name': p['product_name'],
+                'slug': StringHelper.slugify(p['product_name']),
+                'description': StringHelper.truncate_text(p.get('description'), 120),
+                'base_price': float(p['base_price']),
+                'base_price_formatted': PriceHelper.format_currency(p['base_price']),
+                'category': {
+                    'category_id': category['category_id'],
+                    'category_name': category['category_name']
+                } if category else None,
+                'image_url': image_url,
+                'is_active': p.get('is_active'),
+                'created_at': p['created_at'].isoformat() if p.get('created_at') else None
+            })
+        pagination_data = {
+            'page': paginated['page'],
+            'per_page': paginated['per_page'],
+            'total_items': paginated['total_items'],
+            'total_pages': max(1, paginated['total_pages']),
+            'has_next': paginated['page'] < paginated['total_pages'],
+            'has_prev': paginated['page'] > 1
+        }
+        # Get all categories for filter dropdown
+        categories = category_model.get_all()
+
+        if wants_json:
+            return jsonify({'products': formatted_products, 'pagination': pagination_data}), 200
+        
+        
+        categories_for_template = [{'category_id': c['category_id'], 'category_name': c['category_name']} for c in categories]
+
+
+        return render_template('admin/admin_products.html', 
+                              products=formatted_products,
+                               pagination=pagination_data,
+                               categories=categories_for_template,
+                               current_category=category_id,
+                               search_term=search_term,
+                               sort_by=sort_by,
+                               sort_order=sort_order)
+    except Exception as e:
+        flash(f'Failed to load products: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_dashboard'))
+
+ 
 def get_products_data():
     """API endpoint to get all products"""
     category_id = request.args.get('category_id', type=int)
@@ -428,80 +554,115 @@ def get_products_data():
         return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
 
 
-@admin_bp.route('/products', methods=['POST'])
-@permission_required('add_product')
-def add_product():
-    """Add new product"""
-    data = request.get_json()
+@admin_bp.route('/products/create', methods=['GET', 'POST'])
+@permission_required('manage_products')
+def create_product():
+    """Create new product"""
+    if request.method == 'GET':
+        # Render create form
+        try:
+            category_model = Category()
+            categories = category_model.get_all()
+            return render_template('admin/admin_product_form.html', 
+                                 categories=categories,
+                                 action='create')
+        except Exception as e:
+            flash(f'Failed to load form: {str(e)}', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
+    
+    # POST - handle form submission
+    data = request.form.to_dict()
+    
+    required_fields = ['product_name', 'category_id', 'base_price']
+    for field in required_fields:
+        if field not in data or not data[field]:
+            flash(f'{field} is required', 'danger')
+            return redirect(url_for('admin.create_product'))
     
     try:
         product_model = Product()
         
         product_id = product_model.create(
-            category_id=data['category_id'],
+            category_id=int(data['category_id']),
             product_name=data['product_name'],
-            description=data.get('description', ''),
-            base_price=data['base_price'],
-            is_active=data.get('is_active', True),
-            created_by=session['admin_id']
+            base_price=float(data['base_price']),
+            description=data.get('description'),
+            is_active=data.get('is_active') == 'on',
+            created_by=session.get('admin_id')
         )
         
         # Log activity
         activity_log_model = AdminActivityLog()
         activity_log_model.create_log(
             admin_id=session['admin_id'],
-            action='add_product',
+            action='create_product',
             table_name='products',
             record_id=product_id,
             old_values=None,
             new_values=data
         )
         
-        return jsonify({
-            'message': 'Product added successfully',
-            'product_id': product_id
-        }), 201
+        flash('Product created successfully', 'success')
+        return redirect(url_for('admin.get_products_admin'))
             
     except Exception as e:
-        return jsonify({'error': f'Failed to add product: {str(e)}'}), 500
+        flash(f'Failed to create product: {str(e)}', 'danger')
+        return redirect(url_for('admin.create_product'))
+    
 
-
-@admin_bp.route('/products/<int:product_id>', methods=['PUT'])
-@permission_required('update_product')
-def update_product(product_id):
-    """Update product"""
-    data = request.get_json()
+@admin_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
+@permission_required('manage_products')
+def edit_product(product_id):
+    """Edit product"""
+    product_model = Product()
+    
+    if request.method == 'GET':
+        # Render edit form
+        try:
+            product = product_model.get_by_id(product_id)
+            if not product:
+                flash('Product not found', 'danger')
+                return redirect(url_for('admin.get_products_admin'))
+            
+            category_model = Category()
+            categories = category_model.get_all()
+            
+            return render_template('admin/admin_product_form.html', 
+                                 product=product,
+                                 categories=categories,
+                                 action='edit')
+        except Exception as e:
+            flash(f'Failed to load product: {str(e)}', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
+    
+    # POST - handle form submission
+    data = request.form.to_dict()
     
     try:
-        product_model = Product()
         product = product_model.get_by_id(product_id)
-        
         if not product:
-            return jsonify({'error': 'Product not found'}), 404
+            flash('Product not found', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
         
-        # Store old values
-        old_values = {
-            'product_name': product['product_name'],
-            'base_price': float(product['base_price']),
-            'is_active': product.get('is_active')
-        }
-        
-        # Update fields
+        # Update product
         update_data = {}
         if 'product_name' in data:
             update_data['product_name'] = data['product_name']
+        if 'category_id' in data:
+            update_data['category_id'] = int(data['category_id'])
         if 'description' in data:
             update_data['description'] = data['description']
         if 'base_price' in data:
-            update_data['base_price'] = data['base_price']
-        if 'is_active' in data:
-            update_data['is_active'] = data['is_active']
-        if 'category_id' in data:
-            update_data['category_id'] = data['category_id']
+            update_data['base_price'] = float(data['base_price'])
         
-        update_data['updated_by'] = session['admin_id']
+        update_data['is_active'] = data.get('is_active') == 'on'
+        update_data['updated_by'] = session.get('admin_id')
         
-        product_model.update(product_id, **update_data)
+        success = product_model.update(product_id, **update_data)
+        
+        if not success:
+            flash('Failed to update product', 'danger')
+            return redirect(url_for('admin.edit_product', product_id=product_id))
         
         # Log activity
         activity_log_model = AdminActivityLog()
@@ -510,18 +671,66 @@ def update_product(product_id):
             action='update_product',
             table_name='products',
             record_id=product_id,
-            old_values=old_values,
+            old_values=product,
             new_values=data
         )
         
-        return jsonify({'message': 'Product updated successfully'}), 200
+        flash('Product updated successfully', 'success')
+        return redirect(url_for('admin.get_products_admin'))
             
     except Exception as e:
-        return jsonify({'error': f'Failed to update product: {str(e)}'}), 500
+        flash(f'Failed to update product: {str(e)}', 'danger')
+        return redirect(url_for('admin.edit_product', product_id=product_id))
 
 
-@admin_bp.route('/products/<int:product_id>', methods=['DELETE'])
-@permission_required('update_product')
+
+@admin_bp.route('/products/<int:product_id>/toggle', methods=['POST'])
+@permission_required('manage_products')
+def toggle_product_status(product_id):
+    """Toggle product active status (deactivate/activate)"""
+    try:
+        product_model = Product()
+        product = product_model.get_by_id(product_id)
+        
+        if not product:
+            flash('Product not found', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
+        
+        new_status = not product.get('is_active', True)
+        
+        success = product_model.update(
+            product_id,
+            is_active=new_status,
+            updated_by=session.get('admin_id')
+        )
+        
+        if not success:
+            flash('Failed to toggle product status', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
+        
+        # Log activity
+        activity_log_model = AdminActivityLog()
+        activity_log_model.create_log(
+            admin_id=session['admin_id'],
+            action='toggle_product_status',
+            table_name='products',
+            record_id=product_id,
+            old_values={'is_active': product.get('is_active')},
+            new_values={'is_active': new_status}
+        )
+        
+        status_text = 'activated' if new_status else 'deactivated'
+        flash(f'Product {status_text} successfully', 'success')
+        return redirect(url_for('admin.get_products_admin'))
+            
+    except Exception as e:
+        flash(f'Failed to toggle product status: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_products_admin'))
+    
+
+
+@admin_bp.route('/products/<int:product_id>/delete', methods=['POST'])
+@permission_required('manage_products')
 def delete_product(product_id):
     """Delete product"""
     try:
@@ -529,36 +738,68 @@ def delete_product(product_id):
         product = product_model.get_by_id(product_id)
         
         if not product:
-            return jsonify({'error': 'Product not found'}), 404
+            flash('Product not found', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
         
-        # Check if product has been ordered
-        times_ordered = product_model.get_total_orders(product_id)
-        if times_ordered > 0:
-            return jsonify({'error': 'Cannot delete product that has been ordered'}), 400
-        
-        # Delete product
-        product_model.delete(product_id)
-        
-        # Log activity
+        # Log activity before deletion
         activity_log_model = AdminActivityLog()
         activity_log_model.create_log(
             admin_id=session['admin_id'],
             action='delete_product',
             table_name='products',
             record_id=product_id,
-            old_values={'product_name': product['product_name']},
+            old_values=product,
             new_values=None
         )
         
-        return jsonify({'message': 'Product deleted successfully'}), 200
+        success = product_model.delete(product_id)
+        
+        if not success:
+            flash('Failed to delete product', 'danger')
+            return redirect(url_for('admin.get_products_admin'))
+        
+        flash('Product deleted successfully', 'success')
+        return redirect(url_for('admin.get_products_admin'))
             
     except Exception as e:
-        return jsonify({'error': f'Failed to delete product: {str(e)}'}), 500
-
+        flash(f'Failed to delete product: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_products_admin'))
+    
 
 # ============================================
 # CATEGORY MANAGEMENT
 # ============================================
+@admin_bp.route('/categories', methods=['GET'])
+@permission_required('view_categories')
+def get_categories_admin():
+    """Render categories management page"""
+    try:
+        category_model = Category()
+        categories = category_model.get_all()
+        
+        formatted_categories = []
+        for c in categories:
+            formatted_categories.append({
+                'category_id': c['category_id'],
+                'category_name': c['category_name'],
+                'description': c.get('description'),
+                'is_active': c.get('is_active'),
+                'display_order': c.get('display_order', 0),
+                'product_count': len(c.get('products', [])),
+                'created_at': c['created_at'].isoformat() if c.get('created_at') else None,
+                'updated_at': c['updated_at'].isoformat() if c.get('updated_at') else None
+            })
+        
+        # Sort by display_order
+        formatted_categories.sort(key=lambda x: x['display_order'])
+        
+        return render_template('admin/admin_categories.html', 
+                             categories=formatted_categories)
+            
+    except Exception as e:
+        flash(f'Failed to load categories: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_dashboard'))
+    
 
 @admin_bp.route('/categories', methods=['GET'])
 @permission_required('view_categories')
@@ -599,10 +840,49 @@ def get_categories_data():
     except Exception as e:
         return jsonify({'error': f'Failed to get categories: {str(e)}'}), 500
 
+@admin_bp.route('/categories/create', methods=['GET', 'POST'])
+@permission_required('manage_categories')
+def create_category():
+    """Create new category"""
+    if request.method == 'GET':
+        return render_template('admin/admin_category_form.html', action='create')
+    
+    # POST - handle form submission
+    data = request.form.to_dict()
+    
+    if 'category_name' not in data or not data['category_name']:
+        flash('category_name is required', 'danger')
+        return redirect(url_for('admin.create_category'))
+    
+    try:
+        category_model = Category()
+        
+        category_id = category_model.create(
+            category_name=data['category_name'],
+            description=data.get('description'),
+            is_active=data.get('is_active') == 'on',
+            display_order=int(data.get('display_order', 0)),
+            created_by=session.get('admin_id')
+        )
+        
+        # Log activity
+        activity_log_model = AdminActivityLog()
+        activity_log_model.create_log(
+            admin_id=session['admin_id'],
+            action='create_category',
+            table_name='categories',
+            record_id=category_id,
+            old_values=None,
+            new_values=data
+        )
+        
+        flash('Category created successfully', 'success')
+        return redirect(url_for('admin.get_categories_admin'))
+            
+    except Exception as e:
+        flash(f'Failed to create category: {str(e)}', 'danger')
+        return redirect(url_for('admin.create_category'))
 
-@admin_bp.route('/categories', methods=['POST'])
-@permission_required('add_category')
-def add_category():
     """Add new category"""
     data = request.get_json()
     
@@ -637,33 +917,54 @@ def add_category():
         return jsonify({'error': f'Failed to add category: {str(e)}'}), 500
 
 
-@admin_bp.route('/categories/<int:category_id>', methods=['PUT'])
-@permission_required('update_category')
-def update_category(category_id):
-    """Update category"""
-    data = request.get_json()
+
+@admin_bp.route('/categories/<int:category_id>/edit', methods=['GET', 'POST'])
+@permission_required('manage_categories')
+def edit_category(category_id):
+    """Edit category"""
+    category_model = Category()
+    
+    if request.method == 'GET':
+        # Render edit form
+        try:
+            category = category_model.get_by_id(category_id)
+            if not category:
+                flash('Category not found', 'danger')
+                return redirect(url_for('admin.get_categories_admin'))
+            
+            return render_template('admin/admin_category_form.html', 
+                                 category=category,
+                                 action='edit')
+        except Exception as e:
+            flash(f'Failed to load category: {str(e)}', 'danger')
+            return redirect(url_for('admin.get_categories_admin'))
+    
+    # POST - handle form submission
+    data = request.form.to_dict()
     
     try:
-        category_model = Category()
         category = category_model.get_by_id(category_id)
-        
         if not category:
-            return jsonify({'error': 'Category not found'}), 404
+            flash('Category not found', 'danger')
+            return redirect(url_for('admin.get_categories_admin'))
         
-        # Update fields
+        # Update category
         update_data = {}
         if 'category_name' in data:
             update_data['category_name'] = data['category_name']
         if 'description' in data:
             update_data['description'] = data['description']
         if 'display_order' in data:
-            update_data['display_order'] = data['display_order']
-        if 'is_active' in data:
-            update_data['is_active'] = data['is_active']
+            update_data['display_order'] = int(data['display_order'])
         
-        update_data['updated_by'] = session['admin_id']
+        update_data['is_active'] = data.get('is_active') == 'on'
+        update_data['updated_by'] = session.get('admin_id')
         
-        category_model.update(category_id, **update_data)
+        success = category_model.update(category_id, **update_data)
+        
+        if not success:
+            flash('Failed to update category', 'danger')
+            return redirect(url_for('admin.edit_category', category_id=category_id))
         
         # Log activity
         activity_log_model = AdminActivityLog()
@@ -672,19 +973,138 @@ def update_category(category_id):
             action='update_category',
             table_name='categories',
             record_id=category_id,
-            old_values={'category_name': category['category_name']},
+            old_values=category,
             new_values=data
         )
         
-        return jsonify({'message': 'Category updated successfully'}), 200
+        flash('Category updated successfully', 'success')
+        return redirect(url_for('admin.get_categories_admin'))
             
     except Exception as e:
-        return jsonify({'error': f'Failed to update category: {str(e)}'}), 500
+        flash(f'Failed to update category: {str(e)}', 'danger')
+        return redirect(url_for('admin.edit_category', category_id=category_id))
+
+
+@admin_bp.route('/categories/<int:category_id>/toggle', methods=['POST'])
+@permission_required('manage_categories')
+def toggle_category_status(category_id):
+    """Toggle category active status"""
+    try:
+        category_model = Category()
+        category = category_model.get_by_id(category_id)
+        
+        if not category:
+            flash('Category not found', 'danger')
+            return redirect(url_for('admin.get_categories_admin'))
+        
+        new_status = not category.get('is_active', True)
+        
+        success = category_model.update(
+            category_id,
+            is_active=new_status,
+            updated_by=session.get('admin_id')
+        )
+        
+        if not success:
+            flash('Failed to toggle category status', 'danger')
+            return redirect(url_for('admin.get_categories_admin'))
+        
+        # Log activity
+        activity_log_model = AdminActivityLog()
+        activity_log_model.create_log(
+            admin_id=session['admin_id'],
+            action='toggle_category_status',
+            table_name='categories',
+            record_id=category_id,
+            old_values={'is_active': category.get('is_active')},
+            new_values={'is_active': new_status}
+        )
+        
+        status_text = 'activated' if new_status else 'deactivated'
+        flash(f'Category {status_text} successfully', 'success')
+        return redirect(url_for('admin.get_categories_admin'))
+            
+    except Exception as e:
+        flash(f'Failed to toggle category status: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_categories_admin'))
+    
+
+@admin_bp.route('/categories/<int:category_id>/delete', methods=['POST'])
+@permission_required('manage_categories')
+def delete_category(category_id):
+    """Delete category"""
+    try:
+        category_model = Category()
+        category = category_model.get_by_id(category_id)
+        
+        if not category:
+            flash('Category not found', 'danger')
+            return redirect(url_for('admin.get_categories_admin'))
+        
+        # Check if category has products
+        if len(category.get('products', [])) > 0:
+            flash('Cannot delete category with products. Remove or reassign products first.', 'danger')
+            return redirect(url_for('admin.get_categories_admin'))
+        
+        # Log activity before deletion
+        activity_log_model = AdminActivityLog()
+        activity_log_model.create_log(
+            admin_id=session['admin_id'],
+            action='delete_category',
+            table_name='categories',
+            record_id=category_id,
+            old_values=category,
+            new_values=None
+        )
+        
+        success = category_model.delete(category_id)
+        
+        if not success:
+            flash('Failed to delete category', 'danger')
+            return redirect(url_for('admin.get_categories_admin'))
+        
+        flash('Category deleted successfully', 'success')
+        return redirect(url_for('admin.get_categories_admin'))
+            
+    except Exception as e:
+        flash(f'Failed to delete category: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_categories_admin'))  
 
 
 # ============================================
 # CUSTOMER MANAGEMENT
 # ============================================
+
+@admin_bp.route('/customers', methods=['GET'])
+@permission_required('view_customers')
+def get_customers_admin():
+    """Render customers management page"""
+    try:
+        customer_model = Customer()
+        customers = customer_model.get_all()
+        
+        # Format customers
+        formatted_customers = []
+        for c in customers:
+            formatted_customers.append({
+                'customer_id': c['customer_id'],
+                'username': c['username'],
+                'email': c['email'],
+                'first_name': c.get('first_name'),
+                'last_name': c.get('last_name'),
+                'phone_number': c.get('phone_number'),
+                'is_active': c.get('is_active'),
+                'created_at': c['created_at'].isoformat() if c.get('created_at') else None,
+                'last_login': c['last_login'].isoformat() if c.get('last_login') else None
+            })
+        
+        return render_template('admin/admin_customers.html', 
+                             customers=formatted_customers)
+            
+    except Exception as e:
+        flash(f'Failed to load customers: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_dashboard'))
+    
 
 @admin_bp.route('/customers', methods=['GET'])
 @permission_required('view_customers')
@@ -697,6 +1117,107 @@ def get_customers():
     # Otherwise render the HTML page
     return render_template('admin/admin_customers.html')
 
+
+@admin_bp.route('/customers/<int:customer_id>/edit', methods=['GET', 'POST'])
+@permission_required('manage_customers')
+def edit_customer(customer_id):
+    """Edit customer"""
+    customer_model = Customer()
+    
+    if request.method == 'GET':
+        # Render edit form
+        try:
+            customer = customer_model.get_by_id(customer_id)
+            if not customer:
+                flash('Customer not found', 'danger')
+                return redirect(url_for('admin.get_customers_admin'))
+            
+            return render_template('admin/admin_customer_form.html', 
+                                 customer=customer,
+                                 action='edit')
+        except Exception as e:
+            flash(f'Failed to load customer: {str(e)}', 'danger')
+            return redirect(url_for('admin.get_customers_admin'))
+    
+    # POST - handle form submission
+    data = request.form.to_dict()
+    
+    try:
+        customer = customer_model.get_by_id(customer_id)
+        if not customer:
+            flash('Customer not found', 'danger')
+            return redirect(url_for('admin.get_customers_admin'))
+        
+        # Update customer
+        update_data = {}
+        for field in ['username', 'email', 'first_name', 'last_name', 'phone_number']:
+            if field in data:
+                update_data[field] = data[field]
+        
+        update_data['is_active'] = data.get('is_active') == 'on'
+        
+        success = customer_model.update(customer_id, **update_data)
+        
+        if not success:
+            flash('Failed to update customer', 'danger')
+            return redirect(url_for('admin.edit_customer', customer_id=customer_id))
+        
+        # Log activity
+        activity_log_model = AdminActivityLog()
+        activity_log_model.create_log(
+            admin_id=session['admin_id'],
+            action='update_customer',
+            table_name='customers',
+            record_id=customer_id,
+            old_values=customer,
+            new_values=data
+        )
+        
+        flash('Customer updated successfully', 'success')
+        return redirect(url_for('admin.get_customers_admin'))
+            
+    except Exception as e:
+        flash(f'Failed to update customer: {str(e)}', 'danger')
+        return redirect(url_for('admin.edit_customer', customer_id=customer_id))
+
+@admin_bp.route('/customers/<int:customer_id>/toggle', methods=['POST'])
+@permission_required('manage_customers')
+def toggle_customer_status(customer_id):
+    """Toggle customer active status (deactivate/activate)"""
+    try:
+        customer_model = Customer()
+        customer = customer_model.get_by_id(customer_id)
+        
+        if not customer:
+            flash('Customer not found', 'danger')
+            return redirect(url_for('admin.get_customers_admin'))
+        
+        new_status = not customer.get('is_active', True)
+        
+        success = customer_model.update(customer_id, is_active=new_status)
+        
+        if not success:
+            flash('Failed to toggle customer status', 'danger')
+            return redirect(url_for('admin.get_customers_admin'))
+        
+        # Log activity
+        activity_log_model = AdminActivityLog()
+        activity_log_model.create_log(
+            admin_id=session['admin_id'],
+            action='toggle_customer_status',
+            table_name='customers',
+            record_id=customer_id,
+            old_values={'is_active': customer.get('is_active')},
+            new_values={'is_active': new_status}
+        )
+        
+        status_text = 'activated' if new_status else 'deactivated'
+        flash(f'Customer {status_text} successfully', 'success')
+        return redirect(url_for('admin.get_customers_admin'))
+            
+    except Exception as e:
+        flash(f'Failed to toggle customer status: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_customers_admin'))
 
 def get_customers_data():
     """API endpoint to get all customers"""
@@ -833,67 +1354,43 @@ def change_customer_password(customer_id):
     except Exception as e:
         return jsonify({'error': f'Failed to change password: {str(e)}'}), 500
 
-
-@admin_bp.route('/customers/<int:customer_id>/deactivate', methods=['PUT'])
-@permission_required('view_customers')
-def deactivate_customer(customer_id):
-    """Deactivate customer account"""
+@admin_bp.route('/customers/<int:customer_id>/delete', methods=['POST'])
+@permission_required('manage_customers')
+def delete_customer(customer_id):
+    """Delete customer"""
     try:
         customer_model = Customer()
         customer = customer_model.get_by_id(customer_id)
         
         if not customer:
-            return jsonify({'error': 'Customer not found'}), 404
+            flash('Customer not found', 'danger')
+            return redirect(url_for('admin.get_customers_admin'))
         
-        customer_model.update_status(customer_id, False)
-        
-        # Log activity
+        # Log activity before deletion
         activity_log_model = AdminActivityLog()
         activity_log_model.create_log(
             admin_id=session['admin_id'],
-            action='deactivate_customer',
+            action='delete_customer',
             table_name='customers',
             record_id=customer_id,
-            old_values={'is_active': True},
-            new_values={'is_active': False}
+            old_values={'username': customer['username'], 'email': customer['email']},
+            new_values=None
         )
         
-        return jsonify({'message': 'Customer deactivated successfully'}), 200
+        success = customer_model.delete(customer_id)
+        
+        if not success:
+            flash('Failed to delete customer', 'danger')
+            return redirect(url_for('admin.get_customers_admin'))
+        
+        flash('Customer deleted successfully', 'success')
+        return redirect(url_for('admin.get_customers_admin'))
             
     except Exception as e:
-        return jsonify({'error': f'Failed to deactivate customer: {str(e)}'}), 500
-
-
-@admin_bp.route('/customers/<int:customer_id>/activate', methods=['PUT'])
-@permission_required('view_customers')
-def activate_customer(customer_id):
-    """Activate customer account"""
-    try:
-        customer_model = Customer()
-        customer = customer_model.get_by_id(customer_id)
+        flash(f'Failed to delete customer: {str(e)}', 'danger')
+        return redirect(url_for('admin.get_customers_admin'))
         
-        if not customer:
-            return jsonify({'error': 'Customer not found'}), 404
-        
-        customer_model.update_status(customer_id, True)
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='activate_customer',
-            table_name='customers',
-            record_id=customer_id,
-            old_values={'is_active': False},
-            new_values={'is_active': True}
-        )
-        
-        return jsonify({'message': 'Customer activated successfully'}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to activate customer: {str(e)}'}), 500
-
-
+         
 # ============================================
 # ADMIN USER MANAGEMENT (SUPER ADMIN ONLY)
 # ============================================
@@ -914,7 +1411,7 @@ def get_admins():
         return get_admins_data()
     
     # Otherwise render the HTML page
-    return render_template('admin/admin_admins.html')
+    return render_template('admin/admins.html')
 
 
 def get_admins_data():

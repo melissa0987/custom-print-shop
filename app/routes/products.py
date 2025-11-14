@@ -234,7 +234,7 @@ def get_products():
 
 
 # ============================================================
-# PRODUCT DESIGN PAGE (NEW)
+# PRODUCT DESIGN PAGE 
 # ============================================================
 
 @products_bp.route('/<int:product_id>', methods=['GET'])

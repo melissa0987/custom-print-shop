@@ -20,20 +20,7 @@
         <nav>
             <div class="logo"><a href="{{ url_for('main.homepage') }}" style="color: white; text-decoration: none;">PrintCraft</a></div>
                 <ul class="nav-links"> 
-                    {% if session.get('admin_id') %}
-                        <!-- Admin Menu -->
-                        <li><a href="{{ url_for('main.homepage') }}">Home</a></li>
-                        <li><a href="{{ url_for('products.get_products') }}">Products</a></li>
-                        <li><a href="{{ url_for('admin.get_dashboard') }}">Admin Dashboard</a></li>
-                        <li>
-                            <form method="POST" action="{{ url_for('admin.admin_logout') }}" style="display: inline;">
-                                <button class="button-link guest-auth"  type="submit" 
-                                    style="display: inline-block; padding: 8px 16px; background-color: #f5a623; color: white; border-radius: 4px; text-decoration: none;">
-                                    Logout
-                                </button>
-                            </form>
-                        </li>
-                    {% elif session.get('customer_id') %}
+                    {% if  session.get('customer_id') %}
                         <!-- Customer Menu -->
                         <li><a href="{{ url_for('main.homepage') }}">Home</a></li>
                         <li><a href="{{ url_for('products.get_products') }}">Products</a></li>

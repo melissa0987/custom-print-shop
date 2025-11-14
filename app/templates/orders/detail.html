@@ -36,22 +36,39 @@
                 {% if order["items"] %}
                     {% for item in order["items"] %}
                     <div class="order-item-card">
-                        <!-- Product Image -->
-                        <div class="product-image">
-                            <img src="{{ item.product.image_url }}" 
-                                alt="{{ item.product.product_name }}"
-                                loading="lazy"
-                                onerror="this.onerror=null; this.src='/static/images/products/default.png';">
+                        <!-- Images Container - Side by Side -->
+                        <div class="order-item-images">
+                            <!-- Product Image -->
+                            <div class="product-image">
+                                <img src="{{ item.product.image_url }}" 
+                                    alt="{{ item.product.product_name }}"
+                                    loading="lazy"
+                                    onerror="this.onerror=null; this.src='/static/images/products/default.png';">
+                                <span class="image-label">Product</span> 
+                            </div>
+                            <!-- Product Image -->
+                            <div class="product-image">
+                                {% if item.design_file_url %}
+                                    <img src="{{ item.design_file_url }}" 
+                                        alt="Custom Design" 
+                                        class="design-image"
+                                        onclick="openLightbox('{{ item.design_file_url }}')">
+                                    <p class="image-label">Your Design</p>
+                                {% else %}
+                                    <div class="no-design-placeholder">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                                            <polyline points="21 15 16 10 5 21"/>
+                                        </svg>
+                                        <p>No Design</p>
+                                    </div>
+                                    <p class="image-label">Upload Design</p>
+                                {% endif %}
+                            <!-- Design Image (if uploaded) -->
 
+                            </div> 
                         </div>
-
-                        <!-- Design Overlay (if exists) -->
-                        {% if item.design_file_url %}
-                        <div class="design-overlay" onclick="openLightbox({{ item.design_file_url | tojson }})">
-                            <img src="{{ item.design_file_url }}" alt="Custom Design Preview">
-                            <span class="design-badge">Custom Design</span>
-                        </div>
-                        {% endif %}
 
                         <!-- Item Info -->
                         <div class="item-info">
@@ -186,169 +203,5 @@
   </div>
 </section>
 
-<!-- Image Lightbox -->
-<div id="imageLightbox" class="image-lightbox" onclick="closeLightbox()">
-    <div class="lightbox-content" onclick="event.stopPropagation()">
-        <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
-        <img id="lightboxImage" src="" alt="Design preview">
-    </div>
-</div>
-
-<style>
-/* Enhanced Order Item Styles */
-.order-item {
-    display: flex;
-    gap: 1.5rem;
-    padding: 1.5rem;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
-}
-
-.order-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.item-details h3 {
-    color: #333;
-    margin-bottom: 0.5rem;
-}
-
-.category {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #667eea;
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-}
-
-.customizations {
-    background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 1rem 0;
-}
-
-.customizations ul {
-    list-style: none;
-    margin: 0.5rem 0 0 0;
-    padding: 0;
-}
-
-.customizations li {
-    padding: 0.25rem 0;
-    display: flex;
-    gap: 0.5rem;
-}
-
-.custom-key {
-    font-weight: 600;
-    color: #666;
-}
-
-.custom-value {
-    color: #333;
-}
-
-.item-pricing {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #eee;
-}
-
-.pricing-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0;
-}
-
-.pricing-row.total {
-    border-top: 2px solid #333;
-    margin-top: 0.5rem;
-    padding-top: 0.75rem;
-}
-
-.pricing-label {
-    color: #666;
-}
-
-.pricing-value {
-    color: #333;
-    font-weight: 500;
-}
-
-.address {
-    background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 6px;
-    margin: 0.5rem 0;
-    line-height: 1.6;
-}
-
-.contact-info {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0.5rem 0;
-    color: #666;
-}
-
-.notes-text {
-    background: #fff8dc;
-    padding: 1rem;
-    border-radius: 6px;
-    border-left: 4px solid #ffc107;
-    line-height: 1.6;
-}
-
-.btn-cancel-full {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 1rem;
-    background: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.btn-cancel-full:hover {
-    background: #c82333;
-}
-
-.grand-total {
-    padding-top: 1rem;
-    margin-top: 1rem;
-}
-</style>
-
-<script>
-function openLightbox(imageSrc) {
-    const lightbox = document.getElementById('imageLightbox');
-    const lightboxImage = document.getElementById('lightboxImage');
-    lightboxImage.src = imageSrc;
-    lightbox.classList.add('active');
-}
-
-function closeLightbox() {
-    const lightbox = document.getElementById('imageLightbox');
-    lightbox.classList.remove('active');
-}
-
-// Close on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeLightbox();
-    }
-});
-</script>
+ 
 {% endblock %}

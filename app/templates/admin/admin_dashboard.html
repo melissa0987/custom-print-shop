@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Admin Dashboard - PrintCraft{% endblock %}
 
@@ -14,84 +14,45 @@
         </div>
     </div>
 
-    <!-- Dashboard Stats -->
     <div class="dashboard-stats">
         <div class="stat-card stat-orders">
-            <div class="stat-icon">
-                <i class="bi bi-cart-check"></i>
-            </div>
             <div class="stat-content">
                 <h3>Total Orders</h3>
-                <p class="stat-number" id="total-orders">0</p>
+                <p class="stat-number">{{ stats.orders.total if stats else 0 }}</p>
                 <span class="stat-subtext">
-                    <span class="pending-count">0 pending</span> | 
-                    <span class="processing-count">0 processing</span>
+                    <span class="pending-count">{{ stats.orders.pending if stats else 0 }} pending</span> | 
+                    <span class="processing-count">{{ stats.orders.processing if stats else 0 }} processing</span>
                 </span>
             </div>
         </div>
 
         <div class="stat-card stat-revenue">
-            <div class="stat-icon">
-                <i class="bi bi-currency-dollar"></i>
-            </div>
             <div class="stat-content">
                 <h3>Total Revenue</h3>
-                <p class="stat-number" id="total-revenue">$0.00</p>
-                <span class="stat-subtext" id="month-revenue">$0.00 this month</span>
+                <p class="stat-number">${{ "%.2f"|format(stats.revenue.total) if stats else "0.00" }}</p>
+                <span class="stat-subtext" id="month-revenue">${{ "%.2f"|format(stats.revenue.month) if stats else "0.00" }} this month</span>
             </div>
         </div>
 
         <div class="stat-card stat-customers">
-            <div class="stat-icon">
-                <i class="bi bi-people"></i>
-            </div>
             <div class="stat-content">
                 <h3>Customers</h3>
-                <p class="stat-number" id="total-customers">0</p>
-                <span class="stat-subtext"><span id="active-customers">0</span> active</span>
+                <p class="stat-number">{{ stats.customers.total if stats else 0 }}</p>
+                <span class="stat-subtext"><span id="active-customers">{{ stats.customers.active if stats else 0 }}</span> active</span>
             </div>
         </div>
 
         <div class="stat-card stat-products">
-            <div class="stat-icon">
-                <i class="bi bi-box-seam"></i>
-            </div>
             <div class="stat-content">
                 <h3>Products</h3>
-                <p class="stat-number" id="total-products">0</p>
-                <span class="stat-subtext"><span id="active-products">0</span> active</span>
+                <p class="stat-number">{{ stats.products.total if stats else 0 }}</p>
+                <span class="stat-subtext"><span id="active-products">{{ stats.products.active if stats else 0 }}</span> active</span>
             </div>
         </div>
     </div>
 
-    <!-- Navigation Menu -->
-    <div class="admin-nav-menu">
-        <a href="{{ url_for('admin.get_orders') }}" class="admin-nav-item">
-            <i class="bi bi-basket"></i>
-            <span>Orders</span>
-        </a>
-        <a href="{{ url_for('admin.get_products') }}" class="admin-nav-item">
-            <i class="bi bi-box-seam"></i>
-            <span>Products</span>
-        </a>
-        <a href="{{ url_for('admin.get_categories') }}" class="admin-nav-item">
-            <i class="bi bi-tags"></i>
-            <span>Categories</span>
-        </a>
-        <a href="{{ url_for('admin.get_customers') }}" class="admin-nav-item">
-            <i class="bi bi-people"></i>
-            <span>Customers</span>
-        </a>
-        {% if session.get('admin_role') == 'super_admin' %}
-        <a href="{{ url_for('admin.get_admins') }}" class="admin-nav-item">
-            <i class="bi bi-shield-lock"></i>
-            <span>Admin Users</span>
-        </a>
-        {% endif %}
-        <a href="{{ url_for('admin.get_reports') }}" class="admin-nav-item">
-            <i class="bi bi-graph-up"></i>
-            <span>Reports</span>
-        </a>
+       
+        
     </div>
 
     <!-- Recent Orders -->
@@ -128,11 +89,11 @@
         </div>
         <div class="quick-actions">
             {% if session.get('admin_role') in ['super_admin', 'admin'] %}
-            <a href="{{ url_for('admin.add_product') }}" class="action-card">
+            <a href="{{ url_for('admin.create_product') }}" class="action-card">
                 <i class="bi bi-plus-circle"></i>
                 <span>Add Product</span>
             </a>
-            <a href="{{ url_for('admin.add_category') }}" class="action-card">
+            <a href="{{ url_for('admin.create_category') }}" class="action-card">
                 <i class="bi bi-tag"></i>
                 <span>Add Category</span>
             </a>
@@ -475,69 +436,5 @@
     background-color: #357abd;
 }
 </style>
-
-<script>
-// Load dashboard data
-document.addEventListener('DOMContentLoaded', function() {
-    loadDashboardData();
-    loadRecentOrders();
-});
-
-async function loadDashboardData() {
-    try {
-        const response = await fetch('/admin/dashboard');
-        const data = await response.json();
-        
-        if (data.dashboard) {
-            const dash = data.dashboard;
-            
-            // Update stats
-            document.getElementById('total-orders').textContent = dash.orders.total;
-            document.querySelector('.pending-count').textContent = `${dash.orders.pending} pending`;
-            document.querySelector('.processing-count').textContent = `${dash.orders.processing} processing`;
-            
-            document.getElementById('total-revenue').textContent = `$${dash.revenue.total.toFixed(2)}`;
-            document.getElementById('month-revenue').textContent = `$${dash.revenue.month.toFixed(2)} this month`;
-            
-            document.getElementById('total-customers').textContent = dash.customers.total;
-            document.getElementById('active-customers').textContent = dash.customers.active;
-            
-            document.getElementById('total-products').textContent = dash.products.total;
-            document.getElementById('active-products').textContent = dash.products.active;
-        }
-    } catch (error) {
-        console.error('Error loading dashboard data:', error);
-    }
-}
-
-async function loadRecentOrders() {
-    try {
-        const response = await fetch('/admin/orders?per_page=5');
-        const data = await response.json();
-        
-        const tbody = document.getElementById('recent-orders-body');
-        
-        if (data.orders && data.orders.length > 0) {
-            tbody.innerHTML = data.orders.map(order => `
-                <tr>
-                    <td><strong>${order.order_number || 'N/A'}</strong></td>
-                    <td>${order.customer_username || 'Guest'}</td>
-                    <td><span class="status-badge status-${order.order_status}">${order.order_status}</span></td>
-                    <td>$${parseFloat(order.total_amount).toFixed(2)}</td>
-                    <td>${new Date(order.created_at).toLocaleDateString()}</td>
-                    <td>
-                        <a href="/admin/orders/${order.order_id}" class="btn-action btn-view">View</a>
-                    </td>
-                </tr>
-            `).join('');
-        } else {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No recent orders</td></tr>';
-        }
-    } catch (error) {
-        console.error('Error loading recent orders:', error);
-        document.getElementById('recent-orders-body').innerHTML = 
-            '<tr><td colspan="6" class="text-center">Error loading orders</td></tr>';
-    }
-}
-</script>
+ 
 {% endblock %}

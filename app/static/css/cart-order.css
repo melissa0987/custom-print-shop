@@ -68,7 +68,8 @@
     flex-direction: column;
     align-items: center;
     gap: 0.75rem;
-    min-width: 200px;
+    min-width: 450px;
+    border: 2px solid black;
 }
 
 .product-image-container,

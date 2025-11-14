@@ -1,0 +1,912 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Products Management - Admin - PrintCraft{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1><i class="bi bi-box-seam"></i> Products Management</h1>
+        <div class="header-actions">
+            {% if session.get('admin_role') in ['super_admin', 'admin'] %}
+            <button class="btn-primary" onclick="openAddProductModal()">
+                <i class="bi bi-plus-circle"></i> Add Product
+            </button>
+            {% endif %}
+            <a href="{{ url_for('admin.get_dashboard') }}" class="btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="filter-group">
+            <label for="category-filter">Category:</label>
+            <select id="category-filter" class="filter-select">
+                <option value="">All Categories</option>
+                <!-- Categories will be loaded dynamically -->
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label for="status-filter">Status:</label>
+            <select id="status-filter" class="filter-select">
+                <option value="true">Active Only</option>
+                <option value="false">All Products</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="search-input">Search:</label>
+            <input type="text" id="search-input" class="filter-input" placeholder="Product name...">
+        </div>
+
+        <button class="btn-primary" onclick="applyFilters()">
+            <i class="bi bi-funnel"></i> Apply Filters
+        </button>
+        <button class="btn-secondary" onclick="resetFilters()">
+            <i class="bi bi-x-circle"></i> Reset
+        </button>
+    </div>
+
+    <!-- Products Table -->
+    <div class="content-section">
+        <div class="table-header">
+            <h2>All Products (<span id="product-count">0</span>)</h2>
+        </div>
+
+        <div class="table-container">
+            <table class="admin-table" id="products-table">
+                <thead>
+                    <tr>
+                        <th>Product ID</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Base Price</th>
+                        <th>Status</th>
+                        <th>Times Ordered</th>
+                        <th>Total Revenue</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="products-body">
+                    <tr>
+                        <td colspan="8" class="text-center">Loading products...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+    </div>
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div id="product-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Add Product</h2>
+            <span class="close" onclick="closeProductModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="product-form" onsubmit="saveProduct(event)">
+                <input type="hidden" id="product-id">
+                
+                <div class="form-group">
+                    <label for="product-name">Product Name: <span class="required">*</span></label>
+                    <input type="text" id="product-name" class="form-control" required maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="product-category">Category: <span class="required">*</span></label>
+                    <select id="product-category" class="form-control" required>
+                        <option value="">Select a category</option>
+                        <!-- Categories will be loaded dynamically -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="product-description">Description:</label>
+                    <textarea id="product-description" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="product-price">Base Price: <span class="required">*</span></label>
+                    <input type="number" id="product-price" class="form-control" 
+                           step="0.01" min="0" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="product-active" checked>
+                        Product is active
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Deactivate Confirmation Modal -->
+<div id="deactivate-modal" class="modal">
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Confirm Deactivation</h2>
+            <span class="close" onclick="closeDeactivateModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to deactivate this product?</p>
+            <p class="warning-text">
+                <i class="bi bi-exclamation-triangle"></i> 
+                This product will no longer be available for customers to order.
+            </p>
+            <input type="hidden" id="deactivate-product-id">
+            <div class="form-actions">
+                <button class="btn-secondary" onclick="closeDeactivateModal()">Cancel</button>
+                <button class="btn-danger" onclick="confirmDeactivate()">Deactivate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="modal">
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Confirm Deletion</h2>
+            <span class="close" onclick="closeDeleteModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this product?</p>
+            <p class="danger-text">
+                <i class="bi bi-exclamation-triangle-fill"></i> 
+                This action cannot be undone! Only delete products that have never been ordered.
+            </p>
+            <input type="hidden" id="delete-product-id">
+            <div class="form-actions">
+                <button class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn-danger" onclick="confirmDelete()">Delete Permanently</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.admin-header h1 {
+    color: #333;
+    font-size: 1.75rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+/* Filters Section */
+.filters-section {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 200px;
+}
+
+.filter-group label {
+    font-weight: 600;
+    color: #666;
+    font-size: 0.875rem;
+}
+
+.filter-select,
+.filter-input {
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+    outline: none;
+    border-color: #f5a623;
+}
+
+/* Content Section */
+.content-section {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.table-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #333;
+}
+
+/* Table */
+.table-container {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table thead {
+    background-color: #f8f9fa;
+}
+
+.admin-table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #666;
+    border-bottom: 2px solid #e0e0e0;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.admin-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    vertical-align: middle;
+}
+
+.admin-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.status-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.status-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-action {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-edit {
+    background-color: #4a90e2;
+    color: white;
+}
+
+.btn-edit:hover {
+    background-color: #357abd;
+}
+
+.btn-deactivate {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.btn-deactivate:hover {
+    background-color: #e0a800;
+}
+
+.btn-activate {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-activate:hover {
+    background-color: #218838;
+}
+
+.btn-delete {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-delete:hover {
+    background-color: #c82333;
+}
+
+.btn-primary {
+    padding: 0.75rem 1.5rem;
+    background-color: #f5a623;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #d89420;
+}
+
+.btn-secondary {
+    padding: 0.75rem 1.5rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+.btn-danger {
+    padding: 0.75rem 1.5rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+}
+
+.page-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.page-btn:hover {
+    background-color: #f8f9fa;
+}
+
+.page-btn.active {
+    background-color: #f5a623;
+    color: white;
+    border-color: #f5a623;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.modal-small {
+    max-width: 450px;
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #333;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close:hover {
+    color: #000;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.required {
+    color: #dc3545;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #f5a623;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: auto;
+    cursor: pointer;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.warning-text {
+    background-color: #fff3cd;
+    border-left: 3px solid #ffc107;
+    padding: 1rem;
+    margin: 1rem 0;
+    color: #856404;
+}
+
+.danger-text {
+    background-color: #f8d7da;
+    border-left: 3px solid #dc3545;
+    padding: 1rem;
+    margin: 1rem 0;
+    color: #721c24;
+}
+</style>
+
+<script>
+let currentPage = 1;
+let currentFilters = {};
+let categories = [];
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories();
+    loadProducts();
+});
+
+async function loadCategories() {
+    try {
+        // You'll need to implement this endpoint
+        const response = await fetch('/admin/categories');
+        const data = await response.json();
+        
+        if (data.categories) {
+            categories = data.categories;
+            
+            // Populate category filters
+            const filterSelect = document.getElementById('category-filter');
+            const modalSelect = document.getElementById('product-category');
+            
+            categories.forEach(cat => {
+                filterSelect.innerHTML += `<option value="${cat.category_id}">${cat.category_name}</option>`;
+                modalSelect.innerHTML += `<option value="${cat.category_id}">${cat.category_name}</option>`;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+async function loadProducts(page = 1) {
+    currentPage = page;
+    
+    try {
+        let url = `/admin/products?page=${page}&per_page=20`;
+        
+        if (currentFilters.category) {
+            url += `&category_id=${currentFilters.category}`;
+        }
+        
+        if (currentFilters.status !== undefined) {
+            url += `&is_active=${currentFilters.status}`;
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const tbody = document.getElementById('products-body');
+        const productCount = document.getElementById('product-count');
+        
+        if (data.products && data.products.length > 0) {
+            let filteredProducts = data.products;
+            
+            // Apply search filter on client side
+            if (currentFilters.search) {
+                const search = currentFilters.search.toLowerCase();
+                filteredProducts = data.products.filter(product => 
+                    product.product_name.toLowerCase().includes(search)
+                );
+            }
+            
+            productCount.textContent = filteredProducts.length;
+            
+            tbody.innerHTML = filteredProducts.map(product => `
+                <tr>
+                    <td><strong>#${product.product_id}</strong></td>
+                    <td>${product.product_name}</td>
+                    <td>${product.category_name}</td>
+                    <td>$${parseFloat(product.base_price).toFixed(2)}</td>
+                    <td>
+                        <span class="status-badge status-${product.is_active ? 'active' : 'inactive'}">
+                            ${product.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>${product.times_ordered || 0}</td>
+                    <td>$${parseFloat(product.total_revenue || 0).toFixed(2)}</td>
+                    <td>
+                        <div class="action-buttons">
+                            {% if session.get('admin_role') in ['super_admin', 'admin'] %}
+                            <button class="btn-action btn-edit" onclick='editProduct(${JSON.stringify(product).replace(/'/g, "&apos;")})'>
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            ${product.is_active ? `
+                                <button class="btn-action btn-deactivate" onclick="openDeactivateModal(${product.product_id})">
+                                    <i class="bi bi-x-circle"></i> Deactivate
+                                </button>
+                            ` : `
+                                <button class="btn-action btn-activate" onclick="activateProduct(${product.product_id})">
+                                    <i class="bi bi-check-circle"></i> Activate
+                                </button>
+                            `}
+                            ${product.times_ordered === 0 ? `
+                                <button class="btn-action btn-delete" onclick="openDeleteModal(${product.product_id})">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            ` : ''}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            
+            // Update pagination
+            if (data.pagination) {
+                updatePagination(data.pagination);
+            }
+        } else {
+            productCount.textContent = '0';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">No products found</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading products:', error);
+        document.getElementById('products-body').innerHTML = 
+            '<tr><td colspan="8" class="text-center">Error loading products</td></tr>';
+    }
+}
+
+function applyFilters() {
+    currentFilters.category = document.getElementById('category-filter').value;
+    currentFilters.status = document.getElementById('status-filter').value;
+    currentFilters.search = document.getElementById('search-input').value;
+    loadProducts(1);
+}
+
+function resetFilters() {
+    document.getElementById('category-filter').value = '';
+    document.getElementById('status-filter').value = 'true';
+    document.getElementById('search-input').value = '';
+    currentFilters = {};
+    loadProducts(1);
+}
+
+function updatePagination(pagination) {
+    const container = document.getElementById('pagination');
+    const totalPages = Math.ceil(pagination.total_products / pagination.per_page);
+    
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = '';
+    for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" 
+                        onclick="loadProducts(${i})">${i}</button>`;
+    }
+    container.innerHTML = html;
+}
+
+function openAddProductModal() {
+    document.getElementById('modal-title').textContent = 'Add Product';
+    document.getElementById('product-form').reset();
+    document.getElementById('product-id').value = '';
+    document.getElementById('product-active').checked = true;
+    document.getElementById('product-modal').style.display = 'block';
+}
+
+function editProduct(product) {
+    document.getElementById('modal-title').textContent = 'Edit Product';
+    document.getElementById('product-id').value = product.product_id;
+    document.getElementById('product-name').value = product.product_name;
+    document.getElementById('product-category').value = product.category_id || '';
+    document.getElementById('product-description').value = product.description || '';
+    document.getElementById('product-price').value = parseFloat(product.base_price);
+    document.getElementById('product-active').checked = product.is_active;
+    document.getElementById('product-modal').style.display = 'block';
+}
+
+function closeProductModal() {
+    document.getElementById('product-modal').style.display = 'none';
+}
+
+async function saveProduct(event) {
+    event.preventDefault();
+    
+    const productId = document.getElementById('product-id').value;
+    const isEdit = productId !== '';
+    
+    const productData = {
+        product_name: document.getElementById('product-name').value,
+        category_id: parseInt(document.getElementById('product-category').value),
+        description: document.getElementById('product-description').value,
+        base_price: parseFloat(document.getElementById('product-price').value),
+        is_active: document.getElementById('product-active').checked
+    };
+    
+    try {
+        let url = '/admin/products';
+        let method = 'POST';
+        
+        if (isEdit) {
+            url += `/${productId}`;
+            method = 'PUT';
+        }
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(productData)
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(isEdit ? 'Product updated successfully' : 'Product added successfully');
+            closeProductModal();
+            loadProducts(currentPage);
+        } else {
+            alert(data.error || 'Failed to save product');
+        }
+    } catch (error) {
+        console.error('Error saving product:', error);
+        alert('Failed to save product');
+    }
+}
+
+function openDeactivateModal(productId) {
+    document.getElementById('deactivate-product-id').value = productId;
+    document.getElementById('deactivate-modal').style.display = 'block';
+}
+
+function closeDeactivateModal() {
+    document.getElementById('deactivate-modal').style.display = 'none';
+}
+
+async function confirmDeactivate() {
+    const productId = document.getElementById('deactivate-product-id').value;
+    
+    try {
+        const response = await fetch(`/admin/products/${productId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_active: false })
+        });
+        
+        if (response.ok) {
+            alert('Product deactivated successfully');
+            closeDeactivateModal();
+            loadProducts(currentPage);
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to deactivate product');
+        }
+    } catch (error) {
+        console.error('Error deactivating product:', error);
+        alert('Failed to deactivate product');
+    }
+}
+
+async function activateProduct(productId) {
+    if (!confirm('Are you sure you want to activate this product?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/admin/products/${productId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_active: true })
+        });
+        
+        if (response.ok) {
+            alert('Product activated successfully');
+            loadProducts(currentPage);
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to activate product');
+        }
+    } catch (error) {
+        console.error('Error activating product:', error);
+        alert('Failed to activate product');
+    }
+}
+
+function openDeleteModal(productId) {
+    document.getElementById('delete-product-id').value = productId;
+    document.getElementById('delete-modal').style.display = 'block';
+}
+
+function closeDeleteModal() {
+    document.getElementById('delete-modal').style.display = 'none';
+}
+
+async function confirmDelete() {
+    const productId = document.getElementById('delete-product-id').value;
+    
+    try {
+        const response = await fetch(`/admin/products/${productId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            alert('Product deleted successfully');
+            closeDeleteModal();
+            loadProducts(currentPage);
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to delete product');
+        }
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        alert('Failed to delete product');
+    }
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const productModal = document.getElementById('product-modal');
+    const deactivateModal = document.getElementById('deactivate-modal');
+    const deleteModal = document.getElementById('delete-modal');
+    
+    if (event.target == productModal) {
+        closeProductModal();
+    }
+    if (event.target == deactivateModal) {
+        closeDeactivateModal();
+    }
+    if (event.target == deleteModal) {
+        closeDeleteModal();
+    }
+}
+</script>
+{% endblock %}

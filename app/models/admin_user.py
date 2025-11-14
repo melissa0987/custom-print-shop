@@ -160,6 +160,40 @@ class AdminUser:
             'view_orders', 'update_order_status', 'view_customers',
             'view_products', 'add_product', 'update_product',
             'view_categories', 'add_category', 'update_category',
+            'view_staff', 'view_reports', 'view_dashboard'
+        ]
+
+        staff_permissions = [
+            'view_orders', 'update_order_status',
+            'view_customers', 'view_products', 'view_categories',
+            'view_dashboard' 
+        ]
+
+        
+
+        if role == 'admin':
+            return action in admin_permissions
+        elif role == 'staff':
+            return action in staff_permissions
+        
+
+        return False
+
+
+    def get_permissions(self, admin_id):
+        """
+        Return a list of permission strings for the given admin user.
+        """
+        user = self.get_by_id(admin_id)
+        if not user or not user.get('is_active', True):
+            return []
+
+        role = user.get('role', 'staff')
+
+        admin_permissions = [
+            'view_orders', 'update_order_status', 'view_customers',
+            'view_products', 'add_product', 'update_product',
+            'view_categories', 'add_category', 'update_category',
             'view_staff', 'view_reports'
         ]
 
@@ -168,40 +202,11 @@ class AdminUser:
             'view_customers', 'view_products', 'view_categories'
         ]
 
-        if role == 'admin':
-            return action in admin_permissions
-        elif role == 'staff':
-            return action in staff_permissions
+        if role == 'Admin':
+            return admin_permissions  # super_admin gets all
+        elif role == 'Administrator':
+            return admin_permissions
+        elif role == 'Staff':
+            return staff_permissions
 
-        return False
-
-    def get_permissions(self, admin_id):
-            """
-            Return a list of permission strings for the given admin user.
-            """
-            user = self.get_by_id(admin_id)
-            if not user or not user.get('is_active', True):
-                return []
-
-            role = user.get('role', 'staff')
-
-            admin_permissions = [
-                'view_orders', 'update_order_status', 'view_customers',
-                'view_products', 'add_product', 'update_product',
-                'view_categories', 'add_category', 'update_category',
-                'view_staff', 'view_reports'
-            ]
-
-            staff_permissions = [
-                'view_orders', 'update_order_status',
-                'view_customers', 'view_products', 'view_categories'
-            ]
-
-            if role == 'super_admin':
-                return admin_permissions  # super_admin gets all
-            elif role == 'admin':
-                return admin_permissions
-            elif role == 'staff':
-                return staff_permissions
-
-            return []
+        return []
