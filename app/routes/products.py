@@ -5,7 +5,8 @@ Handles product browsing, searching, and category management
 """
 from flask import Blueprint, request, jsonify, render_template, session, flash, redirect, url_for
 from app.models import Product, Category
-from app.utils import PriceHelper, StringHelper, PaginationHelper
+from app.services.design_service import DesignService
+from app.utils import PriceHelper, StringHelper, PaginationHelper, ImageHelper  
 
 # Create blueprint
 products_bp = Blueprint('products', __name__)
@@ -156,23 +157,9 @@ def get_products():
         result = []
         for p in paginated['items']:
             category = category_model.get_by_id(p['category_id'])
-            product_name_lower = p['product_name'].lower()
 
-            # Determine image based on product name
-            if 'mug' in product_name_lower:
-                image_filename = 'images/mug.png'
-            elif 'tote' in product_name_lower:
-                image_filename = 'images/tote.png'
-            elif 'drawstring' in product_name_lower:
-                image_filename = 'images/drawstring-bag.png'
-            elif 'shopping' in product_name_lower:
-                image_filename = 'images/shopping-bag.png'
-            elif 't-shirt' in product_name_lower or 'tshirt' in product_name_lower:
-                image_filename = 'images/shirt.png'
-            elif 'tumbler' in product_name_lower:
-                image_filename = 'images/tumbler.png'
-            else:
-                image_filename = 'images/mug.png'  # fallback
+            image_path = ImageHelper.get_product_image_url(p['product_id'], p['product_name'])
+            image_url = url_for('static', filename=image_path)
 
             
             result.append({
@@ -186,7 +173,7 @@ def get_products():
                     'category_id': category['category_id'],
                     'category_name': category['category_name']
                 } if category else None,
-                'image_url': url_for('static', filename=image_filename),
+                'image_url': image_url,
                 'is_active': p.get('is_active'),
                 'created_at': p['created_at'].isoformat() if p.get('created_at') else None
             })
@@ -277,9 +264,7 @@ def upload_design(product_id):
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
     
-    try:
-        from app.services.design_service import DesignService
-        from flask import current_app
+    try: 
         
         # Get customer/session info
         customer_id = session.get('customer_id')
@@ -292,15 +277,14 @@ def upload_design(product_id):
             session['session_id'] = session_id
             session.permanent = True
         
-        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        
         
         # Process design upload
         success, result = DesignService.process_design_upload(
-            file=file,
-            product_id=product_id,
-            customer_id=customer_id,
-            session_id=session_id,
-            upload_folder=upload_folder
+            file,
+            product_id,
+            customer_id=session.get("customer_id"),
+            session_id=session.get("session_id")
         )
         
         if not success:

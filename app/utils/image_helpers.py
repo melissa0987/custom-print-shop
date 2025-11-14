@@ -9,11 +9,20 @@ from pathlib import Path
 class ImageHelper:
     """Helper class for managing images"""
     
-    # Default image paths
+    # Default image paths 
     DEFAULT_PRODUCT_IMAGE = '/static/images/products/default.png'
-    PRODUCT_IMAGES_DIR = 'app/static/images/products'
-    MOCKUPS_DIR = 'app/static/images/products/mockups'
-    DESIGNS_DIR = 'uploads/designs'
+    PRODUCT_IMAGES_DIR = 'static/images/products'
+    MOCKUPS_DIR = 'static/images/products/mockups'
+    DESIGNS_DIR = 'static/images/products/designs'
+
+    PRODUCT_IMAGE_MAP = {
+        'mug': 'images/products/mug.png',
+        'shirt': 'images/products/shirt.png',
+        'drawstring bag': 'images/products/drawstring-bag.png',
+        'tote': 'images/products/tote.png',
+        'tumbler': 'images/products/tumbler.png'
+    } 
+
     
     @staticmethod
     def get_product_image_url(product_id, product_name=None):
@@ -25,37 +34,40 @@ class ImageHelper:
         3. {slugified_name}.png
         4. Default image
         """
-        base_path = ImageHelper.PRODUCT_IMAGES_DIR
+        if product_id:
+            if product_id in [1, 2]:
+                return ImageHelper.PRODUCT_IMAGE_MAP['mug']
+            elif product_id in [3, 4]:
+                return ImageHelper.PRODUCT_IMAGE_MAP['tumbler']
+            elif product_id == 5:
+                return ImageHelper.PRODUCT_IMAGE_MAP['tote']
+            elif product_id == 6:
+                return ImageHelper.PRODUCT_IMAGE_MAP['drawstring bag']
+            elif product_id in range(7, 11):
+                return ImageHelper.PRODUCT_IMAGE_MAP['shirt']
         
-        # Try with product_id
-        for ext in ['.png', '.jpg', '.jpeg', '.webp']:
-            img_path = f"{base_path}/product_{product_id}{ext}"
-            if os.path.exists(img_path):
-                return f"/static/images/products/product_{product_id}{ext}"
-        
-        # Try with slugified name if provided
+         # --- 2. Keyword mapping from product_name ---
         if product_name:
-            from app.utils.helpers import StringHelper
-            slug = StringHelper.slugify(product_name)
-            for ext in ['.png', '.jpg', '.jpeg', '.webp']:
-                img_path = f"{base_path}/{slug}{ext}"
-                if os.path.exists(img_path):
-                    return f"/static/images/products/{slug}{ext}"
-        
-        # Return default
+            name_lower = product_name.lower()
+            for key, path in ImageHelper.PRODUCT_IMAGE_MAP.items():
+                if key in name_lower:
+                    return path
+
+        # --- 3. Fallback default ---
         return ImageHelper.DEFAULT_PRODUCT_IMAGE
+    
+    
     
     @staticmethod
     def get_mockup_url(product_id):
-        """Get product mockup for design preview"""
-        mockup_path = f"{ImageHelper.MOCKUPS_DIR}/product_{product_id}_mockup.png"
+        """Reuse product images as mockups."""
+        url = ImageHelper.get_product_image_url(product_id)
+
+        if not url.startswith("/static/"):
+            url = f"/static/{url.lstrip('/')}"
+
+        return url
         
-        if os.path.exists(mockup_path):
-            return f"/static/images/products/mockups/product_{product_id}_mockup.png"
-        
-        # Return default mockup
-        return "/static/images/products/mockups/default_mockup.png"
-    
     @staticmethod
     def ensure_directories():
         """Ensure all required image directories exist"""
@@ -63,7 +75,7 @@ class ImageHelper:
             ImageHelper.PRODUCT_IMAGES_DIR,
             ImageHelper.MOCKUPS_DIR,
             ImageHelper.DESIGNS_DIR,
-            'uploads/previews'
+            '/static/images/uploads/previews'
         ]
         
         for directory in directories:

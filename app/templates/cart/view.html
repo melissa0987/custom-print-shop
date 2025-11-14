@@ -19,21 +19,57 @@
                 {% for item in cart['items'] %}
                 <div class="cart-item">
                     
-                    <!-- Image + Upload -->
-                    <div class="item-image">
-                        <img src="{{ item.image_url }}" 
-                            alt="{{ item.product.product_name }}" 
-                            class="{% if item.design_file_url %}design-preview{% endif %}"
-                            {% if item.design_file_url %}onclick="openLightbox({{ item.design_file_url | tojson }})"{% endif %}>
+                    <!-- Image Section: Product + Design -->
+                    <div class="item-image-section">
+                        <!-- Product Image -->
+                        <div class="product-image-container">
+                            <img src="{{ url_for('static', filename=item.product.image_url.lstrip('/')) }}" 
+                                 alt="{{ item.product.product_name }}" 
+                                 class="product-image">
+                            <p class="image-label">Product</p>
+                        </div>
                         
-                        {% if item.design_file_url %}
-                            <div class="design-badge">Custom Design</div>
-                        {% endif %}
-
+                        <!-- Design Image (if uploaded) -->
+                        <div class="design-image-container">
+                            {% if item.design_file_url %}
+                                <img src="{{ item.design_file_url }}" 
+                                     alt="Custom Design" 
+                                     class="design-image"
+                                     onclick="openLightbox('{{ item.design_file_url }}')">
+                                <div class="design-badge">Custom Design</div>
+                                <p class="image-label">Your Design</p>
+                            {% else %}
+                                <div class="no-design-placeholder">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <p>No Design</p>
+                                </div>
+                                <p class="image-label">Upload Design</p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Upload Button -->
                         <form method="POST" action="{{ url_for('cart.update_cart_item', cart_item_id=item.cart_item_id) }}" enctype="multipart/form-data" class="upload-form">
                             <input type="file" name="design_file" accept="image/*" id="file-input-{{ item.cart_item_id }}" style="display:none" onchange="this.form.submit()">
                             <button type="button" class="btn-upload" onclick="document.getElementById('file-input-{{ item.cart_item_id }}').click()">
-                                {% if item.design_file_url %}Change Design{% else %}Upload Design{% endif %}
+                                {% if item.design_file_url %}
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                    Change Design
+                                {% else %}
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                    Upload Design
+                                {% endif %}
                             </button>
                         </form>
                     </div>
@@ -118,6 +154,12 @@
     </div>
 </section>
 
+<!-- Lightbox for viewing design images -->
+<div id="imageLightbox" class="lightbox" onclick="closeLightbox()">
+    <span class="lightbox-close">&times;</span>
+    <img id="lightboxImage" class="lightbox-content">
+</div>
+
 <script>
 function openLightbox(imageSrc) {
     const lightbox = document.getElementById('imageLightbox');
@@ -129,57 +171,294 @@ function openLightbox(imageSrc) {
 function closeLightbox() {
     document.getElementById('imageLightbox').classList.remove('active');
 }
+
+// Quantity update functionality
+document.querySelectorAll('.btn-update').forEach(button => {
+    button.addEventListener('click', function() {
+        const itemId = this.getAttribute('data-item-id');
+        const quantityInput = document.querySelector(`input[data-item-id="${itemId}"]`);
+        const newQuantity = quantityInput.value;
+        
+        fetch(`/cart/update/${itemId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ quantity: parseInt(newQuantity) })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                location.reload();
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to update cart');
+        });
+    });
+});
 </script>
 
 <style>
-.item-image {
+/* Image Section Layout */
+.item-image-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    min-width: 200px;
+}
+
+.product-image-container,
+.design-image-container {
     position: relative;
     text-align: center;
 }
-.design-preview {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
+
+.product-image,
+.design-image {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
     border-radius: 8px;
-    cursor: pointer;
     border: 1px solid #ddd;
+    background: #f9f9f9;
 }
-.design-badge {
-    position: absolute;
-    bottom: 4px;
-    left: 4px;
-    background: #4caf50;
-    color: white;
-    font-size: 0.7rem;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-}
-.btn-upload {
-    margin-top: 8px;
-    background: #007bff;
-    color: white;
-    border: none;
-    padding: 0.4rem 0.8rem;
-    border-radius: 6px;
+
+.design-image {
     cursor: pointer;
-    font-size: 0.85rem;
+    transition: transform 0.2s;
 }
-.btn-upload:hover {
-    background: #0056b3;
+
+.design-image:hover {
+    transform: scale(1.05);
 }
-.placeholder-image {
-    width: 120px;
-    height: 120px;
+
+.image-label {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.no-design-placeholder {
+    width: 100px;
+    height: 100px;
     background: #f5f5f5;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    color: #888;
-    font-size: 0.9rem;
+    color: #999;
+    border: 2px dashed #ddd;
+}
+
+.no-design-placeholder svg {
+    color: #ccc;
+    margin-bottom: 4px;
+}
+
+.no-design-placeholder p {
+    margin: 0;
+    font-size: 0.75rem;
+}
+
+.design-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: #4caf50;
+    color: white;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* Upload Button */
+.upload-form {
+    width: 100%;
+}
+
+.btn-upload {
+    width: 100%;
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
     cursor: pointer;
-    border: 1px dashed #ccc;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.2s;
+}
+
+.btn-upload:hover {
+    background: #0056b3;
+}
+
+.btn-upload svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Lightbox */
+.lightbox {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    align-items: center;
+    justify-content: center;
+}
+
+.lightbox.active {
+    display: flex;
+}
+
+.lightbox-content {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 40px;
+    color: white;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.lightbox-close:hover {
+    color: #ccc;
+}
+
+/* Cart Item Layout */
+.cart-item {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background: white;
+    align-items: center;
+}
+
+.item-details {
+    flex: 1;
+    min-width: 200px;
+}
+
+.item-details h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+}
+
+.category {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 4px 0;
+}
+
+.customizations {
+    margin-top: 8px;
+    font-size: 0.85rem;
+}
+
+.customizations ul {
+    margin: 4px 0;
+    padding-left: 20px;
+}
+
+.price {
+    margin-top: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.item-quantity {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.quantity-input {
+    width: 60px;
+    padding: 6px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.btn-update {
+    padding: 6px 12px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-update:hover {
+    background: #218838;
+}
+
+.item-total {
+    min-width: 100px;
+    text-align: right;
+}
+
+.line-total {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.btn-remove {
+    padding: 8px 16px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-remove:hover {
+    background: #c82333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .cart-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .item-image-section {
+        flex-direction: row;
+        justify-content: center;
+        gap: 20px;
+    }
+    
+    .item-total {
+        text-align: center;
+    }
 }
 </style>
 {% endblock %}

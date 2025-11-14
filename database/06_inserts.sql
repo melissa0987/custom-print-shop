@@ -109,8 +109,7 @@ INSERT INTO order_items (order_id, product_id, quantity, unit_price, design_file
     (4, 8, 2, 12.99, '../icons/mug.png', 25.98),
     (4, 1, 1, 12.99, '../icons/mug.png', 12.99),
 
-    -- Order 5: Multiple items (order_id = 5)
-    (5, 11, 1, 19.99, '../icons/mug.png', 19.99),
+    -- Order 5: Multiple items (order_id = 5) 
     (5, 1, 2, 14.99, '../icons/mug.png', 29.98),
 
     -- Order 6: Guest order (order_id = 6)
@@ -151,11 +150,7 @@ INSERT INTO order_item_customizations (order_item_id, customization_key, customi
     
     -- Order item 8 customizations (ceramic mugs for order 5)
     (8, 'size', '11oz'),
-    (8, 'color', 'white'),
-    
-    -- Order item 9 customizations (travel mug for order 6)
-    (9, 'size', 'travel'),
-    (9, 'color', 'silver');
+    (8, 'color', 'white') ;
 
 -- Insert Sample Uploaded Files
 INSERT INTO uploaded_files (customer_id, session_id, order_item_id, cart_item_id, file_url, original_filename)
@@ -168,8 +163,7 @@ VALUES
     (1, NULL, 5, NULL, '../icons/mug.png', 'event_design.ai'),
     (1, NULL, 6, NULL, '../icons/mug.png', 'mug_design.png'),
     (4, NULL, 7, NULL, '../icons/mug.png', 'team_logo.png'),
-    (4, NULL, 8, NULL, '../icons/mug.png', 'motivational_quote.jpg'),
-    (NULL, 'guest-checkout-abc123', 9, NULL, '../icons/mug.png', 'guest_design.jpg'),
+    (4, NULL, 8, NULL, '../icons/mug.png', 'motivational_quote.jpg'), 
     
     -- Files linked to cart items (temporary)
     (1, NULL, NULL, 1, '../icons/mug.png', 'cart_logo.png'),
@@ -212,3 +206,5 @@ SELECT setval('order_item_customizations_customization_id_seq', (SELECT MAX(cust
 SELECT setval('uploaded_files_file_id_seq', (SELECT MAX(file_id) FROM uploaded_files));
 SELECT setval('order_status_history_history_id_seq', (SELECT MAX(history_id) FROM order_status_history));
 SELECT setval('admin_activity_log_log_id_seq', (SELECT MAX(log_id) FROM admin_activity_log));
+
+commit;

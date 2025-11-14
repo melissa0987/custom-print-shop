@@ -176,3 +176,5 @@ UPDATE order_items oi
 SET design_id = d.design_id
 FROM designs d
 WHERE oi.design_file_url = d.design_url;
+
+COMMIT;

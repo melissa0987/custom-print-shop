@@ -11,7 +11,7 @@ from app.models import (
     ShoppingCart, CartItem, CartItemCustomization,
     Product, Category
 )
-from app.utils import guest_or_customer, PriceHelper, Validators
+from app.utils import guest_or_customer, PriceHelper, Validators, ImageHelper
 from app.services.cart_service import CartService
 
 # Create blueprint
@@ -109,6 +109,12 @@ def format_cart_response(cart):
         # Calculate line total
         line_total = float(product['base_price']) * cart_item['quantity']
         
+        # Get product image using ImageHelper
+        product_image_url = ImageHelper.get_product_image_url(
+            product['product_id'], 
+            product['product_name']
+        )
+        
         items.append({
             'cart_item_id': cart_item['cart_item_id'],
             'product': {
@@ -117,7 +123,8 @@ def format_cart_response(cart):
                 'description': product.get('description'),
                 'base_price': float(product['base_price']),
                 'base_price_formatted': PriceHelper.format_currency(product['base_price']),
-                'category_name': category['category_name'] if category else 'Uncategorized'
+                'category_name': category['category_name'] if category else 'Uncategorized',
+                'image_url': product_image_url
             },
             'quantity': cart_item['quantity'],
             'design_file_url': cart_item.get('design_file_url'),
@@ -167,24 +174,6 @@ def view_cart():
             return redirect(url_for('main.homepage'))
             
         cart_data = format_cart_response(cart)
-        image_mapping = {
-            'mug': 'images/mug.png',
-            'tote': 'images/tote.png',
-            'drawstring': 'images/drawstring-bag.png',
-            'shopping': 'images/shopping-bag.png',
-            't-shirt': 'images/shirt.png',
-            'tshirt': 'images/shirt.png',
-            'tumbler': 'images/tumbler.png'
-        }
-        for item in cart_data['items']:
-            name_lower = item['product']['product_name'].lower()
-            fallback_image = 'images/mug.png'  # default
-            for keyword, filename in image_mapping.items():
-                if keyword in name_lower:
-                    fallback_image = filename
-                    break
-            # Use design if uploaded, otherwise fallback
-            item['image_url'] = item.get('design_file_url') or url_for('static', filename=fallback_image)
         
         # Update cart count in session
         session['cart_count'] = cart_data['total_items']

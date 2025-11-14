@@ -4,12 +4,12 @@ Main Routes
 Handles homepage, about, contact pages, and general site navigation
 """
 
-from flask import Blueprint, request, render_template, jsonify
+from flask import Blueprint, request, render_template, jsonify, url_for
 from datetime import datetime
 
 from app.models import Category, Product
 from app.services import ProductService
-from app.utils import StringHelper
+from app.utils import StringHelper, ImageHelper
 
 # Create blueprint
 main_bp = Blueprint('main', __name__)
@@ -20,13 +20,32 @@ main_bp = Blueprint('main', __name__)
 # ============================================
 @main_bp.route('/', methods=['GET'])  
 def homepage():
-    """Homepage with featured products, categories, and About info"""
+    CATEGORY_ICON_MAP = {
+        "mugs": "☕",
+        "t-shirts": "👕",
+        "bags": "👜",
+        "tumblers": "🥤"
+        # add more as needed
+    }
     try:
         featured_products = ProductService.get_featured_products(limit=8)
         categories = ProductService.get_all_categories(include_inactive=False)
         popular_products = ProductService.get_popular_products(limit=6)
 
-        # About section info (same as in /about)
+        # Attach correct image URLs using ImageHelper
+        for p in featured_products:
+            path = ImageHelper.get_product_image_url( p['product_id'], p.get('product_name'))
+            p['image_url'] =  url_for('static', filename=path)
+
+        for p in popular_products:
+            path = ImageHelper.get_product_image_url( p['product_id'], p.get('product_name'))
+            p['image_url'] =  url_for('static', filename=path)
+
+        for c in categories:
+            category_name_lower = c.get('category_name', '').lower()
+            c['icon'] = CATEGORY_ICON_MAP.get(category_name_lower, "v")
+
+        # About section
         about_info = {
             "company_name": "Custom Print Shop",
             "tagline": "Your Vision, Our Precision",
@@ -54,18 +73,19 @@ def homepage():
             "orders_completed": "50,000+"
         }
 
-        # HTML render
         return render_template(
             'homepage/index.html',
             featured_products=featured_products,
             categories=categories,
             popular_products=popular_products,
-            about=about_info  # Pass About info
+            about=about_info
         )
+
     except Exception as e:
-        return render_template('errors/error.html', error=f"Failed to load homepage: {e}"), 500
-
-
+        return render_template(
+            'errors/error.html',
+            error=f"Failed to load homepage: {e}"
+        ), 500
 
 # ============================================
 # ABOUT PAGE

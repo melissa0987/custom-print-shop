@@ -418,19 +418,19 @@ def get_order(order_id):
             product_name_lower = item["product"]["product_name"].lower()
         
             if 'mug' in product_name_lower:
-                image_filename = '/static/images/mug.png'
+                image_filename = '/static/images/products/mug.png'
             elif 'tote' in product_name_lower:
-                image_filename = '/static/images/tote.png'
+                image_filename = '/static/images/products/tote.png'
             elif 'drawstring' in product_name_lower:
-                image_filename = '/static/images/drawstring-bag.png'
+                image_filename = '/static/images/products/drawstring-bag.png'
             elif 'shopping' in product_name_lower:
-                image_filename = '/static/images/shopping-bag.png'
+                image_filename = '/static/images/products/shopping-bag.png'
             elif 't-shirt' in product_name_lower or 'tshirt' in product_name_lower:
-                image_filename = '/static/images/shirt.png'
+                image_filename = '/static/images/products/shirt.png'
             elif 'tumbler' in product_name_lower:
-                image_filename = '/static/images/tumbler.png'
+                image_filename = '/static/images/products/tumbler.png'
             else:
-                image_filename = '/static/images/mug.png'  # fallback
+                image_filename = '/static/images/products/default.png'  # fallback
 
             # Only set image_url if not already set
             if not item["product"].get("image_url"):

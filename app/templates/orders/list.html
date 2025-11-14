@@ -60,10 +60,10 @@
                 <div class="order-card-image">
                     {% set first_item = order.items[0] if order.items else None %}
                     {% if first_item %}
-                        <img src="{{ first_item.image_url or url_for('static', filename='images/mug.png') }}"
+                        <img src="{{ first_item.image_url or url_for('static', filename='images/products/default.png') }}"
                              alt="{{ first_item.product_name }}">
                     {% else %}
-                        <img src="{{ url_for('static', filename='images/mug.png') }}" alt="No Image">
+                        <img src="{{ url_for('static', filename='images/products/default.png') }}" alt="No Image">
                     {% endif %}
                 </div>
 

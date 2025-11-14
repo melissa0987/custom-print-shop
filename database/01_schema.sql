@@ -1,25 +1,5 @@
 
 -- ============================================
--- Custom Printing Website Database Schema
--- PostgreSQL Script (WITH STAFF/ADMIN & ROLE-BASED ACCESS) 
--- ============================================
-
--- Drop tables if they exist (for clean setup)
-DROP TABLE IF EXISTS admin_activity_log CASCADE;
-DROP TABLE IF EXISTS order_status_history CASCADE;
-DROP TABLE IF EXISTS order_item_customizations CASCADE;
-DROP TABLE IF EXISTS cart_item_customizations CASCADE;
-DROP TABLE IF EXISTS order_items CASCADE;
-DROP TABLE IF EXISTS cart_items CASCADE;
-DROP TABLE IF EXISTS uploaded_files CASCADE;
-DROP TABLE IF EXISTS orders CASCADE;
-DROP TABLE IF EXISTS shopping_carts CASCADE;
-DROP TABLE IF EXISTS products CASCADE;
-DROP TABLE IF EXISTS categories CASCADE;
-DROP TABLE IF EXISTS admin_users CASCADE;
-DROP TABLE IF EXISTS customers CASCADE;
-
--- ============================================
 -- 1. Admin_Users Table 
 -- ============================================
 CREATE TABLE admin_users (
