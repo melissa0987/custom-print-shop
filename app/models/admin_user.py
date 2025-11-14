@@ -157,10 +157,13 @@ class AdminUser:
             return True
 
         admin_permissions = [
-            'view_orders', 'update_order_status', 'view_customers',
-            'view_products', 'add_product', 'update_product',
-            'view_categories', 'add_category', 'update_category',
-            'view_staff', 'view_reports', 'view_dashboard'
+            'view_dashboard', 
+            'view_orders', 'update_order_status', 
+            'view_products', 'manage_products', 
+            'view_categories', 'manage_categories', 
+            'view_customers', 'manage_customers', 'manage_customers', 
+            'view_reports',
+            'view_admin', 'manage_admin'
         ]
 
         staff_permissions = [
@@ -191,15 +194,21 @@ class AdminUser:
         role = user.get('role', 'staff')
 
         admin_permissions = [
-            'view_orders', 'update_order_status', 'view_customers',
-            'view_products', 'add_product', 'update_product',
-            'view_categories', 'add_category', 'update_category',
-            'view_staff', 'view_reports'
+            'view_dashboard', 
+            'view_orders', 'update_order_status', 
+            'view_products', 'manage_products', 
+            'view_categories', 'manage_categories', 
+            'view_customers', 'manage_customers', 'manage_customers', 
+            'view_reports',
+            'view_admin', 'manage_admin'
         ]
 
         staff_permissions = [
-            'view_orders', 'update_order_status',
-            'view_customers', 'view_products', 'view_categories'
+            'view_dashboard', 'manage_products', 'view_categories', 
+            'view_orders', 'update_order_status', 
+            'view_products', 
+            'view_categories', 
+            'view_customers' 
         ]
 
         if role == 'Admin':

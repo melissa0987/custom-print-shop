@@ -10,7 +10,7 @@ class ImageHelper:
     """Helper class for managing images"""
     
     # Default image paths 
-    DEFAULT_PRODUCT_IMAGE = '/static/images/products/default.png'
+    DEFAULT_PRODUCT_IMAGE = '/images/products/default.png'
     PRODUCT_IMAGES_DIR = 'static/images/products'
     MOCKUPS_DIR = 'static/images/products/mockups'
     DESIGNS_DIR = 'static/images/products/designs'

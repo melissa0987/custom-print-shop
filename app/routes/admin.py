@@ -4,7 +4,7 @@ Admin Routes
 Handles admin panel operations (orders, products, customers, reports) 
 """
 
-from flask import Blueprint, flash, redirect, request, jsonify, session, url_for, render_template
+from flask import Blueprint, current_app, flash, redirect, request, jsonify, session, url_for, render_template
 
 from app.models import (
     Order, OrderItem, OrderStatusHistory, Product, Category,
@@ -17,6 +17,8 @@ from datetime import datetime
 from app.utils.decorators import validate_order_access
 from app.utils.helpers import DateHelper, PaginationHelper, PriceHelper, StringHelper
 from app.utils.image_helpers import ImageHelper
+import os
+from werkzeug.utils import secure_filename 
 
  
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -486,7 +488,6 @@ def update_order_status(order_id):
 def get_products_admin():
     wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
 
-
     category_id = request.args.get('category_id', type=int)
     search_term = request.args.get('search', '').strip()
     min_price = request.args.get('min_price', type=float)
@@ -496,24 +497,44 @@ def get_products_admin():
     sort_by = request.args.get('sort_by', 'name')
     sort_order = request.args.get('sort_order', 'asc')
 
-    """Render products management page"""
     try:
         product_model = Product()
         category_model = Category()
-        
+
         # Get all products (including inactive for admin)
         products = product_model.get_all(active_only=False)
+
+        # --- Apply filters ---
+        if category_id:
+            products = [p for p in products if p.get('category_id') == category_id]
+
+        if search_term:
+            s = search_term.lower()
+            products = [p for p in products if s in p.get('product_name', '').lower() or s in p.get('description', '').lower()]
+
+        if min_price is not None:
+            products = [p for p in products if float(p.get('base_price', 0)) >= min_price]
+        if max_price is not None:
+            products = [p for p in products if float(p.get('base_price', 0)) <= max_price]
+
+        # --- Apply sorting ---
+        if sort_by == 'price':
+            products.sort(key=lambda x: float(x.get('base_price', 0)), reverse=(sort_order == 'desc'))
+        elif sort_by == 'newest':
+            products.sort(key=lambda x: x.get('created_at') or '', reverse=(sort_order == 'desc'))
+        else:  # default: sort by name
+            products.sort(key=lambda x: x.get('product_name', '').lower(), reverse=(sort_order == 'desc'))
+
+        # --- Pagination ---
         paginated = PaginationHelper.paginate_list(products, page, per_page)
-        
+
         # Format products with category info
         formatted_products = []
         for p in paginated['items']:
             category = category_model.get_by_id(p['category_id'])
-
             image_path = ImageHelper.get_product_image_url(p['product_id'], p['product_name'])
             image_url = url_for('static', filename=image_path)
 
-            
             formatted_products.append({
                 'product_id': p['product_id'],
                 'product_name': p['product_name'],
@@ -529,6 +550,7 @@ def get_products_admin():
                 'is_active': p.get('is_active'),
                 'created_at': p['created_at'].isoformat() if p.get('created_at') else None
             })
+
         pagination_data = {
             'page': paginated['page'],
             'per_page': paginated['per_page'],
@@ -537,24 +559,23 @@ def get_products_admin():
             'has_next': paginated['page'] < paginated['total_pages'],
             'has_prev': paginated['page'] > 1
         }
+
         # Get all categories for filter dropdown
         categories = category_model.get_all()
+        categories_for_template = [{'category_id': c['category_id'], 'category_name': c['category_name']} for c in categories]
 
         if wants_json:
             return jsonify({'products': formatted_products, 'pagination': pagination_data}), 200
-        
-        
-        categories_for_template = [{'category_id': c['category_id'], 'category_name': c['category_name']} for c in categories]
 
-
-        return render_template('admin/admin_products.html', 
-                              products=formatted_products,
+        return render_template('admin/admin_products.html',
+                               products=formatted_products,
                                pagination=pagination_data,
                                categories=categories_for_template,
                                current_category=category_id,
                                search_term=search_term,
                                sort_by=sort_by,
                                sort_order=sort_order)
+
     except Exception as e:
         flash(f'Failed to load products: {str(e)}', 'danger')
         return redirect(url_for('admin.get_dashboard'))
@@ -620,35 +641,31 @@ def get_products_data():
         return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
 
 
+
 @admin_bp.route('/products/create', methods=['GET', 'POST'])
 @permission_required('manage_products')
 def create_product():
-    """Create new product"""
+    """Create new product with image"""
     if request.method == 'GET':
-        # Render create form
         try:
-            category_model = Category()
-            categories = category_model.get_all()
-            return render_template('admin/admin_product_form.html', 
-                                 categories=categories,
-                                 action='create')
+            categories = Category().get_all()
+            return render_template('admin/admin_product_form.html', categories=categories, action='create')
         except Exception as e:
             flash(f'Failed to load form: {str(e)}', 'danger')
             return redirect(url_for('admin.get_products_admin'))
     
-    # POST - handle form submission
+    # POST
     data = request.form.to_dict()
-    
+    file = request.files.get('product_image')
+
     required_fields = ['product_name', 'category_id', 'base_price']
     for field in required_fields:
-        if field not in data or not data[field]:
+        if not data.get(field):
             flash(f'{field} is required', 'danger')
             return redirect(url_for('admin.create_product'))
     
     try:
-        product_model = Product()
-        
-        product_id = product_model.create(
+        product_id = Product().create(
             category_id=int(data['category_id']),
             product_name=data['product_name'],
             base_price=float(data['base_price']),
@@ -656,25 +673,35 @@ def create_product():
             is_active=data.get('is_active') == 'on',
             created_by=session.get('admin_id')
         )
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='create_product',
-            table_name='products',
-            record_id=product_id,
-            old_values=None,
-            new_values=data
-        )
-        
+
+        # Ensure directories exist
+        ImageHelper.ensure_directories()
+
+        if file and ImageHelper.validate_image_file(file.filename):
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            
+            # Main product image
+            product_filename = f"{secure_filename(data['product_name'])}.{ext}"
+            product_path = os.path.join(current_app.root_path, ImageHelper.PRODUCT_IMAGES_DIR, product_filename)
+            file.save(product_path)
+
+            # Mockup image
+            mockup_filename = f"product_{product_id}_mockup.{ext}"
+            mockup_path = os.path.join(current_app.root_path, ImageHelper.MOCKUPS_DIR, mockup_filename)
+            file.seek(0)
+            file.save(mockup_path)
+
+            # Update product record with main image URL
+            Product().update(product_id, image_url=f"images/products/{product_filename}")
+
         flash('Product created successfully', 'success')
         return redirect(url_for('admin.get_products_admin'))
-            
+    
     except Exception as e:
         flash(f'Failed to create product: {str(e)}', 'danger')
         return redirect(url_for('admin.create_product'))
-    
+
+
 
 @admin_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
 @permission_required('manage_products')
@@ -1246,6 +1273,7 @@ def edit_customer(customer_id):
         flash(f'Failed to update customer: {str(e)}', 'danger')
         return redirect(url_for('admin.edit_customer', customer_id=customer_id))
 
+
 @admin_bp.route('/customers/<int:customer_id>/toggle', methods=['POST'])
 @permission_required('manage_customers')
 def toggle_customer_status(customer_id):
@@ -1284,6 +1312,8 @@ def toggle_customer_status(customer_id):
     except Exception as e:
         flash(f'Failed to toggle customer status: {str(e)}', 'danger')
         return redirect(url_for('admin.get_customers_admin'))
+
+
 
 def get_customers_data():
     """API endpoint to get all customers"""
@@ -1419,6 +1449,7 @@ def change_customer_password(customer_id):
             
     except Exception as e:
         return jsonify({'error': f'Failed to change password: {str(e)}'}), 500
+
 
 @admin_bp.route('/customers/<int:customer_id>/delete', methods=['POST'])
 @permission_required('manage_customers')
