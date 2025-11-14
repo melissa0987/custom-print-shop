@@ -4,6 +4,7 @@ Admin Activity Log Model
 Tracks all administrative actions for audit purposes
 """
 
+from flask import json
 from app.database import get_cursor
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -47,9 +48,10 @@ class AdminActivityLog:
             'created_at': self.created_at.isoformat()
         }
 
-    # Insert a new admin activity log record.
+
+
     def create_log(self, admin_id, action, table_name=None, record_id=None,
-                   old_values=None, new_values=None, ip_address=None): 
+                old_values=None, new_values=None, ip_address=None): 
         
         sql = """
             INSERT INTO admin_activity_log (
@@ -59,18 +61,24 @@ class AdminActivityLog:
             VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
             RETURNING log_id;
         """
+
+        # Convert dicts to JSON strings
+        old_json = json.dumps(old_values) if old_values else None
+        new_json = json.dumps(new_values) if new_values else None
+
         values = (
             admin_id,
             action,
             table_name,
-            record_id, 
+            record_id,
+            old_json,         
+            new_json,         
             ip_address,
             datetime.now()
         )
 
         with get_cursor() as cur:
             cur.execute(sql, values)
-            
             return cur.fetchone()["log_id"]
 
     # Fetch recent admin activity logs.

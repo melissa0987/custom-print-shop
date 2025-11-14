@@ -4,30 +4,46 @@
 
 {% block content %}
 <div class="admin-container">
+    <!-- Header -->
     <div class="section-header">
         <h1>Order Details - #{{ order.order_number }}</h1>
         <a href="{{ url_for('admin.get_orders') }}" class="btn-link">Back to Orders</a>
     </div>
 
+    <!-- Customer Info -->
     <div class="order-info">
         <h3>Customer Info</h3>
         <p><strong>Name:</strong> {{ order.customer_name }}</p>
         <p><strong>Email:</strong> {{ order.customer_email }}</p>
         <p><strong>Phone:</strong> {{ order.contact_phone or 'N/A' }}</p>
         <p><strong>Shipping Address:</strong> {{ order.shipping_address }}</p>
+    </div>
 
+    <!-- Order Summary -->
+    <div class="order-info">
         <h3>Order Summary</h3>
-        <p><strong>Status:</strong> 
+        <p>
+            <strong>Status:</strong> 
             <span class="status-badge status-{{ order.order_status }}">
                 {{ order.order_status | capitalize }}
             </span>
         </p>
-        <p><strong>Total Amount:</strong> ${{ "%.2f"|format(order.total_amount) }}</p>
-        <p><strong>Notes:</strong> {{ order.notes or 'N/A' }}</p>
-        <p><strong>Created At:</strong> {{ order.created_at }}</p>
-        <p><strong>Updated At:</strong> {{ order.updated_at or 'N/A' }}</p>
+
+        {% if order.order_status == 'pending' %}
+        <form method="POST" action="{{ url_for('admin.update_order_status', order_id=order.order_id) }}" class="status-form">
+            <label for="new-status">Change Status:</label>
+            <select name="status" id="new-status">
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <input type="text" name="notes" placeholder="Optional notes">
+            <button type="submit" class="btn-action btn-edit">Save</button>
+        </form>
+        {% endif %}
     </div>
 
+    <!-- Order Items -->
     <div class="order-items">
         <h3>Items</h3>
         <table class="admin-table">
@@ -66,6 +82,7 @@
         </table>
     </div>
 
+    <!-- Status History -->
     <div class="order-status-history">
         <h3>Status History</h3>
         <table class="admin-table">
@@ -133,5 +150,29 @@
     font-weight: 500;
 }
 .btn-link:hover { color: #d89420; }
+
+.status-form {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.status-form input, .status-form select {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 0.875rem;
+}
+.status-form button {
+    padding: 0.25rem 0.75rem;
+    border: none;
+    background-color: #f5a623;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.status-form button:hover {
+    background-color: #d89420;
+}
 </style>
 {% endblock %}

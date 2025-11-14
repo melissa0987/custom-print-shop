@@ -292,67 +292,7 @@ def get_orders():
         flash(f'Failed to load orders: {str(e)}', 'danger')
         return render_template('admin/admin_orders.html', orders=[], pagination=None)
 
-def get_orders_data():
-    """API endpoint to get all orders with filtering"""
-    status_filter = request.args.get('status')
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
-    
-    try:
-        order_model = Order()
-        customer_model = Customer()
-        
-        # Get all orders
-        all_orders = order_model.get_all() if hasattr(order_model, 'get_all') else []
-        
-        # Apply status filter
-        if status_filter:
-            all_orders = [o for o in all_orders if o.get('order_status') == status_filter]
-        
-        # Format orders with customer info
-        formatted_orders = []
-        for order in all_orders:
-            customer_username = 'Guest'
-            customer_email = order.get('contact_email')
-            
-            if order.get('customer_id'):
-                customer = customer_model.get_by_id(order['customer_id'])
-                if customer:
-                    customer_username = customer['username']
-                    customer_email = customer['email']
-            
-            formatted_orders.append({
-                'order_id': order['order_id'],
-                'order_number': order['order_number'],
-                'customer_username': customer_username,
-                'customer_email': customer_email,
-                'order_status': order['order_status'],
-                'total_amount': float(order['total_amount']),
-                'created_at': order['created_at'].isoformat() if order.get('created_at') else None,
-                'updated_at': order['updated_at'].isoformat() if order.get('updated_at') else None
-            })
-        
-        # Pagination
-        total_orders = len(formatted_orders)
-        offset = (page - 1) * per_page
-        paginated_orders = formatted_orders[offset:offset + per_page]
-        
-        return jsonify({
-            'orders': paginated_orders,
-            'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total_orders': total_orders,
-                'total_pages': (total_orders + per_page - 1) // per_page
-            }
-        }), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to get orders: {str(e)}'}), 500
-
-
+ 
 @admin_bp.route('/orders/<int:order_id>', methods=['GET'])
 @permission_required('view_orders')
 def get_order_details(order_id):
@@ -498,60 +438,45 @@ def get_order_details(order_id):
         flash(f'Failed to get order details: {str(e)}', 'error')
         return redirect(url_for('admin.get_orders'))     
 
-@admin_bp.route('/orders/<int:order_id>/status', methods=['PUT'])
+
+@admin_bp.route('/orders/<int:order_id>/status', methods=['POST'])
 @permission_required('update_order_status')
 def update_order_status(order_id):
-    """Update order status"""
-    data = request.get_json()
-    new_status = data.get('status')
-    notes = data.get('notes', '')
-    
-    if not new_status:
-        return jsonify({'error': 'Status is required'}), 400
-    
-    if new_status not in ['pending', 'processing', 'completed', 'cancelled']:
-        return jsonify({'error': 'Invalid status'}), 400
-    
-    try:
-        order_model = Order()
-        order = order_model.get_by_id(order_id)
-        
-        if not order:
-            return jsonify({'error': 'Order not found'}), 404
-        
-        old_status = order['order_status']
-        
-        # Update order status
-        order_model.update_status(order_id, new_status, updated_by=session['admin_id'])
-        
-        # Add status history
-        order_status_history_model = OrderStatusHistory()
-        order_status_history_model.create(
-            order_id=order_id,
-            status=new_status,
-            changed_by=session['admin_id'],
-            notes=notes
-        )
-        
-        # Log admin activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='update_order_status',
-            table_name='orders',
-            record_id=order_id,
-            old_values={'order_status': old_status},
-            new_values={'order_status': new_status, 'notes': notes}
-        )
-        
-        return jsonify({
-            'message': 'Order status updated successfully',
-            'order_status': new_status
-        }), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to update order status: {str(e)}'}), 500
+    new_status = request.form.get('status')
+    notes = request.form.get('notes', '')
 
+    if not new_status or new_status not in ['pending', 'processing', 'completed', 'cancelled']:
+        flash('Invalid status', 'error')
+        return redirect(url_for('admin.get_order_details', order_id=order_id))
+
+    order_model = Order()
+    order = order_model.get_by_id(order_id)
+    if not order:
+        flash('Order not found', 'error')
+        return redirect(url_for('admin.get_orders'))
+
+    old_status = order['order_status']
+    order_model.update_status(order_id, new_status, updated_by=session['admin_id'])
+
+    # Log history
+    OrderStatusHistory().create(
+        order_id=order_id,
+        status=new_status,
+        changed_by=session['admin_id'],
+        notes=notes
+    )
+
+    AdminActivityLog().create_log(
+        admin_id=session['admin_id'],
+        action='update_order_status',
+        table_name='orders',
+        record_id=order_id,
+        old_values={'order_status': old_status},
+        new_values={'order_status': new_status, 'notes': notes}
+    )
+
+    flash(f'Status updated to {new_status}', 'success')
+    return redirect(url_for('admin.get_order_details', order_id=order_id))
 
 # ============================================
 # PRODUCT MANAGEMENT
