@@ -10,10 +10,12 @@ from app.models import (
     Order, OrderItem, OrderStatusHistory, Product, Category,
     Customer, AdminUser, AdminActivityLog
 )
+from app.services.order_service import OrderService
 from app.utils import admin_required, permission_required
 from datetime import datetime
 
-from app.utils.helpers import PaginationHelper, PriceHelper, StringHelper
+from app.utils.decorators import validate_order_access
+from app.utils.helpers import DateHelper, PaginationHelper, PriceHelper, StringHelper
 from app.utils.image_helpers import ImageHelper
 
  
@@ -171,6 +173,11 @@ def get_dashboard():
         all_products = product_model.get_all(active_only=False)
         total_products = len(all_products)
         active_products = sum(1 for p in all_products if p.get('is_active'))
+        recent_orders = sorted(
+                all_orders,
+                key=lambda o: o['created_at'],
+                reverse=True
+            )[:5]
 
         return render_template(
             'admin/admin_dashboard.html',
@@ -192,7 +199,7 @@ def get_dashboard():
                     'total': total_products,
                     'active': active_products
                 }
-            }
+            }, recent_orders=recent_orders
         )
 
     except Exception as e:
@@ -203,18 +210,87 @@ def get_dashboard():
 # ============================================
 # ORDER MANAGEMENT
 # ============================================
-
 @admin_bp.route('/orders', methods=['GET'])
 @permission_required('view_orders')
 def get_orders():
-    """Render orders management page or return JSON for AJAX"""
-    # If it's an AJAX request, return JSON
-    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return get_orders_data()
+    """Render orders management page with data passed via Jinja"""
+    status_filter = request.args.get('status')
+    search_term = request.args.get('search', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 20, type=int), 100)
     
-    # Otherwise render the HTML page
-    return render_template('admin/admin_orders.html')
-
+    try:
+        order_model = Order()
+        customer_model = Customer()
+        
+        # Get all orders
+        all_orders = order_model.get_all() if hasattr(order_model, 'get_all') else []
+        
+        # Apply status filter
+        if status_filter:
+            all_orders = [o for o in all_orders if o.get('order_status') == status_filter]
+        
+        # Format orders with customer info
+        formatted_orders = []
+        for order in all_orders:
+            customer_username = 'Guest'
+            customer_email = order.get('contact_email')
+            
+            if order.get('customer_id'):
+                customer = customer_model.get_by_id(order['customer_id'])
+                if customer:
+                    customer_username = customer['username']
+                    customer_email = customer['email']
+            
+            order_data = {
+                'order_id': order['order_id'],
+                'order_number': order['order_number'],
+                'customer_username': customer_username,
+                'customer_email': customer_email,
+                'order_status': order['order_status'],
+                'total_amount': float(order['total_amount']),
+                'created_at': order.get('created_at'),
+                'updated_at': order.get('updated_at')
+            }
+            
+            # Apply search filter
+            if search_term:
+                search_lower = search_term.lower()
+                if not (
+                    (order_data['order_number'] and search_lower in order_data['order_number'].lower()) or
+                    (customer_username and search_lower in customer_username.lower()) or
+                    (customer_email and search_lower in customer_email.lower())
+                ):
+                    continue
+            
+            formatted_orders.append(order_data)
+        
+        # Sort by created_at descending
+        formatted_orders.sort(key=lambda x: x.get('created_at') or datetime.min, reverse=True)
+        
+        # Pagination
+        total_orders = len(formatted_orders)
+        offset = (page - 1) * per_page
+        paginated_orders = formatted_orders[offset:offset + per_page]
+        
+        pagination = {
+            'page': page,
+            'per_page': per_page,
+            'total_orders': total_orders,
+            'total_pages': max(1, (total_orders + per_page - 1) // per_page),
+            'has_next': page * per_page < total_orders,
+            'has_prev': page > 1
+        }
+        
+        return render_template(
+            'admin/admin_orders.html',
+            orders=paginated_orders,
+            pagination=pagination
+        )
+            
+    except Exception as e:
+        flash(f'Failed to load orders: {str(e)}', 'danger')
+        return render_template('admin/admin_orders.html', orders=[], pagination=None)
 
 def get_orders_data():
     """API endpoint to get all orders with filtering"""
@@ -280,82 +356,147 @@ def get_orders_data():
 @admin_bp.route('/orders/<int:order_id>', methods=['GET'])
 @permission_required('view_orders')
 def get_order_details(order_id):
-    """Get order details for AJAX"""
+    """Get order details - returns HTML page or JSON for AJAX"""
     try:
+        # Admin can view any order; bypass ownership checks
         order_model = Order()
         order_item_model = OrderItem()
-        order_status_history_model = OrderStatusHistory()
         product_model = Product()
         category_model = Category()
-        customer_model = Customer()
-        
+        order_status_history_model = OrderStatusHistory()
+
         order = order_model.get_by_id(order_id)
         
-        if not order:
-            return jsonify({'error': 'Order not found'}), 404
-        
-        # Format order items
-        order_items = order_item_model.get_by_order(order_id)
+        # Store raw datetime objects for later formatting
+        raw_created_at = order.get('created_at')
+        raw_updated_at = order.get('updated_at')
+
+        # Format order data
+        order_data = {
+            'order_id': order['order_id'],
+            'order_number': order['order_number'],
+            'order_status': order['order_status'],
+            'total_amount': float(order['total_amount']),
+            'shipping_address': order['shipping_address'],
+            'contact_phone': order.get('contact_phone'),
+            'contact_email': order.get('contact_email'),
+            'notes': order.get('notes'),
+            'created_at': raw_created_at,  # Keep as datetime object initially
+            'updated_at': raw_updated_at   # Keep as datetime object initially
+        }
+
+        # Customer info
+        if order.get('customer_id'):
+            customer = Customer().get_by_id(order['customer_id'])
+            if customer:
+                order_data['customer'] = {
+                    'customer_id': customer['customer_id'],
+                    'username': customer['username'],
+                    'email': customer['email'],
+                    'full_name': Customer().full_name(customer)
+                }
+            else:
+                order_data['customer'] = 'Guest'
+        else:
+            order_data['customer'] = 'Guest'
+
+        # Add items
         items = []
-        
-        for item in order_items:
-            product = product_model.get_by_id(item['product_id'])
+        order_items = order_item_model.get_by_order(order_id)
+        for oi in order_items:
+            product = product_model.get_by_id(oi['product_id'])
             category = category_model.get_by_id(product['category_id'])
-            
             customizations = {}
-            if item.get('customizations'):
-                customizations = {c['customization_key']: c['customization_value'] for c in item['customizations']}
-            
+            raw_cust = oi.get('customizations', [])
+            if isinstance(raw_cust, (list, tuple)):
+                customizations = {c['customization_key']: c['customization_value'] for c in raw_cust}
+            elif isinstance(raw_cust, dict):
+                customizations = raw_cust
+
             items.append({
-                'product_name': product['product_name'],
-                'category_name': category['category_name'],
-                'quantity': item['quantity'],
-                'unit_price': float(item['unit_price']),
-                'subtotal': float(item['subtotal']),
+                'order_item_id': oi['order_item_id'],
+                'product': {
+                    'product_id': product['product_id'],
+                    'product_name': product['product_name'],
+                    'category_name': category['category_name']
+                },
+                'quantity': oi['quantity'],
+                'unit_price': float(oi['unit_price']),
+                'subtotal': float(oi['subtotal']),
+                'design_file_url': oi.get('design_file_url'),
                 'customizations': customizations
             })
-        
-        # Format status history
-        status_records = order_status_history_model.get_by_order(order_id)
-        history = [
-            {
-                'status': h['status'],
+        order_data['items'] = items
+
+        # Add status history
+        history = []
+        status_records = order_status_history_model.get_by_order(order_id) or []
+        for h in status_records:
+            history.append({
+                'status': h.get('status'),
                 'changed_at': h['changed_at'].isoformat() if h.get('changed_at') else None,
                 'changed_by': order_status_history_model.get_changed_by_name(h),
                 'notes': h.get('notes')
-            }
-            for h in status_records
-        ]
-        
-        # Get customer info
-        customer_name = 'Guest'
-        customer_email = order.get('contact_email')
-        if order.get('customer_id'):
-            customer = customer_model.get_by_id(order['customer_id'])
-            if customer:
-                customer_name = customer_model.full_name(customer)
-                customer_email = customer['email']
-        
-        return jsonify({
-            'order': {
-                'order_id': order['order_id'],
-                'order_number': order['order_number'],
-                'customer_name': customer_name,
-                'customer_email': customer_email,
-                'order_status': order['order_status'],
-                'total_amount': float(order['total_amount']),
-                'shipping_address': order['shipping_address'],
-                'contact_phone': order.get('contact_phone'),
-                'notes': order.get('notes'),
-                'created_at': order['created_at'].isoformat() if order.get('created_at') else None,
-                'items': items,
-                'status_history': history
-            }
-        }), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to get order details: {str(e)}'}), 500
+            })
+        order_data['status_history'] = history
 
+        # Root-level customer info for template
+        if isinstance(order_data.get('customer'), dict):
+            order_data['customer_name'] = order_data['customer'].get('full_name', 'Unknown')
+            order_data['customer_email'] = order_data['customer'].get('email', 'N/A')
+        else:
+            order_data['customer_name'] = 'Guest'
+            order_data['customer_email'] = order_data.get('contact_email', 'N/A')
+
+        # Format dates differently based on request type
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # For JSON/AJAX: use ISO format strings
+            if raw_created_at:
+                order_data['created_at'] = raw_created_at.isoformat() if isinstance(raw_created_at, datetime) else raw_created_at
+            if raw_updated_at:
+                order_data['updated_at'] = raw_updated_at.isoformat() if isinstance(raw_updated_at, datetime) else raw_updated_at
+        else:
+            # For HTML: use formatted strings
+            if raw_created_at:
+                order_data['created_at'] = DateHelper.format_datetime(raw_created_at)
+            if raw_updated_at:
+                order_data['updated_at'] = DateHelper.format_datetime(raw_updated_at)
+
+        # Fallback images for products
+        for item in order_data.get("items", []):
+            pname = item["product"]["product_name"].lower()
+            if 'mug' in pname:
+                img = '/static/images/products/mug.png'
+            elif 'tote' in pname:
+                img = '/static/images/products/tote.png'
+            elif 'drawstring' in pname:
+                img = '/static/images/products/drawstring-bag.png'
+            elif 'shopping' in pname:
+                img = '/static/images/products/shopping-bag.png'
+            elif 't-shirt' in pname or 'tshirt' in pname:
+                img = '/static/images/products/shirt.png'
+            elif 'tumbler' in pname:
+                img = '/static/images/products/tumbler.png'
+            else:
+                img = '/static/images/products/default.png'
+            if not item["product"].get("image_url"):
+                item["product"]["image_url"] = img
+
+        # JSON response for AJAX
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'order': order_data}), 200
+
+        # Render HTML
+        return render_template('admin/admin_order_detail.html', order=order_data)
+
+    except Exception as e:
+        import traceback
+        print(f"Error in get_order_details: {str(e)}")
+        print(traceback.format_exc())
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': f'Failed to get order details: {str(e)}'}), 500
+        flash(f'Failed to get order details: {str(e)}', 'error')
+        return redirect(url_for('admin.get_orders'))     
 
 @admin_bp.route('/orders/<int:order_id>/status', methods=['PUT'])
 @permission_required('update_order_status')

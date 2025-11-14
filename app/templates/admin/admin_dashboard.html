@@ -74,10 +74,31 @@
                     </tr>
                 </thead>
                 <tbody id="recent-orders-body">
-                    <tr>
-                        <td colspan="6" class="text-center">Loading orders...</td>
-                    </tr>
+                    {% if recent_orders and recent_orders|length > 0 %}
+                        {% for order in recent_orders %}
+                            <tr>
+                                <td>#{{ order.order_number }}</td>
+                                <td>{{ order.customer_name or 'N/A' }}</td>
+                                <td>
+                                    <span class="status-badge status-{{ order.order_status }}">
+                                        {{ order.order_status | capitalize }}
+                                    </span>
+                                </td>
+                                <td>${{ '%.2f'|format(order.total_amount) }}</td>
+                                <td>{{ order.created_at.strftime("%Y-%m-%d") }}</td>
+                                <td>
+                                    <a href="{{ url_for('admin.get_order_details', order_id=order['order_id']) }}" 
+                                        class="btn-action">View</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center">No recent orders</td>
+                        </tr>
+                    {% endif %}
                 </tbody>
+
             </table>
         </div>
     </div>

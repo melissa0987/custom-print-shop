@@ -1,0 +1,137 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Order #{{ order.order_number }} - PrintCraft{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="section-header">
+        <h1>Order Details - #{{ order.order_number }}</h1>
+        <a href="{{ url_for('admin.get_orders') }}" class="btn-link">Back to Orders</a>
+    </div>
+
+    <div class="order-info">
+        <h3>Customer Info</h3>
+        <p><strong>Name:</strong> {{ order.customer_name }}</p>
+        <p><strong>Email:</strong> {{ order.customer_email }}</p>
+        <p><strong>Phone:</strong> {{ order.contact_phone or 'N/A' }}</p>
+        <p><strong>Shipping Address:</strong> {{ order.shipping_address }}</p>
+
+        <h3>Order Summary</h3>
+        <p><strong>Status:</strong> 
+            <span class="status-badge status-{{ order.order_status }}">
+                {{ order.order_status | capitalize }}
+            </span>
+        </p>
+        <p><strong>Total Amount:</strong> ${{ "%.2f"|format(order.total_amount) }}</p>
+        <p><strong>Notes:</strong> {{ order.notes or 'N/A' }}</p>
+        <p><strong>Created At:</strong> {{ order.created_at }}</p>
+        <p><strong>Updated At:</strong> {{ order.updated_at or 'N/A' }}</p>
+    </div>
+
+    <div class="order-items">
+        <h3>Items</h3>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Subtotal</th>
+                    <th>Customizations</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order["items"] %}
+                <tr>
+                    <td>{{ item.product.product_name }}</td>
+                    <td>{{ item.product.category_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>${{ "%.2f"|format(item.unit_price) }}</td>
+                    <td>${{ "%.2f"|format(item.subtotal) }}</td>
+                    <td>
+                        {% if item.customizations %}
+                            <ul>
+                                {% for k, v in item.customizations.items() %}
+                                    <li>{{ k }}: {{ v }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="order-status-history">
+        <h3>Status History</h3>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Changed At</th>
+                    <th>Changed By</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in order["status_history"] %}
+                <tr>
+                    <td>{{ record.status | capitalize }}</td>
+                    <td>{{ record.changed_at[:19].replace('T', ' ') if record.changed_at else 'N/A' }}</td>
+                    <td>{{ record.changed_by }}</td>
+                    <td>{{ record.notes or 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.order-info, .order-items, .order-status-history {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.admin-table th, .admin-table td {
+    padding: 0.75rem;
+    border: 1px solid #e0e0e0;
+    font-size: 0.875rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-pending { background-color: #fff3cd; color: #856404; }
+.status-processing { background-color: #cce5ff; color: #004085; }
+.status-completed { background-color: #d4edda; color: #155724; }
+.status-cancelled { background-color: #f8d7da; color: #721c24; }
+
+.btn-link {
+    display: inline-block;
+    margin-bottom: 1rem;
+    text-decoration: none;
+    color: #f5a623;
+    font-weight: 500;
+}
+.btn-link:hover { color: #d89420; }
+</style>
+{% endblock %}
