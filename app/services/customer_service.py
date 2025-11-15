@@ -1,3 +1,10 @@
+"""
+app/services/customer_service.py
+Customer Service
+Business logic for Customer operations
+
+"""
+
 from app.models.customer import Customer
 from app.utils import Validators, StringHelper, PriceHelper 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -54,6 +61,29 @@ class CustomerService:
             if check_password_hash(customer['password_hash'], new_password):
                 return False, "New password must be different from current password"
             
+            # Update password
+            new_hash = generate_password_hash(new_password)
+            updated = model.update(customer_id, password_hash=new_hash)
+            
+            if not updated:
+                return False, "Failed to update password"
+            
+            return True, "Password updated successfully"
+            
+        except Exception as e:
+            return False, f"Error: {str(e)}"
+
+    @staticmethod
+    def change_password_as_admin(customer_id, new_password):
+        """Change customer password"""
+        
+        try:
+            model = Customer()
+            customer = model.get_by_id(customer_id)
+            
+            if not customer:
+                return False, "Customer not found"
+
             # Update password
             new_hash = generate_password_hash(new_password)
             updated = model.update(customer_id, password_hash=new_hash)

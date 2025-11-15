@@ -100,9 +100,11 @@
                             <td>{{ c.email }}</td>
                             <td>{{ c.phone_number or 'N/A' }}</td>
                             <td>
-                                <span class="status-badge status-{{ 'status-active' if c.is_active else 'status-inactive' }}">
-                                    {{ 'Active' if c.is_active else 'Deactivated' }}
-                                </span>
+                                {% if c.is_active %}
+                                    <span class="status-badge active">Active</span>
+                                {% else %}
+                                    <span class="status-badge inactive">Deactivated</span>
+                                {% endif %} 
                             </td>
                             <td>{{ c.total_orders }}</td>
                             <td>${{ '%.2f'|format(c.total_spent) }}</td>

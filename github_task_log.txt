@@ -1,0 +1,63 @@
+f6ded45 2025-11-14 | feat: deactivate customer implmented |  
+effb495 2025-11-14 | customers list vsisible |  
+baa2d82 2025-11-14 | feat product edit and delete implemented; soft delete for products with orders, products with no orders can be deleted easily |  
+a8341a5 2025-11-14 | edited customer order list view |  
+8bcd43b 2025-11-14 | view product detail |  
+0a44d3d 2025-11-14 | feat/ product list and add by admin implemented |  
+77874fa 2025-11-14 | changing order status as admin feat implemented |  
+c0cbf25 2025-11-14 | didplay admin orders dashboard |  
+da7d3bc 2025-11-14 | edited display for orders and cart |  
+49d657b 2025-11-14 | edited admin.py; created admin_base.html which is used as a seperate base from customer base.html |  
+c52cbef 2025-11-14 | feat: admin login/checkout applied; edited products css |  
+e139545 2025-11-13 | edited css, edited categories.html |  
+79e5999 2025-11-13 | feat: uploaded designs are displayed (beside the product; need to fix) |  
+1591790 2025-11-13 | image display for preoducts, orders in product list, cart view, order info implemented |  
+b472b78 2025-11-13 | product list photo now displayed |  
+7a38998 2025-11-12 | updated requirements.txt |  
+b904402 2025-11-12 | feat: guest cart merge when registering |  
+b49c750 2025-11-12 | feat: change password implemented |  
+44f1b7d 2025-11-12 | feat: profile edit implemented |  
+5384adc 2025-11-12 | cancel order implemented |  
+431d034 2025-11-12 | display order items in specific order |  
+045628f 2025-11-12 | guest car merging to customer once login implemented |  
+3e4af32 2025-11-12 | added checkout functionality |  
+2727b3d 2025-11-12 | view cart, update item cart quantity bug fixed |  
+bae3bff 2025-11-12 | fixed add to cart, functionality |  
+90b671e 2025-11-12 | fixed login/logout bug |  
+2b3834f 2025-11-12 | login bug fixed, uniformed css |  
+b1b4fad 2025-11-11 | generated html files for route/customer.py |  
+598d9aa 2025-11-11 | login fix |  
+3390b06 2025-11-11 | generated auth/html files, edited routes/auth.py to render login/register html path |  
+deb0192 2025-11-11 | generated templates/hompage/*.html files and base.html |  
+8f10803 2025-11-11 | deleted tree.pdf and tree.md |  
+67a85ad 2025-11-11 | feat: Complete Flask backend with auth, products, cart, orders, and admin features |  
+cdfbcf5 2025-11-09 | modified all files; changed SQLAlchemy  to psycopg2; most field required modification |  
+480a5e4 2025-11-09 | renamed inits |  
+f8441a7 2025-11-09 | modified order_services implementing utils classes/methods |  
+4a10eff 2025-11-09 | modified file_service.py to implement methods from utils |  
+33eae89 2025-11-09 | modified services/cart_service.py implementing utils methods |  
+df9dfba 2025-11-09 | refactor: clean up auth flow and remove obsolete frontend files |  
+a836dbd 2025-11-08 | created 6 service files containing all the business logic for your custom printing website. created all the route files necessary |  
+f026aa3 2025-11-07 | added uploaded_file ;init file on models directory |  
+1ececf4 2025-11-07 | added admin_activity_log and order_status_history |  
+febc9c9 2025-11-07 | added order, order-item and customization |  
+fac2aa7 2025-11-07 | added files product, cart-item & customization, shopping cart |  
+2f31576 2025-11-07 | creaded model files: admin_user, customer, & category; added init, database files; modified config |  
+58aa239 2025-11-07 | feat: Add project configuration and dependencies |  
+031a441 2025-11-06 | added sample select statements |  
+a849099 2025-11-06 | added sample select statements |  
+9532e1c 2025-11-06 | created inserts.sql for sample data |  
+2b46c3a 2025-11-06 | added more admin functions |  
+586a0b6 2025-11-06 | renamed files based on the order they should be run; created views.sql for views statements |  
+6291bc1 2025-11-06 | moved functions from schema.sql to functions.sql; created triggers.sql for triggers |  
+0669d69 2025-11-06 | added role based access control functions on schema.sql |  
+5aad2f4 2025-11-04 | create indexes.sql for indexes statements |  
+b0c87a9 2025-11-04 | create table statements completed |  
+3547838 2025-11-04 | create table orders with function to generate order number  + insert statements |  
+9bd6143 2025-11-04 | modified db; changed customers, categories and products tables |  
+0a623c5 2025-10-31 | added table product_variants for different varients of each product |  
+791c757 2025-10-30 | added more tables: addresses, product_categories, products |  
+eb5f881 2025-10-30 | created schema.sql for db table creation; create customer tables |  
+6361d5b 2025-10-20 | edited index.html; planning to add more products, but changed mind, focusing more on the 4 products for now |  
+046764d 2025-10-20 | added index.html and style.css files for a simple landing page |  
+91546d7 2025-10-20 | Initial commit |  

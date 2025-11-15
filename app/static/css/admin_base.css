@@ -223,8 +223,8 @@
 
 .status-pending { background: #fff3cd; color: #856404; }
 .status-processing { background: #cce5ff; color: #004085; }
-.status-completed { background: #d4edda; color: #155724; }
-.status-cancelled { background: #f8d7da; color: #721c24; }
+.status-completed, .status-true { background: #d4edda; color: #155724; }
+.status-cancelled, .status-false { background: #f8d7da; color: #721c24; }
 
 /* Action Buttons */
 .action-buttons {
@@ -2071,13 +2071,21 @@ textarea.form-control {
 }
 .active-row {
     display: flex;
-    align-items: center;
-    gap: 10px; /* Space between checkbox and label/badge */
+    align-items: center; /* Vertically align checkbox and label */
+    gap: 6px; /* small space between checkbox and label */
 }
 
 .active-row label {
     margin: 0;
     font-weight: 500;
+    cursor: pointer; /* makes label clickable */
+}
+
+/* Fix for the checkbox element selector */
+.active-row input[type="checkbox"] {
+    margin: 0; /* remove extra spacing */
+    width: auto;
+    height: auto;
 }
 
 /* ===================================

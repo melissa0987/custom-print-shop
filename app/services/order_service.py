@@ -509,6 +509,7 @@ class OrderService:
         
     @staticmethod
     def get_customer_orders_with_previews(customer_id, page=1, per_page=20, status_filter=None):
+
         """
         Get customer orders with preview images
         """
@@ -558,3 +559,70 @@ class OrderService:
         except Exception as e:
             print(f"Error getting customer orders: {str(e)}")
             return [], 0, 0
+        
+
+    @staticmethod
+    def get_order_list_by_customer_id(customer_id, status_filter=None):
+        """
+        Get a clean list of orders for a customer.
+        Matches the formatting style used in admin.get_orders().
+        """
+        try:
+            order_model = Order()
+            order_item_model = OrderItem()
+            status_model = OrderStatusHistory()
+
+            # Fetch all orders for the customer
+            orders = order_model.get_by_customer(customer_id) or []
+
+            # Filter by status
+            if status_filter:
+                orders = [o for o in orders if o.get('order_status') == status_filter]
+
+            formatted_orders = []
+
+            for order in orders:
+                # Count items
+                items = order_item_model.get_by_order(order['order_id'])
+                total_items = len(items) if items else 0
+
+                # Get status history
+                status_history = status_model.get_by_order(order['order_id']) or []
+
+                # Format status history (newest first)
+                formatted_history = sorted(
+                    [
+                        {
+                            "status": s["status"],
+                            "changed_at": s.get("changed_at")
+                        }
+                        for s in status_history
+                    ],
+                    key=lambda x: x["changed_at"] or datetime.min,
+                    reverse=True
+                )
+
+                # Final order structure matching admin format style
+                order_data = {
+                    'order_id': order['order_id'],
+                    'order_number': order['order_number'],
+                    'order_status': order['order_status'],
+                    'total_amount': float(order['total_amount']),
+                    'total_items': total_items,
+                    'created_at': order.get('created_at'),
+                    'updated_at': order.get('updated_at'),
+                    'status_history': formatted_history
+                }
+
+                formatted_orders.append(order_data)
+
+            # Sort newest first (same as admin)
+            formatted_orders.sort(
+                key=lambda x: x.get('created_at') or datetime.min,
+                reverse=True
+            )
+
+            return True, formatted_orders
+
+        except Exception as e:
+            return False, f"Error getting order list: {str(e)}"

@@ -10,6 +10,7 @@ from app.models import (
     Order, OrderItem, OrderStatusHistory, Product, Category,
     Customer, AdminUser, AdminActivityLog
 )
+from app.services.customer_service import CustomerService
 from app.services.order_service import OrderService
 from app.utils import admin_required, permission_required
 from datetime import datetime
@@ -1235,62 +1236,79 @@ def get_customers_admin():
 def edit_customer(customer_id):
     """Edit customer"""
     customer_model = Customer()
+    customer_service = CustomerService()
     
     if request.method == 'GET':
-        # Render edit form
+        try:
+            customer = customer_model.get_by_id(customer_id)
+            if not customer:
+                flash('Customer not found', 'danger')
+                return redirect(url_for('admin.get_customers_admin'))
+
+            # 🔥 Get customer order list
+            success, customer_orders = OrderService.get_order_list_by_customer_id(customer_id)
+            if not success:
+                customer_orders = []
+
+            return render_template(
+                'admin/admin_customer_form.html',
+                customer=customer,
+                customer_orders=customer_orders,
+                action='edit'
+            )
+
+        except Exception as e:
+            flash(f'Failed to load customer: {str(e)}', 'danger')
+            return redirect(url_for('admin.get_customers_admin'))
+    
+
+    if request.method == 'POST': 
+    # POST - handle form submission
+        data = request.form.to_dict()
+        
         try:
             customer = customer_model.get_by_id(customer_id)
             if not customer:
                 flash('Customer not found', 'danger')
                 return redirect(url_for('admin.get_customers_admin'))
             
-            return render_template('admin/admin_customer_form.html', 
-                                 customer=customer,
-                                 action='edit')
-        except Exception as e:
-            flash(f'Failed to load customer: {str(e)}', 'danger')
-            return redirect(url_for('admin.get_customers_admin'))
-    
-    # POST - handle form submission
-    data = request.form.to_dict()
-    
-    try:
-        customer = customer_model.get_by_id(customer_id)
-        if not customer:
-            flash('Customer not found', 'danger')
-            return redirect(url_for('admin.get_customers_admin'))
-        
-        # Update customer
-        update_data = {}
-        for field in ['username', 'email', 'first_name', 'last_name', 'phone_number']:
-            if field in data:
-                update_data[field] = data[field]
-        
-        update_data['is_active'] = data.get('is_active') == 'on'
-        
-        success = customer_model.update(customer_id, **update_data)
-        
-        if not success:
-            flash('Failed to update customer', 'danger')
-            return redirect(url_for('admin.edit_customer', customer_id=customer_id))
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='update_customer',
-            table_name='customers',
-            record_id=customer_id,
-            old_values=customer,
-            new_values=data
-        )
-        
-        flash('Customer updated successfully', 'success')
-        return redirect(url_for('admin.get_customers_admin'))
             
-    except Exception as e:
-        flash(f'Failed to update customer: {str(e)}', 'danger')
-        return redirect(url_for('admin.edit_customer', customer_id=customer_id))
+            # Update customer
+            update_data = {}
+            # Only update password if provided
+            if 'password' in data and data['password'].strip():
+                update_data['password'] = data['password'].strip()
+                customer_service.change_password_as_admin(customer_id, update_data['password'])
+
+            for field in ['username', 'email', 'first_name', 'last_name', 'phone_number']:
+                if field in data:
+                    update_data[field] = data[field]
+            
+            update_data['is_active'] = data.get('is_active') == 'on'
+            
+            success = customer_model.update(customer_id, **update_data)
+            
+            if not success:
+                flash('Failed to update customer', 'danger')
+                return redirect(url_for('admin.edit_customer', customer_id=customer_id))
+            
+            # Log activity
+            activity_log_model = AdminActivityLog()
+            activity_log_model.create_log(
+                admin_id=session['admin_id'],
+                action='update_customer',
+                table_name='customers',
+                record_id=customer_id,
+                old_values=customer,
+                new_values=data
+            )
+            
+            flash('Customer updated successfully', 'success')
+            return redirect(url_for('admin.edit_customer', customer_id=customer_id))
+                
+        except Exception as e:
+            flash(f'Failed to update customer: {str(e)}', 'danger')
+            return redirect(url_for('admin.edit_customer', customer_id=customer_id))
 
 
 @admin_bp.route('/customers/<int:customer_id>/toggle', methods=['POST'])

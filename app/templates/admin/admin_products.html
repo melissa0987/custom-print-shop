@@ -71,9 +71,14 @@
                                 <h3>{{ product.product_name }}</h3>
                                 <p class="category">{{ product.category.category_name if product.category else 'Uncategorized' }}</p>
                                 <p class="price">{{ product.base_price_formatted }}</p>
-                                <span class="status-badge status-{{ 'active' if product.is_active else 'inactive' }}">
-                                    {{ 'Active' if product.is_active else 'Inactive' }}
-                                </span>
+                                
+                                <p>
+                                    {% if product.is_active %}
+                                        <span class="status-badge active">Active</span>
+                                    {% else %}
+                                        <span class="status-badge inactive">Deactivated</span>
+                                    {% endif %} 
+                                </p>
 
                                 <div class="action-buttons">
                                     <a href="{{ url_for('admin.get_product_detail', product_id=product.product_id) }}" class="btn-primary">
