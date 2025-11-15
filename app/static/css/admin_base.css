@@ -150,7 +150,7 @@
     border: 1px solid #ccc;
     border-radius: 6px;
     font-size: 0.95rem;
-    width: 220px;
+    width: 150px;
 }
 
 .filter-select:focus, .filter-input:focus {
@@ -1258,6 +1258,50 @@
 .filters .filter-group button {
     padding: 0.75rem 2rem;
     white-space: nowrap;
+}
+.filter-group .cust-button{
+    display: flex;
+    flex-direction: row;
+    align-items: center; 
+    padding: 5px;
+}
+.filt-con {
+    display: flex;
+    flex-wrap: wrap; /* allow wrapping on small screens */
+    gap: .5rem;       /* space between filter groups */
+    padding: 0.75rem; 
+    border-radius: 6px; 
+}
+
+.filt-con input{
+    width: 15rem;
+}
+
+.filters-section form {
+    justify-content: space-around;
+    align-items: center;  
+}
+.filt-con .filter-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 150px; 
+    padding: 5px;
+}
+
+.filt-con .filter-group label {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.cust-button {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.cust-button button,
+.cust-button a {
+    flex: 1;
 }
 
 /* Products Grid */

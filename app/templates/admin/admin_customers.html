@@ -7,51 +7,64 @@
     <div class="admin-header">
         <h1><i class="bi bi-people"></i> Customers Management</h1>
         <a href="{{ url_for('admin.get_dashboard') }}" class="btn-secondary">
-            <i class="bi bi-arrow-left"></i> Back to Dashboard
+            Back to Dashboard
         </a>
     </div>
 
     <!-- Filters Section -->
     <div class="filters-section">
         <form method="GET" action="{{ url_for('admin.get_customers_admin') }}">
-            <div class="filter-group">
-                <label for="status-filter">Status:</label>
-                <select name="status" id="status-filter" class="filter-select" onchange="this.form.submit()">
-                    <option value="">All</option>
-                    <option value="active" {% if status == 'active' %}selected{% endif %}>Active Only</option>
-                    <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive Only</option>
-                </select>
-            </div>
 
-            <div class="filter-group">
-                <label for="search-input">Search:</label>
-                <input type="text" name="search" id="search-input" class="filter-input" value="{{ search or '' }}" placeholder="Username, email, or name...">
-            </div>
+            <div class="filt-con">
+                <div class="filter-group">
+                    <label for="status-filter">Status:</label>
+                    <select name="status" id="status-filter" class="filter-select" onchange="this.form.submit()">
+                        <option value="">All</option>
+                        <option value="active" {% if status == 'active' %}selected{% endif %}>Active Only</option>
+                        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive Only</option>
+                    </select>
+                </div>
 
-            <div class="filter-group">
-                <label for="sort-by">Sort by:</label>
-                <select name="sort_by" id="sort-by" class="filter-select" onchange="this.form.submit()">
-                    <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
-                    <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Username</option>
-                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
-                    <option value="orders" {% if sort_by == 'orders' %}selected{% endif %}>Orders</option>
-                    <option value="spent" {% if sort_by == 'spent' %}selected{% endif %}>Spent</option>
-                    <option value="joined" {% if sort_by == 'joined' %}selected{% endif %}>Joined</option>
-                </select>
-            </div>
+                <div class="filter-group">
+                    <label for="search-input">Search:</label>
+                    <input type="text" name="search" id="search-input" class="filter-input" value="{{ search or '' }}" placeholder="Username, email, or name...">
+                </div>
 
-            <div class="filter-group">
-                <label for="sort-order">Order:</label>
-                <select name="sort_order" id="sort-order" class="filter-select" onchange="this.form.submit()">
-                    <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
-                    <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
-                </select>
-            </div>
+                <div class="filter-group">
+                    <label for="sort-by">Sort by:</label>
+                    <select name="sort_by" id="sort-by" class="filter-select" onchange="this.form.submit()">
+                        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
+                        <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Username</option>
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+                        <option value="orders" {% if sort_by == 'orders' %}selected{% endif %}>Orders</option>
+                        <option value="spent" {% if sort_by == 'spent' %}selected{% endif %}>Spent</option>
+                        <option value="joined" {% if sort_by == 'joined' %}selected{% endif %}>Joined</option>
+                    </select>
+                </div>
 
-             <div class="filter-group">
-                 <button type="submit" class="btn-primary">Apply Filters</button>
-                <a href="{{ url_for('admin.get_customers_admin') }}" class="btn-secondary">Reset</a>
-             </div>
+                <div class="filter-group">
+                    <label for="sort-order">Order:</label>
+                    <select name="sort_order" id="sort-order" class="filter-select" onchange="this.form.submit()">
+                        <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                        <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="filt-con">
+                <div class="filter-group">
+                    <div class="cust-button">
+                        <div>
+                            <button type="submit" class="btn-primary">
+                            Apply Filters</button>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('admin.get_customers_admin') }}" class="btn-secondary">Reset</a>
+                        </div> 
+                    </div>
+                </div>
+
+            </div>
         </form>
     </div>
 
@@ -87,7 +100,7 @@
                             <td>{{ c.email }}</td>
                             <td>{{ c.phone_number or 'N/A' }}</td>
                             <td>
-                                <span class="status-badge {{ 'status-active' if c.is_active else 'status-inactive' }}">
+                                <span class="status-badge status-{{ 'status-active' if c.is_active else 'status-inactive' }}">
                                     {{ 'Active' if c.is_active else 'Deactivated' }}
                                 </span>
                             </td>
@@ -97,7 +110,7 @@
                             <td>
                                 <div class="action-buttons">
                                     <a href="{{ url_for('admin.edit_customer', customer_id=c.customer_id) }}" class="btn-action btn-view">
-                                        <i class="bi bi-eye"></i> View
+                                        View
                                     </a>
                                 </div>
                             </td>

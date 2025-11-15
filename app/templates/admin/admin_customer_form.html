@@ -1,0 +1,99 @@
+{% extends "admin_base.html" %}
+
+{% block title %}
+Edit Customer - Admin - PrintCraft
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>Edit Customer</h1>
+        <a href="{{ url_for('admin.get_customers_admin') }}" class="btn-secondary">
+             Back to Customers
+        </a>
+    </div>
+
+    <!-- Customer Info Form -->
+    <div class="content-section">
+        <form method="POST" action="{{ url_for('admin.edit_customer', customer_id=customer.customer_id) }}">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" name="username" id="username" class="form-control" value="{{ customer.username }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" name="email" id="email" class="form-control" value="{{ customer.email }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="first_name">First Name:</label>
+                <input type="text" name="first_name" id="first_name" class="form-control" value="{{ customer.first_name }}">
+            </div>
+
+            <div class="form-group">
+                <label for="last_name">Last Name:</label>
+                <input type="text" name="last_name" id="last_name" class="form-control" value="{{ customer.last_name }}">
+            </div>
+
+            <div class="form-group">
+                <label for="phone_number">Phone Number:</label>
+                <input type="text" name="phone_number" id="phone_number" class="form-control" value="{{ customer.phone_number }}">
+            </div>
+
+            <div class="form-group">
+                <label for="is_active">Account Status:</label>
+                <input type="checkbox" name="is_active" id="is_active" {% if customer.is_active %}checked{% endif %}>
+                <label for="is_active">{{ 'Active' if customer.is_active else 'Deactivated' }}</label>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Change Password:</label>
+                <input type="password" name="password" id="password" class="form-control" placeholder="Leave blank to keep current password">
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn-primary">Save Changes</button>
+                <a href="{{ url_for('admin.get_customers_admin') }}" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Orders List -->
+    <div class="content-section">
+        <h2>Orders for {{ customer.first_name }} {{ customer.last_name }} ({{ customer.username }})</h2>
+        {% if customer_orders %}
+        <div class="table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in customer_orders %}
+                    <tr>
+                        <td>#{{ order.order_id }}</td>
+                        <td>{{ order.created_at[:10] }}</td>
+                        <td>${{ '%.2f'|format(order.total_amount) }}</td>
+                        <td>{{ order.status }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.get_order_details', order_id=order.order_id) }}" class="btn-action btn-view">
+                                View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No orders found for this customer.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
