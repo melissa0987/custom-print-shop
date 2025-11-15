@@ -3,14 +3,7 @@
 
 {% block content %}
 <section class="design-page">
-    <div class="container">
-        <!-- Breadcrumb -->
-        <nav class="breadcrumb">
-            <a href="{{ url_for('main.homepage') }}">Home</a> /
-            <a href="{{ url_for('products.get_products') }}">Products</a> /
-            <span>{{ product.product_name }}</span>
-        </nav>
-
+    <div class="container"> 
         <div class="design-header">
             <h1>Design Your {{ product.product_name }}</h1>
             <p class="product-price">{{ product.base_price_formatted }} each</p>

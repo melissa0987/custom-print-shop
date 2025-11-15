@@ -665,6 +665,7 @@ def create_product():
             return redirect(url_for('admin.create_product'))
     
     try:
+        # 1. Create product first to get product_id
         product_id = Product().create(
             category_id=int(data['category_id']),
             product_name=data['product_name'],
@@ -674,14 +675,15 @@ def create_product():
             created_by=session.get('admin_id')
         )
 
-        # Ensure directories exist
+        # 2. Ensure directories exist
         ImageHelper.ensure_directories()
 
+        # 3. Save uploaded image using product_id
         if file and ImageHelper.validate_image_file(file.filename):
             ext = file.filename.rsplit('.', 1)[1].lower()
             
             # Main product image
-            product_filename = f"{secure_filename(data['product_name'])}.{ext}"
+            product_filename = f"product_{product_id}.{ext}"
             product_path = os.path.join(current_app.root_path, ImageHelper.PRODUCT_IMAGES_DIR, product_filename)
             file.save(product_path)
 
@@ -692,7 +694,7 @@ def create_product():
             file.save(mockup_path)
 
             # Update product record with main image URL
-            Product().update(product_id, image_url=f"images/products/{product_filename}")
+            Product().update(product_id, image_url=f"{ImageHelper.PRODUCT_IMAGES_DIR}/{product_filename}")
 
         flash('Product created successfully', 'success')
         return redirect(url_for('admin.get_products_admin'))
@@ -700,6 +702,7 @@ def create_product():
     except Exception as e:
         flash(f'Failed to create product: {str(e)}', 'danger')
         return redirect(url_for('admin.create_product'))
+
 
 @admin_bp.route('/products/<int:product_id>', methods=['GET'])
 @permission_required('view_products')

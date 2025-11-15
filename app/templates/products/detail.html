@@ -3,17 +3,7 @@
 
 {% block content %}
 <section class="product-detail-page">
-    <div class="container">
-        <!-- Breadcrumb -->
-        <nav class="breadcrumb"> 
-            <a href="{{ url_for('products.get_products') }}">Products</a> /
-            {% if product.category %}
-            <a href="{{ url_for('products.get_category', category_id=product.category.category_id) }}">
-                {{ product.category.category_name }}
-            </a> /
-            {% endif %}
-            <span>{{ product.product_name }}</span>
-        </nav>
+    <div class="container"> 
 
         <div class="product-detail-grid">
             <!-- Product Image -->

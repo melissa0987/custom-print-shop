@@ -6,6 +6,8 @@ Helper functions for managing product and design images
 import os
 from pathlib import Path
 
+from flask import current_app
+
 class ImageHelper:
     """Helper class for managing images"""
     
@@ -34,6 +36,15 @@ class ImageHelper:
         3. {slugified_name}.png
         4. Default image
         """
+        base_dir = ImageHelper.PRODUCT_IMAGES_DIR
+        
+        if product_id:
+            for ext in ['png', 'jpg', 'jpeg']:
+                filename = f"product_{product_id}.{ext}"
+                path = os.path.join(current_app.root_path, base_dir, filename)
+                if os.path.exists(path):
+                    return f"images/products/{filename}"
+                
         if product_id:
             if product_id in [1, 2]:
                 return ImageHelper.PRODUCT_IMAGE_MAP['mug']
@@ -45,6 +56,7 @@ class ImageHelper:
                 return ImageHelper.PRODUCT_IMAGE_MAP['drawstring bag']
             elif product_id in range(7, 11):
                 return ImageHelper.PRODUCT_IMAGE_MAP['shirt']
+            
         
          # --- 2. Keyword mapping from product_name ---
         if product_name:
