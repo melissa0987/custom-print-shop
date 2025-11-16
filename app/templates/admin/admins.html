@@ -5,64 +5,104 @@
 {% block content %}
 <div class="admin-container">
     <div class="admin-header">
-        <h1><i class="bi bi-shield-lock"></i> Admin Users Management</h1>
+        <h1> Admin Users Management</h1>
         <div class="header-actions">
             {% if session.get('admin_role') == 'super_admin' %}
             <button class="btn-primary" onclick="openAddAdminModal()">
-                <i class="bi bi-plus-circle"></i> Add Admin User
+                 Add Admin User
             </button>
             {% endif %}
             <a href="{{ url_for('admin.get_dashboard') }}" class="btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Dashboard
+                 Back to Dashboard
             </a>
         </div>
     </div>
 
     {% if session.get('admin_role') != 'super_admin' %}
-    <div class="alert-warning">
-        <i class="bi bi-exclamation-triangle"></i>
+    <div class="alert-warning"> 
         You do not have permission to manage admin users. Only Super Admins can access this page.
     </div>
     {% else %}
 
-    <!-- Filters -->
+<!-- Filters Section -->
     <div class="filters-section">
-        <div class="filter-group">
-            <label for="role-filter">Role:</label>
-            <select id="role-filter" class="filter-select">
-                <option value="">All Roles</option>
-                <option value="super_admin">Super Admin</option>
-                <option value="admin">Admin</option>
-                <option value="staff">Staff</option>
-            </select>
-        </div>
+        <form method="GET" action="{{ url_for('admin.get_admins') }}">
 
-        <div class="filter-group">
-            <label for="status-filter">Status:</label>
-            <select id="status-filter" class="filter-select">
-                <option value="true">Active Only</option>
-                <option value="false">All Admins</option>
-            </select>
-        </div>
+            <div class="filt-con">
 
-        <div class="filter-group">
-            <label for="search-input">Search:</label>
-            <input type="text" id="search-input" class="filter-input" 
-                   placeholder="Username, email, or name...">
-        </div>
+                <!-- ROLE FILTER -->
+                <div class="filter-group">
+                    <label for="role-filter">Role:</label>
+                    <select name="role" id="role-filter" class="filter-select" onchange="this.form.submit()">
+                        <option value="">All Roles</option>
+                        <option value="super_admin" {% if role == 'super_admin' %}selected{% endif %}>Super Admin</option>
+                        <option value="admin" {% if role == 'admin' %}selected{% endif %}>Admin</option>
+                        <option value="staff" {% if role == 'staff' %}selected{% endif %}>Staff</option>
+                    </select>
+                </div>
 
-        <button class="btn-primary" onclick="applyFilters()">
-            <i class="bi bi-funnel"></i> Apply Filters
-        </button>
-        <button class="btn-secondary" onclick="resetFilters()">
-            <i class="bi bi-x-circle"></i> Reset
-        </button>
+                <!-- STATUS FILTER -->
+                <div class="filter-group">
+                    <label for="status-filter">Status:</label>
+                    <select name="status" id="status-filter" class="filter-select" onchange="this.form.submit()">
+                        <option value="">All</option>
+                        <option value="active" {% if status == 'active' %}selected{% endif %}>Active Only</option>
+                        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive Only</option>
+                    </select>
+                </div>
+
+                <!-- SEARCH FILTER -->
+                <div class="filter-group">
+                    <label for="search-input">Search:</label>
+                    <input type="text" name="search" id="search-input" class="filter-input"
+                        value="{{ search or '' }}"
+                        placeholder="Username, email, or name...">
+                </div>
+
+                <!-- SORT BY -->
+                <div class="filter-group">
+                    <label for="sort-by">Sort by:</label>
+                    <select name="sort_by" id="sort-by" class="filter-select" onchange="this.form.submit()">
+                        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
+                        <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Username</option>
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+                        <option value="role" {% if sort_by == 'role' %}selected{% endif %}>Role</option>
+                        <option value="created" {% if sort_by == 'created' %}selected{% endif %}>Created</option>
+                        <option value="last_login" {% if sort_by == 'last_login' %}selected{% endif %}>Last Login</option>
+                    </select>
+                </div>
+
+                <!-- SORT ORDER -->
+                <div class="filter-group">
+                    <label for="sort-order">Order:</label>
+                    <select name="sort_order" id="sort-order" class="filter-select" onchange="this.form.submit()">
+                        <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                        <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- BUTTONS -->
+            <div class="filt-con">
+                <div class="filter-group">
+                    <div class="cust-button">
+                        <div>
+                            <button type="submit" class="btn-primary">Apply Filters</button>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('admin.get_admins') }}" class="btn-secondary">Reset</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </form>
     </div>
 
     <!-- Admin Users Table -->
     <div class="content-section">
         <div class="table-header">
-            <h2>All Admin Users (<span id="admin-count">0</span>)</h2>
+            <h2>All Admin Users (<span id="admin-count">{{ admin_users|length }}</span>)</h2>
         </div>
 
         <div class="table-container">
@@ -80,11 +120,44 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
+                
                 <tbody id="admins-body">
+                {% if admin_users %}
+                    {% for admin in admin_users %}
+                        {% if admin.admin_id != session.get('admin_id') %}
+                        <tr>
+                            <td>{{ admin.admin_id }}</td>
+                            <td>{{ admin.username }}</td>
+                            <td>{{ admin.first_name }} {{ admin.last_name }}</td>
+                            <td>{{ admin.email }}</td>
+                            <td>{{ admin.role.replace('_', ' ') | title }}</td>
+                            <td>
+                                {% if admin.is_active %}
+                                    <span class="status-active">Active</span>
+                                {% else %}
+                                    <span class="status-inactive">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ admin.last_login.strftime('%Y-%m-%d %H:%M') if admin.last_login else 'Never' }}</td>
+                            <td>{{ admin.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{{ url_for('admin.update_admin', admin_id=admin.admin_id) }}" class="btn-action btn-view">
+                                        View
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
                     <tr>
-                        <td colspan="9" class="text-center">Loading admin users...</td>
+                        <td colspan="9" class="text-center">No admin users found.</td>
                     </tr>
-                </tbody>
+                {% endif %}
+            </tbody>
+
+                
             </table>
         </div>
     </div>
@@ -92,157 +165,5 @@
     {% endif %}
 </div>
 
-<!-- Add/Edit Admin Modal -->
-<div id="admin-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 id="modal-title">Add Admin User</h2>
-            <span class="close" onclick="closeAdminModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <form id="admin-form" onsubmit="saveAdmin(event)">
-                <input type="hidden" id="admin-id">
-                
-                <div class="form-group">
-                    <label for="admin-username">Username: <span class="required">*</span></label>
-                    <input type="text" id="admin-username" class="form-control" 
-                           required minlength="3" maxlength="50" pattern="[a-z0-9_-]+">
-                    <small>Lowercase letters, numbers, underscores, and hyphens only</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="admin-email">Email: <span class="required">*</span></label>
-                    <input type="email" id="admin-email" class="form-control" required maxlength="255">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="admin-first-name">First Name: <span class="required">*</span></label>
-                        <input type="text" id="admin-first-name" class="form-control" required maxlength="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="admin-last-name">Last Name: <span class="required">*</span></label>
-                        <input type="text" id="admin-last-name" class="form-control" required maxlength="100">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="admin-role">Role: <span class="required">*</span></label>
-                    <select id="admin-role" class="form-control" required>
-                        <option value="">Select a role</option>
-                        <option value="super_admin">Super Admin (Full Access)</option>
-                        <option value="admin">Admin (Management Access)</option>
-                        <option value="staff">Staff (Limited Access)</option>
-                    </select>
-                </div>
-
-                <div class="form-group" id="password-group">
-                    <label for="admin-password">Password: <span class="required">*</span></label>
-                    <input type="password" id="admin-password" class="form-control" 
-                           required minlength="8">
-                    <small>Minimum 8 characters (required for new users only)</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="admin-active" checked>
-                        Admin is active
-                    </label>
-                </div>
-
-                <div class="permission-info">
-                    <h4>Role Permissions:</h4>
-                    <ul id="role-permissions">
-                        <li>Select a role to see permissions</li>
-                    </ul>
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary" onclick="closeAdminModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Save Admin User</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Change Password Modal -->
-<div id="password-modal" class="modal">
-    <div class="modal-content modal-small">
-        <div class="modal-header">
-            <h2>Change Admin Password</h2>
-            <span class="close" onclick="closePasswordModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <form id="password-form" onsubmit="changePassword(event)">
-                <input type="hidden" id="password-admin-id">
-                
-                <div class="form-group">
-                    <label for="new-password">New Password: <span class="required">*</span></label>
-                    <input type="password" id="new-password" class="form-control" 
-                           required minlength="8">
-                    <small>Minimum 8 characters</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="confirm-password">Confirm Password: <span class="required">*</span></label>
-                    <input type="password" id="confirm-password" class="form-control" 
-                           required minlength="8">
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Change Password</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Deactivate Admin Modal -->
-<div id="deactivate-modal" class="modal">
-    <div class="modal-content modal-small">
-        <div class="modal-header">
-            <h2>Confirm Deactivation</h2>
-            <span class="close" onclick="closeDeactivateModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <p>Are you sure you want to deactivate this admin user?</p>
-            <p class="warning-text">
-                <i class="bi bi-exclamation-triangle"></i> 
-                This admin will no longer be able to log in or perform any actions.
-            </p>
-            <input type="hidden" id="deactivate-admin-id">
-            <div class="form-actions">
-                <button class="btn-secondary" onclick="closeDeactivateModal()">Cancel</button>
-                <button class="btn-danger" onclick="confirmDeactivate()">Deactivate</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Admin Modal -->
-<div id="delete-modal" class="modal">
-    <div class="modal-content modal-small">
-        <div class="modal-header">
-            <h2>Confirm Deletion</h2>
-            <span class="close" onclick="closeDeleteModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <p>Are you sure you want to delete this admin user?</p>
-            <p class="danger-text">
-                <i class="bi bi-exclamation-triangle-fill"></i> 
-                This action cannot be undone! All activity logs will remain but references will be set to NULL.
-            </p>
-            <input type="hidden" id="delete-admin-id">
-            <div class="form-actions">
-                <button class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
-                <button class="btn-danger" onclick="confirmDelete()">Delete Permanently</button>
-            </div>
-        </div>
-    </div>
-</div>
-
- 
+<!-- Include your modals for Add/Edit, Change Password, Deactivate, Delete here as before -->
 {% endblock %}

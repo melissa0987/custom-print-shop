@@ -1534,19 +1534,23 @@ def delete_customer(customer_id):
 @admin_required
 def get_admins():
     """Render admin users management page or return JSON for AJAX"""
-    # Check if user is super admin
+    # Only super admin can access
     if session.get('admin_role') != 'super_admin':
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'error': 'Only super admin can access this page'}), 403
         flash('Only super admin can access this page', 'error')
         return redirect(url_for('admin.get_dashboard'))
-    
-    # If it's an AJAX request, return JSON
-    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return get_admins_data()
-    
-    # Otherwise render the HTML page
-    return render_template('admin/admins.html')
+
+    # Fetch admin users from service/model 
+    admin_model = AdminUser()
+    admin_users = admin_model.get_all()  # returns list of dicts or objects
+
+    # Sort by admin_id ascending
+    admin_users.sort(key=lambda a: a['admin_id'] if isinstance(a, dict) else a.admin_id)
+
+    # Render template with admin_users
+    return render_template('admin/admins.html', admin_users=admin_users)
+
 
 
 def get_admins_data():
@@ -1579,6 +1583,34 @@ def get_admins_data():
             
     except Exception as e:
         return jsonify({'error': f'Failed to get admin users: {str(e)}'}), 500
+
+@admin_bp.route('/admins/<int:admin_id>', methods=['GET'])
+@admin_required
+def get_admin(admin_id):
+    """Fetch a single admin user and render their data"""
+    # Only super admin can access
+    if session.get('admin_role') != 'super_admin':
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Only super admin can access this page'}), 403
+        flash('Only super admin can access this page', 'error')
+        return redirect(url_for('admin.get_dashboard'))
+
+    # Fetch admin data
+    admin_model = AdminUser()
+    admin_data = admin_model.get_by_id(admin_id)  # returns dict or object
+
+    if not admin_data:
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Admin not found'}), 404
+        flash('Admin user not found', 'error')
+        return redirect(url_for('admin.get_admins'))
+
+    # If AJAX request, return JSON
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'admin': admin_data})
+
+    # Otherwise, render HTML template
+    return render_template('admin/admin_detail.html', admin=admin_data)
 
 
 @admin_bp.route('/admins', methods=['POST'])

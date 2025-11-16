@@ -1,0 +1,75 @@
+{% extends "admin_base.html" %}
+{% block title %}Admin User Details - PrintCraft{% endblock %}
+
+ 
+{% block content %}
+<div class="admin-container">
+
+    <!-- HEADER -->
+    <div class="admin-header">
+        <h1>Admin User Details</h1>
+        <a href="{{ url_for('admin.get_admins') }}" class="btn-secondary">Back to Admin Users</a>
+    </div>
+
+    <!-- ADMIN INFO SECTION -->
+    <div class="content-section">
+        <div class="admin-info-card">
+            <h2>Account Information</h2>
+
+            <div class="info-row"><strong>ID:</strong> {{ admin.admin_id }}</div>
+            <div class="info-row"><strong>Username:</strong> {{ admin.username }}</div>
+            <div class="info-row"><strong>Email:</strong> {{ admin.email }}</div>
+            <div class="info-row"><strong>Name:</strong> {{ admin.first_name }} {{ admin.last_name }}</div>
+            <div class="info-row"><strong>Role:</strong> {{ admin.role.replace('_',' ')|title }}</div>
+
+            <div class="info-row">
+                <strong>Status:</strong>
+                {% if admin.is_active %}
+                    <span class="status-active">Active</span>
+                {% else %}
+                    <span class="status-inactive">Inactive</span>
+                {% endif %}
+            </div>
+
+            <div class="info-row"><strong>Created:</strong> {{ admin.created_at }}</div>
+            <div class="info-row"><strong>Last Login:</strong>
+                {{ admin.last_login if admin.last_login else "Never" }}
+            </div>
+        </div>
+
+        
+
+        <!-- CHANGE PASSWORD -->
+        <div class="admin-form-card">
+            <h2>Change Password</h2>
+
+            <form id="passwordForm">
+                <label>New Password</label>
+                <input type="password" id="passwordField" placeholder="Enter new password">
+
+                <button type="button" id="changePasswordBtn" class="btn-primary">
+                    Change Password
+                </button>
+            </form>
+        </div>
+
+        <!-- DANGER ZONE -->
+        <div class="admin-form-card danger">
+            <h2>Danger Zone</h2>
+
+            {% if admin.is_active %}
+            <button id="deactivateBtn" class="btn-warning">Deactivate User</button>
+            {% else %}
+            <button id="activateBtn" class="btn-primary">Activate User</button>
+            {% endif %}
+
+            {% if admin.admin_id != session.get('admin_id') %}
+            <button id="deleteBtn" class="btn-danger">Delete User</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %} 
+{% endblock %}

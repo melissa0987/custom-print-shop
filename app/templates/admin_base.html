@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_base.css') }}">  
      <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">  
     
+    {% block style %}
+    {% endblock %}
+    
 
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
@@ -141,7 +144,7 @@
 
      <!-- <script src="{{ url_for('static', filename='js/main.js') }}"></script> -->
     <script src="{{ url_for('static', filename='js/cart.js') }}"></script>
-        {% block script%}
+    {% block script%}
     
     {% endblock %}
      
