@@ -32,22 +32,17 @@
                         <li><a href="{{ url_for('admin.get_customers_admin') }}">Customers</a></li>
 
                         {% if session.get('admin_role') == 'super_admin' %} 
-                            <li><a href="{{ url_for('admin.get_admins') }}">Admin Users</a></li>
-                            <li><a href="{{ url_for('admin.get_reports') }}">Reports</a></li>
+                            <li><a href="{{ url_for('admin.get_admins') }}">Staffs</a></li> 
                         {% endif %}
 
                          {% if session.get('admin_role') == 'admin' %} 
-                            <li><a href="{{ url_for('admin.get_admins') }}">Admin Users</a></li> 
+                            <li><a href="{{ url_for('admin.get_admins') }}">Staffs</a></li> 
                         {% endif %}
 
-                        {# Optionally, you can show other links based on role #}
-                        {% if role in ['admin', 'administrator', 'super_admin'] %}
-                            {# Example: Logs or staff management links #}
-                            <li><a href="{{ url_for('admin.get_reports') }}">Reports</a></li>
-                        {% endif %}
+                        
 
                         <li>
-                            <span style="color: #f5a623;">Profile: {{ session.get('admin_username') }}</span>
+                            <a href="{{ url_for('admin.get_admin_profile', admin_id=session.get('admin_id')) }}">Profile</a>
                         </li>
                         <li>
                             <form method="POST" action="{{ url_for('admin.admin_logout') }}" style="display: inline;">

@@ -145,4 +145,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+    
+    function deleteAdmin(btn) {
+        alert('Are you sure you want to delete this admin?');
+        btn.closest('form').submit(); 
+}
+
 });

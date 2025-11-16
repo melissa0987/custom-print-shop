@@ -8,9 +8,9 @@
         <h1> Admin Users Management</h1>
         <div class="header-actions">
             {% if session.get('admin_role') == 'super_admin' %}
-            <button class="btn-primary" onclick="openAddAdminModal()">
-                 Add Admin User
-            </button>
+                    <a href="{{ url_for('admin.show_add_admin_form') }}" class="btn-primary">
+                        Add Admin
+                    </a>
             {% endif %}
             <a href="{{ url_for('admin.get_dashboard') }}" class="btn-secondary">
                  Back to Dashboard
@@ -18,11 +18,12 @@
         </div>
     </div>
 
-    {% if session.get('admin_role') != 'super_admin' %}
-    <div class="alert-warning"> 
-        You do not have permission to manage admin users. Only Super Admins can access this page.
-    </div>
+    {% if session.get('admin_role') not in ['super_admin', 'admin'] %}
+        <div class="alert-warning"> 
+            You do not have permission to manage admin users. Only Super Admins and Admins can access this page.
+        </div>
     {% else %}
+
 
 <!-- Filters Section -->
     <div class="filters-section">
@@ -117,7 +118,9 @@
                         <th>Status</th>
                         <th>Last Login</th>
                         <th>Created</th>
-                        <th>Actions</th>
+                        {% if session.get('admin_role') == 'super_admin' %} 
+                            <th>Actions</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 
@@ -133,20 +136,23 @@
                             <td>{{ admin.role.replace('_', ' ') | title }}</td>
                             <td>
                                 {% if admin.is_active %}
-                                    <span class="status-active">Active</span>
+                                    <span class="status-badge active">Active</span>
                                 {% else %}
-                                    <span class="status-inactive">Inactive</span>
+                                    <span class="status-badge inactive">Deactivated</span>
                                 {% endif %}
                             </td>
                             <td>{{ admin.last_login.strftime('%Y-%m-%d %H:%M') if admin.last_login else 'Never' }}</td>
                             <td>{{ admin.created_at.strftime('%Y-%m-%d') }}</td>
-                            <td>
-                                <div class="action-buttons">
-                                    <a href="{{ url_for('admin.update_admin', admin_id=admin.admin_id) }}" class="btn-action btn-view">
-                                        View
-                                    </a>
-                                </div>
-                            </td>
+                            
+                            {% if session.get('admin_role') == 'super_admin' %} 
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="{{ url_for('admin.update_admin', admin_id=admin.admin_id) }}" class="btn-action btn-view">
+                                            View
+                                        </a>
+                                    </div>
+                                </td>
+                            {% endif %}
                         </tr>
                         {% endif %}
                     {% endfor %}
@@ -165,5 +171,4 @@
     {% endif %}
 </div>
 
-<!-- Include your modals for Add/Edit, Change Password, Deactivate, Delete here as before -->
 {% endblock %}

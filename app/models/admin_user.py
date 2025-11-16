@@ -116,6 +116,31 @@ class AdminUser:
             cur.execute(sql, (is_active, admin_id))
              
             return cur.rowcount > 0
+    # ---------------------
+    # UPDATE FULL NAME
+    # ---------------------
+    def update_full_name(self, admin_id, first_name=None, last_name=None): 
+        updates = []
+        values = []
+
+        if first_name is not None:
+            updates.append("first_name = %s")
+            values.append(first_name.strip())
+
+        if last_name is not None:
+            updates.append("last_name = %s")
+            values.append(last_name.strip())
+
+        if not updates:
+            # Nothing to update
+            return False
+
+        values.append(admin_id)
+        sql = f"UPDATE admin_users SET {', '.join(updates)} WHERE admin_id = %s;"
+
+        with get_cursor() as cur:
+            cur.execute(sql, tuple(values))
+            return cur.rowcount > 0
 
     # ---------------------
     # DELETE
@@ -219,3 +244,5 @@ class AdminUser:
             return staff_permissions
 
         return []
+    
+    

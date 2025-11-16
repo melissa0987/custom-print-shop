@@ -2,8 +2,13 @@
 -- Insert Sample Admin Users 
 INSERT INTO admin_users (username, email, password_hash, first_name, last_name, role, is_active) VALUES
     ('superadmin', 'superadmin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Super', 'Admin', 'super_admin', TRUE),
-    ('admin_john', 'john.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Administrator', 'admin', TRUE),
-    ('staff_jane', 'jane.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Staff', 'staff', TRUE);
+    ('admin_john', 'john.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Admin', 'super_admin', TRUE),
+    ('staff_jane', 'jane.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Administrator', 'admin', TRUE),
+    ('admin_emily', 'emily.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Emily', 'Administrator', 'admin', TRUE),
+    ('staff_michael', 'michael.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Michael', 'Staff', 'staff', TRUE),
+    ('staff_sophia', 'sophia.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Sophia', 'Staff', 'staff', TRUE),
+    ('admin_david', 'david.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'David', 'Administrator', 'admin', TRUE),
+    ('staff_olivia', 'olivia.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Olivia', 'Staff', 'staff', TRUE);
 
 -- Insert Sample Customers
 INSERT INTO customers (username, email, password_hash, first_name, last_name, phone_number) VALUES

@@ -87,7 +87,9 @@
                         <th>Orders</th>
                         <th>Spent</th>
                         <th>Joined</th>
-                        <th>Actions</th>
+                        {% if session.get('admin_role') == 'super_admin' %} 
+                            <th>Actions</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -109,13 +111,15 @@
                             <td>{{ c.total_orders }}</td>
                             <td>${{ '%.2f'|format(c.total_spent) }}</td>
                             <td>{{ c.created_at[:10] if c.created_at else '' }}</td>
-                            <td>
-                                <div class="action-buttons">
-                                    <a href="{{ url_for('admin.edit_customer', customer_id=c.customer_id) }}" class="btn-action btn-view">
-                                        View
-                                    </a>
-                                </div>
-                            </td>
+                            {% if session.get('admin_role') == 'super_admin' %} 
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="{{ url_for('admin.edit_customer', customer_id=c.customer_id) }}" class="btn-action btn-view">
+                                            View
+                                        </a>
+                                    </div>
+                                </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     {% else %}

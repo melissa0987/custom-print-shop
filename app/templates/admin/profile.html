@@ -1,0 +1,82 @@
+{% extends "admin_base.html" %}
+{% block title %}Admin Profile - PrintCraft{% endblock %}
+
+{% block content %}
+<section class="profile-page">
+    <div class="container">
+        <h1>My Profile</h1>
+
+        <div class="profile-grid">
+            <!-- Profile Information -->
+            <div class="profile-info">
+                
+                <div class="card">
+                    <form method="POST" action="{{ url_for('admin.update_admin_form', admin_id=admin.admin_id) }}">
+                        <div class="card-header">
+                            <h2>Account Information</h2>
+                            <button type="submit" class="btn-primary">Save Changes</button>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="info-row">
+                                <span class="label">Username:</span>
+                                <span class="value">{{ admin.username }}</span>
+                            </div>
+
+                            <div class="info-row">
+                                <span class="label">Email:</span>
+                                <span class="value">{{ admin.email }}</span>
+                            </div>
+
+                            <div class="info-row">
+                                <span class="label">First Name:</span>
+                                <input type="text" name="first_name" value="{{ admin.first_name }}" class="input-field">
+                            </div>
+
+                            <div class="info-row">
+                                <span class="label">Last Name:</span>
+                                <input type="text" name="last_name" value="{{ admin.last_name }}" class="input-field">
+                            </div>
+
+                            <div class="info-row">
+                                <span class="label">Role:</span>
+                                <span class="value">{{ admin.role }}</span>
+                            </div>
+
+                            <div class="info-row">
+                                <span class="label">Account Status:</span>
+                                <span class="value">
+                                    {% if current_admin_role == 'super_admin' %}
+                                        <input type="checkbox" name="is_active" {% if admin.is_active %}checked{% endif %}>
+                                    {% else %}
+                                        {% if admin.is_active %}
+                                            <span class="status-badge active">Active</span>
+                                        {% else %}
+                                            <span class="status-badge inactive">Inactive</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </span>
+                            </div>
+
+                            <div class="info-row">
+                                <span class="label">Member Since:</span>
+                                <span class="value">{{ admin.created_at.strftime('%Y-%m-%d') if admin.created_at else 'N/A' }}</span>
+                            </div>
+
+                            <div class="info-row">
+                                <span class="label">Change Password:</span>
+                                <a href="{{ url_for('admin.change_admin_password', admin_id=admin.admin_id) }}" class="btn-action">
+                                    Change Password
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                                
+
+            </div>
+        </div>
+    </div>
+</section>
+ 
+{% endblock %} 

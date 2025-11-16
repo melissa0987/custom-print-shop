@@ -10,6 +10,7 @@ from app.models import (
     Order, OrderItem, OrderStatusHistory, Product, Category,
     Customer, AdminUser, AdminActivityLog
 )
+from app.services.admin_service import AdminService
 from app.services.customer_service import CustomerService
 from app.services.order_service import OrderService
 from app.utils import admin_required, permission_required
@@ -882,277 +883,7 @@ def update_product(product_id):
         flash(f'Failed to update product: {str(e)}', 'danger')
         return redirect(url_for('admin.get_products_admin'))
 
-
-# ============================================
-# CATEGORY MANAGEMENT
-# ============================================
-@admin_bp.route('/categories', methods=['GET'])
-@permission_required('view_categories')
-def get_categories_admin():
-    """Render categories management page"""
-    try:
-        category_model = Category()
-        categories = category_model.get_all()
-        
-        formatted_categories = []
-        for c in categories:
-            formatted_categories.append({
-                'category_id': c['category_id'],
-                'category_name': c['category_name'],
-                'description': c.get('description'),
-                'is_active': c.get('is_active'),
-                'display_order': c.get('display_order', 0),
-                'product_count': len(c.get('products', [])),
-                'created_at': c['created_at'].isoformat() if c.get('created_at') else None,
-                'updated_at': c['updated_at'].isoformat() if c.get('updated_at') else None
-            })
-        
-        # Sort by display_order
-        formatted_categories.sort(key=lambda x: x['display_order'])
-        
-        return render_template('admin/admin_categories.html', 
-                             categories=formatted_categories)
-            
-    except Exception as e:
-        flash(f'Failed to load categories: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_dashboard'))
-    
-
-@admin_bp.route('/categories', methods=['GET'])
-@permission_required('view_categories')
-def get_categories():
-    """Render categories management page or return JSON for AJAX"""
-    # If it's an AJAX request, return JSON
-    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return get_categories_data()
-    
-    # Otherwise render the HTML page
-    return render_template('admin/admin_categories.html')
-
-
-def get_categories_data():
-    """API endpoint to get all categories"""
-    try:
-        category_model = Category()
-        product_model = Product()
-        
-        categories = category_model.get_all()
-        
-        # Add product count to each category
-        result = []
-        for cat in categories:
-            products = product_model.get_by_category(cat['category_id']) if hasattr(product_model, 'get_by_category') else []
-            result.append({
-                'category_id': cat['category_id'],
-                'category_name': cat['category_name'],
-                'description': cat.get('description'),
-                'display_order': cat.get('display_order', 0),
-                'is_active': cat.get('is_active', True),
-                'created_at': cat['created_at'].isoformat() if cat.get('created_at') else None,
-                'product_count': len(products)
-            })
-        
-        return jsonify({'categories': result}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to get categories: {str(e)}'}), 500
-
-@admin_bp.route('/categories/create', methods=['GET', 'POST'])
-@permission_required('manage_categories')
-def create_category():
-    """Create new category"""
-    if request.method == 'GET':
-        return render_template('admin/admin_category_form.html', action='create')
-    
-    # POST - handle form submission
-    data = request.form.to_dict()
-    
-    if 'category_name' not in data or not data['category_name']:
-        flash('category_name is required', 'danger')
-        return redirect(url_for('admin.create_category'))
-    
-    try:
-        category_model = Category()
-        
-        category_id = category_model.create(
-            category_name=data['category_name'],
-            description=data.get('description'),
-            is_active=data.get('is_active') == 'on',
-            display_order=int(data.get('display_order', 0)),
-            created_by=session.get('admin_id')
-        )
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='create_category',
-            table_name='categories',
-            record_id=category_id,
-            old_values=None,
-            new_values=data
-        )
-        
-        flash('Category created successfully', 'success')
-        return redirect(url_for('admin.get_categories_admin'))
-            
-    except Exception as e:
-        flash(f'Failed to create category: {str(e)}', 'danger')
-        return redirect(url_for('admin.create_category')) 
-
-@admin_bp.route('/categories/<int:category_id>/edit', methods=['GET', 'POST'])
-@permission_required('manage_categories')
-def edit_category(category_id):
-    """Edit category"""
-    category_model = Category()
-    
-    if request.method == 'GET':
-        # Render edit form
-        try:
-            category = category_model.get_by_id(category_id)
-            if not category:
-                flash('Category not found', 'danger')
-                return redirect(url_for('admin.get_categories_admin'))
-            
-            return render_template('admin/admin_category_form.html', 
-                                 category=category,
-                                 action='edit')
-        except Exception as e:
-            flash(f'Failed to load category: {str(e)}', 'danger')
-            return redirect(url_for('admin.get_categories_admin'))
-    
-    # POST - handle form submission
-    data = request.form.to_dict()
-    
-    try:
-        category = category_model.get_by_id(category_id)
-        if not category:
-            flash('Category not found', 'danger')
-            return redirect(url_for('admin.get_categories_admin'))
-        
-        # Update category
-        update_data = {}
-        if 'category_name' in data:
-            update_data['category_name'] = data['category_name']
-        if 'description' in data:
-            update_data['description'] = data['description']
-        if 'display_order' in data:
-            update_data['display_order'] = int(data['display_order'])
-        
-        update_data['is_active'] = data.get('is_active') == 'on'
-        update_data['updated_by'] = session.get('admin_id')
-        
-        success = category_model.update(category_id, **update_data)
-        
-        if not success:
-            flash('Failed to update category', 'danger')
-            return redirect(url_for('admin.edit_category', category_id=category_id))
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='update_category',
-            table_name='categories',
-            record_id=category_id,
-            old_values=category,
-            new_values=data
-        )
-        
-        flash('Category updated successfully', 'success')
-        return redirect(url_for('admin.get_categories_admin'))
-            
-    except Exception as e:
-        flash(f'Failed to update category: {str(e)}', 'danger')
-        return redirect(url_for('admin.edit_category', category_id=category_id))
-
-
-@admin_bp.route('/categories/<int:category_id>/toggle', methods=['POST'])
-@permission_required('manage_categories')
-def toggle_category_status(category_id):
-    """Toggle category active status"""
-    try:
-        category_model = Category()
-        category = category_model.get_by_id(category_id)
-        
-        if not category:
-            flash('Category not found', 'danger')
-            return redirect(url_for('admin.get_categories_admin'))
-        
-        new_status = not category.get('is_active', True)
-        
-        success = category_model.update(
-            category_id,
-            is_active=new_status,
-            updated_by=session.get('admin_id')
-        )
-        
-        if not success:
-            flash('Failed to toggle category status', 'danger')
-            return redirect(url_for('admin.get_categories_admin'))
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='toggle_category_status',
-            table_name='categories',
-            record_id=category_id,
-            old_values={'is_active': category.get('is_active')},
-            new_values={'is_active': new_status}
-        )
-        
-        status_text = 'activated' if new_status else 'deactivated'
-        flash(f'Category {status_text} successfully', 'success')
-        return redirect(url_for('admin.get_categories_admin'))
-            
-    except Exception as e:
-        flash(f'Failed to toggle category status: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_categories_admin'))
-    
-
-@admin_bp.route('/categories/<int:category_id>/delete', methods=['POST'])
-@permission_required('manage_categories')
-def delete_category(category_id):
-    """Delete category"""
-    try:
-        category_model = Category()
-        category = category_model.get_by_id(category_id)
-        
-        if not category:
-            flash('Category not found', 'danger')
-            return redirect(url_for('admin.get_categories_admin'))
-        
-        # Check if category has products
-        if len(category.get('products', [])) > 0:
-            flash('Cannot delete category with products. Remove or reassign products first.', 'danger')
-            return redirect(url_for('admin.get_categories_admin'))
-        
-        # Log activity before deletion
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='delete_category',
-            table_name='categories',
-            record_id=category_id,
-            old_values=category,
-            new_values=None
-        )
-        
-        success = category_model.delete(category_id)
-        
-        if not success:
-            flash('Failed to delete category', 'danger')
-            return redirect(url_for('admin.get_categories_admin'))
-        
-        flash('Category deleted successfully', 'success')
-        return redirect(url_for('admin.get_categories_admin'))
-            
-    except Exception as e:
-        flash(f'Failed to delete category: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_categories_admin'))  
-
-
+ 
 # ============================================
 # CUSTOMER MANAGEMENT
 # ============================================
@@ -1529,28 +1260,99 @@ def delete_customer(customer_id):
 # ============================================
 # ADMIN USER MANAGEMENT (SUPER ADMIN ONLY)
 # ============================================
+@admin_bp.route('/admins/<int:admin_id>/profile', methods=['GET'])
+@admin_required
+def get_admin_profile(admin_id):
+    """
+    Render admin profile page.
+    - Super admins can view any profile
+    - Regular admins can only view their own profile
+    """
+    current_admin_id = session.get('admin_id')
+    current_role = session.get('admin_role')
+
+    # Restrict access
+    if current_role != 'super_admin' and admin_id != current_admin_id:
+        flash("You can only view your own profile.", "error")
+        return redirect(url_for('admin.get_admin', admin_id=current_admin_id))
+
+    # Fetch admin data
+    admin_model = AdminUser()
+    admin = admin_model.get_by_id(admin_id)
+
+    if not admin:
+        flash("Admin user not found.", "error")
+        return redirect(url_for('admin.get_admins'))
+
+    return render_template('admin/profile.html', admin=admin)
+
 
 @admin_bp.route('/admins', methods=['GET'])
 @admin_required
 def get_admins():
-    """Render admin users management page or return JSON for AJAX"""
-    # Only super admin can access
-    if session.get('admin_role') != 'super_admin':
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'error': 'Only super admin can access this page'}), 403
+    """Render admin users management page with filters."""
+    if session.get('admin_role') not in ['super_admin', 'admin']:
         flash('Only super admin can access this page', 'error')
         return redirect(url_for('admin.get_dashboard'))
 
-    # Fetch admin users from service/model 
+    # Get query params
+    role = request.args.get('role', '')
+    status = request.args.get('status', '')
+    search = request.args.get('search', '')
+    sort_by = request.args.get('sort_by', 'id')
+    sort_order = request.args.get('sort_order', 'asc')
+
+    # Fetch all admins
     admin_model = AdminUser()
-    admin_users = admin_model.get_all()  # returns list of dicts or objects
+    admin_users = admin_model.get_all()  # list of dicts or objects
 
-    # Sort by admin_id ascending
-    admin_users.sort(key=lambda a: a['admin_id'] if isinstance(a, dict) else a.admin_id)
+    # Filter by role
+    if role:
+        admin_users = [a for a in admin_users if a['role'] == role]
 
-    # Render template with admin_users
-    return render_template('admin/admins.html', admin_users=admin_users)
+    # Filter by status
+    if status:
+        if status == 'active':
+            admin_users = [a for a in admin_users if a.get('is_active', True)]
+        elif status == 'inactive':
+            admin_users = [a for a in admin_users if not a.get('is_active', True)]
 
+    # Filter by search (username, email, first_name, last_name)
+    if search:
+        search_lower = search.lower()
+        admin_users = [
+            a for a in admin_users
+            if search_lower in a['username'].lower() 
+               or search_lower in a['email'].lower() 
+               or search_lower in a['first_name'].lower()
+               or search_lower in a['last_name'].lower()
+        ]
+
+    # Sort
+    reverse = True if sort_order == 'desc' else False
+    if sort_by == 'id':
+        admin_users.sort(key=lambda a: a['admin_id'], reverse=reverse)
+    elif sort_by == 'username':
+        admin_users.sort(key=lambda a: a['username'].lower(), reverse=reverse)
+    elif sort_by == 'name':
+        admin_users.sort(key=lambda a: (a['first_name'] + a['last_name']).lower(), reverse=reverse)
+    elif sort_by == 'role':
+        admin_users.sort(key=lambda a: a['role'].lower(), reverse=reverse)
+    elif sort_by == 'created':
+        admin_users.sort(key=lambda a: a['created_at'] or '', reverse=reverse)
+    elif sort_by == 'last_login':
+        admin_users.sort(key=lambda a: a['last_login'] or '', reverse=reverse)
+
+    # Pass current filters to template
+    return render_template(
+        'admin/admins.html',
+        admin_users=admin_users,
+        role=role,
+        status=status,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
 
 
 def get_admins_data():
@@ -1584,6 +1386,16 @@ def get_admins_data():
     except Exception as e:
         return jsonify({'error': f'Failed to get admin users: {str(e)}'}), 500
 
+@admin_bp.route('/admins/add', methods=['GET'])
+@admin_required
+def show_add_admin_form():
+    """Display Add Admin form"""
+    if session.get('admin_role') != 'super_admin':
+        flash("Only Super Admins can access this page", "error")
+        return redirect(url_for('admin.get_admins'))
+
+    return render_template('admin/add_admin.html')
+
 @admin_bp.route('/admins/<int:admin_id>', methods=['GET'])
 @admin_required
 def get_admin(admin_id):
@@ -1613,47 +1425,30 @@ def get_admin(admin_id):
     return render_template('admin/admin_detail.html', admin=admin_data)
 
 
-@admin_bp.route('/admins', methods=['POST'])
+@admin_bp.route('/admins/add', methods=['POST'])
 @admin_required
-def add_admin():
-    """Add new admin user (super admin only)"""
+def add_admin_from_form():
     if session.get('admin_role') != 'super_admin':
-        return jsonify({'error': 'Only super admin can create admin users'}), 403
-    
-    data = request.get_json()
-    
-    try:
-        admin_model = AdminUser()
-        
-        admin_id = admin_model.create(
-            username=data['username'],
-            email=data['email'],
-            password=data['password'],
-            first_name=data['first_name'],
-            last_name=data['last_name'],
-            role=data['role'],
-            is_active=data.get('is_active', True),
-            created_by=session['admin_id']
-        )
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='create_admin_user',
-            table_name='admin_users',
-            record_id=admin_id,
-            old_values=None,
-            new_values={'username': data['username'], 'role': data['role']}
-        )
-        
-        return jsonify({
-            'message': 'Admin user created successfully',
-            'admin_id': admin_id
-        }), 201
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to create admin user: {str(e)}'}), 500
+        flash("Only Super Admins can create new admin users", "error")
+        return redirect(url_for('admin.get_admins'))
+
+    form = request.form
+
+    admin_model = AdminUser()
+
+    admin_id = admin_model.create(
+        username=form.get('username'),
+        email=form.get('email'),
+        password=form.get('password'),
+        first_name=form.get('first_name'),
+        last_name=form.get('last_name'),
+        role=form.get('role'),
+        is_active=True if form.get('is_active') == "on" else False,
+        created_by=session['admin_id']
+    )
+
+    flash("Admin user created successfully!", "success")
+    return redirect(url_for('admin.update_admin', admin_id=admin_id))
 
 
 @admin_bp.route('/admins/<int:admin_id>', methods=['PUT'])
@@ -1707,43 +1502,104 @@ def update_admin(admin_id):
         return jsonify({'error': f'Failed to update admin user: {str(e)}'}), 500
 
 
-@admin_bp.route('/admins/<int:admin_id>/password', methods=['PUT'])
+@admin_bp.route('/admins/<int:admin_id>', methods=['POST'])
 @admin_required
-def change_admin_password(admin_id):
-    """Change admin password (super admin only)"""
-    if session.get('admin_role') != 'super_admin':
-        return jsonify({'error': 'Only super admin can change admin passwords'}), 403
-    
-    data = request.get_json()
-    new_password = data.get('password')
-    
-    if not new_password:
-        return jsonify({'error': 'Password is required'}), 400
-    
-    try:
-        admin_model = AdminUser()
-        admin = admin_model.get_by_id(admin_id)
-        
-        if not admin:
-            return jsonify({'error': 'Admin user not found'}), 404
-        
-        admin_model.update_password(admin_id, new_password)
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='change_admin_password',
-            table_name='admin_users',
-            record_id=admin_id,
-            old_values=None,
-            new_values={'action': 'password_changed'}
-        )
-        
-        return jsonify({'message': 'Password changed successfully'}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to change password: {str(e)}'}), 500
+def update_admin_form(admin_id):
+    """Handle HTML form submission from admin_detail.html"""
+
+    current_admin_id = session.get('admin_id')
+    current_role = session.get('admin_role')
+
+    admin_model = AdminUser()
+    admin = admin_model.get_by_id(admin_id)
+
+    if not admin:
+        flash("Admin user not found", "error")
+        return redirect(url_for('admin.get_admins'))
+
+    # Permission check
+    if current_role != 'super_admin' and admin_id != current_admin_id:
+        flash("You are not allowed to update this admin user.", "error")
+        return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
+
+    # Read form data
+    is_active = True if request.form.get("is_active") == "on" else False
+    password = request.form.get("password")
+    first_name = request.form.get("first_name")
+    last_name = request.form.get("last_name")
+
+    # Update full name
+    if first_name or last_name:
+        admin_model.update_full_name(admin_id, first_name=first_name, last_name=last_name)
+
+    # Only super_admin can update status of other admins
+    if current_role == 'super_admin':
+        admin_model.update_status(admin_id, is_active)
+
+    # Update password only if provided
+    if password and password.strip() != "":
+        admin_model.update_password(admin_id, password)
+
+    flash("Admin updated successfully", "success")
+
+    # Redirect depending on whether the updated admin is the current user
+    if admin_id == current_admin_id:
+        return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
+    else:
+        return redirect(url_for('admin.get_admin', admin_id=admin_id))
+
+
+
+@admin_bp.route('/profile/password', methods=['GET', 'POST', 'PUT'])
+@admin_required
+def change_admin_password():
+    """
+    Render and handle password change for the current logged-in admin.
+    - Super admin or regular admin can change their own password.
+    """
+    current_admin_id = session.get('admin_id')
+    if not current_admin_id:
+        flash("You must be logged in to change password.", "error")
+        return redirect(url_for('admin.admin_login'))
+
+    admin_model = AdminUser()
+    admin = admin_model.get_by_id(current_admin_id)
+    if not admin:
+        flash("Admin user not found.", "error")
+        return redirect(url_for('admin.get_dashboard'))
+
+    # Handle form submission
+    if request.method == 'POST' or request.method == 'PUT':
+        new_password = request.form.get('new_password') or request.json.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not new_password or (request.method == 'POST' and new_password != confirm_password):
+            flash("Passwords do not match or are empty.", "error")
+            return redirect(url_for('admin.change_admin_password'))
+
+        try:
+            admin_model.update_password(current_admin_id, new_password)
+
+            # Log activity
+            activity_log_model = AdminActivityLog()
+            activity_log_model.create_log(
+                admin_id=current_admin_id,
+                action='change_admin_password',
+                table_name='admin_users',
+                record_id=current_admin_id,
+                old_values=None,
+                new_values={'action': 'password_changed'}
+            )
+
+            flash("Password changed successfully.", "success")
+            return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
+
+        except Exception as e:
+            flash(f"Failed to change password: {str(e)}", "error")
+            return redirect(url_for('admin.change_admin_password'))
+
+    # GET request renders the password change page
+    return render_template('admin/admin_password.html', admin=admin)
 
 
 @admin_bp.route('/admins/<int:admin_id>/deactivate', methods=['PUT'])
@@ -1816,111 +1672,28 @@ def activate_admin(admin_id):
         return jsonify({'error': f'Failed to activate admin user: {str(e)}'}), 500
 
 
-@admin_bp.route('/admins/<int:admin_id>', methods=['DELETE'])
+@admin_bp.route('/admins/<int:admin_id>/delete', methods=['POST'])
 @admin_required
 def delete_admin(admin_id):
-    """Delete admin user (super admin only)"""
     if session.get('admin_role') != 'super_admin':
-        return jsonify({'error': 'Only super admin can delete admin users'}), 403
-    
-    # Cannot delete yourself
+        flash("Only super admins can delete admin users.", "error")
+        return redirect(url_for('admin.get_admin', admin_id=admin_id))
+
     if admin_id == session.get('admin_id'):
-        return jsonify({'error': 'Cannot delete your own account'}), 400
-    
-    try:
-        admin_model = AdminUser()
-        admin = admin_model.get_by_id(admin_id)
-        
-        if not admin:
-            return jsonify({'error': 'Admin user not found'}), 404
-        
-        # Log activity before deletion
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='delete_admin_user',
-            table_name='admin_users',
-            record_id=admin_id,
-            old_values={'username': admin['username'], 'role': admin['role']},
-            new_values=None
-        )
-        
-        admin_model.delete(admin_id)
-        
-        return jsonify({'message': 'Admin user deleted successfully'}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to delete admin user: {str(e)}'}), 500
+        flash("You cannot delete your own account.", "error")
+        return redirect(url_for('admin.get_admin', admin_id=admin_id))
+
+    admin_model = AdminUser()
+    admin = admin_model.get_by_id(admin_id)
+
+    if not admin:
+        flash("Admin user not found.", "error")
+        return redirect(url_for('admin.get_admins'))
+
+    admin_model.delete(admin_id)
+
+    flash("Admin user deleted successfully.", "success")
+    return redirect(url_for('admin.get_admins'))
 
 
-# ============================================
-# REPORTS
-# ============================================
-
-@admin_bp.route('/reports', methods=['GET'])
-@permission_required('view_reports')
-def get_reports():
-    """Render reports page"""
-    return render_template('admin/admin_reports.html')
-
-
-@admin_bp.route('/reports/sales', methods=['GET'])
-@permission_required('view_reports')
-def get_sales_report():
-    """Get sales report"""
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    group_by = request.args.get('group_by', 'day')
-    
-    try:
-        # TODO: Implement sales report logic
-        return jsonify({
-            'sales_report': {
-                'total_revenue': 0.0,
-                'total_orders': 0,
-                'average_order_value': 0.0,
-                'start_date': start_date,
-                'end_date': end_date
-            }
-        }), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to generate sales report: {str(e)}'}), 500
-
-
-@admin_bp.route('/reports/products', methods=['GET'])
-@permission_required('view_reports')
-def get_product_report():
-    """Get product performance report"""
-    try:
-        product_model = Product()
-        category_model = Category()
-        
-        # Get product performance
-        products = product_model.get_all()
-        
-        product_data = []
-        for product in products:
-            category = category_model.get_by_id(product['category_id'])
-            product_data.append({
-                'product_id': product['product_id'],
-                'product_name': product['product_name'],
-                'category_name': category['category_name'] if category else 'Unknown',
-                'base_price': float(product['base_price']),
-                'times_ordered': product_model.get_total_orders(product['product_id']),
-                'total_quantity_sold': product_model.get_total_quantity_sold(product['product_id']),
-                'total_revenue': product_model.get_total_revenue(product['product_id'])
-            })
-        
-        # Sort by revenue
-        product_data.sort(key=lambda x: x['total_revenue'], reverse=True)
-        
-        return jsonify({
-            'product_report': {
-                'products': product_data[:20],  # Top 20
-                'total_products': len(products)
-            }
-        }), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to generate product report: {str(e)}'}), 500
+ 

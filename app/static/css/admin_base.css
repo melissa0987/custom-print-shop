@@ -710,7 +710,7 @@
    =================================== */
 
 .profile-page {
-    padding: 120px 2rem 60px;
+    padding: 50px 2rem 60px;
     background-color: var(--bg-light);
     min-height: calc(100vh - 200px);
 }

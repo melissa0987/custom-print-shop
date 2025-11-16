@@ -114,22 +114,18 @@
 
     <div class="quick-actions">
         {% if session.get('admin_role') in ['super_admin', 'admin'] %}
-        <a href="{{ url_for('admin.create_product') }}" class="action-card"> 
+        <a href="{{ url_for('admin.get_products_admin') }}" class="action-card"> 
             <span>Add Product</span>
         </a>
 
-        <a href="{{ url_for('admin.create_category') }}" class="action-card"> 
-            <span>Add Category</span>
+        <a href="{{ url_for('admin.get_customers_admin') }}" class="action-card"> 
+            <span>View Customer List</span>
         </a>
         {% endif %}
 
         <a href="{{ url_for('admin.get_orders') }}?status=pending" class="action-card"> 
             <span>Pending Orders</span>
-        </a>
-
-        <a href="{{ url_for('admin.get_reports') }}" class="action-card"> 
-            <span>Generate Report</span>
-        </a>
+        </a> 
     </div>
 </div>
 </div>  
