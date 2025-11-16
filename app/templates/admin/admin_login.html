@@ -42,14 +42,18 @@
 
       
         <label for="password">Password</label>
-        <input 
-          type="password" 
-          name="password" 
-          id="password" 
-          placeholder="Enter your password"
-          required
-          autocomplete="current-password"
-        >
+        <div class="password-wrapper">
+            <input 
+                type="password" 
+                name="password" 
+                id="password" 
+                placeholder="Enter your password"
+                required
+                autocomplete="current-password"
+            >
+            <button type="button" class="toggle-password" data-target="password">👁️</button>
+        </div>
+
       
 
       <button type="submit" class="btn-login">Login </button>
@@ -67,4 +71,10 @@
     </p>
   </div>
 </main> 
+{% endblock %}
+
+{% block script %}
+<script src="{{ url_for('static', filename='js/password.js') }}"></script>
+
+ 
 {% endblock %}

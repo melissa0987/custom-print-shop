@@ -21,36 +21,40 @@
       {% endif %}
     {% endwith %}
 
-     <form id="login-form" method="POST" 
-      action="{{ url_for('auth.login') }}">
-            <!-- Preserve next parameter -->
-            {% if request.args.get('next') %}
-                <input type="hidden" name="next" value="{{ request.args.get('next') }}">
-            {% endif %}
+    <form id="login-form" method="POST" action="{{ url_for('auth.login') }}">
+        <!-- Preserve next parameter -->
+        {% if request.args.get('next') %}
+            <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+        {% endif %}
 
-            <label for="username_or_email">Username or Email</label>
-            <input 
-                type="text" 
-                name="username_or_email" 
-                id="username_or_email" 
-                value="{{ request.form.get('username_or_email', '') }}" 
-                required
-            >
+        <label for="username_or_email">Username or Email</label>
+        <input 
+            type="text" 
+            name="username_or_email" 
+            id="username_or_email" 
+            value="{{ request.form.get('username_or_email', '') }}" 
+            required
+        >
 
-            <label for="password">Password</label>
+        <label for="password">Password</label>
+        <div class="password-wrapper">
             <input type="password" name="password" id="password" required>
+            <button type="button" class="toggle-password" data-target="password">👁️</button>
+        </div>
 
-            <button type="submit" class="btn-login">Login</button>
-        </form>
+        <button type="submit" class="btn-login">Login</button>
+    </form>
 
     <p class="switch-text">
       Not a member? <a href="{{ url_for('auth.register') }}">Signup now</a>
     </p>
-    <!-- admin -->
     <p class="switch-text">
       <a href="{{ url_for('admin.admin_login') }}">Admin Login</a>
     </p>
   </div>
 </main>
- 
+{% endblock %}
+
+{% block script %}
+<script src="{{ url_for('static', filename='js/password.js') }}"></script>
 {% endblock %}
