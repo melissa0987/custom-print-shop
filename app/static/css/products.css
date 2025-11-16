@@ -306,7 +306,7 @@
    =================================== */
 
 .product-detail-page {
-    padding: 120px 2rem 60px;
+    padding: 20px 2rem 60px;
     background-color: var(--bg-light);
     min-height: calc(100vh - 200px);
 }

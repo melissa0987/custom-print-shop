@@ -28,6 +28,12 @@
       <input type="text" name="first_name" placeholder="First Name" required>
       <input type="text" name="last_name" placeholder="Last Name" required>
       <input type="tel" name="phone_number" placeholder="Phone Number (optional)">
+
+      <!-- Address section -->
+      <input type="text" name="address" id="address" placeholder="Address" required>
+      <input type="hidden" name="latitude" id="latitude">
+      <input type="hidden" name="longitude" id="longitude">
+
       <!-- Password with toggle -->
       <div class="password-wrapper">
         <input type="password" name="password" id="register_password" placeholder="Password" required>
@@ -45,8 +51,6 @@
       </div>
 
       <button type="submit" class="btn-login">Signup</button>
-
-      
     </form>
 
     <p class="switch-text">
@@ -54,12 +58,29 @@
     </p>
   </div>
 </main>
-
- 
 {% endblock %}
 
 {% block script %}
 <script src="{{ url_for('static', filename='js/password.js') }}"></script>
-
- 
 {% endblock %}
+
+<!-- Google Maps Places Autocomplete -->
+<script>
+  function initAutocomplete() {
+      const input = document.getElementById('address');
+      const autocomplete = new google.maps.places.Autocomplete(input, {
+          types: ['geocode']
+      });
+
+      autocomplete.addListener('place_changed', function() {
+          const place = autocomplete.getPlace();
+          if (!place.geometry) return;
+
+          document.getElementById('latitude').value = place.geometry.location.lat();
+          document.getElementById('longitude').value = place.geometry.location.lng();
+      });
+  }
+
+  // Initialize autocomplete when page loads
+  document.addEventListener('DOMContentLoaded', initAutocomplete);
+</script>

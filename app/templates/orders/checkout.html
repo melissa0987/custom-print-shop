@@ -67,18 +67,44 @@
                     <div class="summary-items">
                         {% for item in cart['items'] %}
                         <div class="summary-item">
+                            <!-- Product Preview with Design Overlay -->
+                            <div class="item-preview">
+                                <div class="preview-container">
+                                    <!-- Base Product Image -->
+                                    <img src="{{ url_for('static', filename=item.product.image_url.lstrip('/')) }}" 
+                                         alt="{{ item.product.product_name }}"
+                                         class="product-base"
+                                         onerror="this.src='/static/images/products/default.png';">
+                                    
+                                    <!-- Design Overlay (if exists) -->
+                                    {% if item.design_file_url %}
+                                    <div class="design-overlay">
+                                        <img src="{{ item.design_file_url }}" 
+                                             alt="Your Design"
+                                             class="design-image"
+                                             onclick="openLightbox('{{ item.design_file_url }}')">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Item Details -->
                             <div class="item-info">
                                 <h4>{{ item['product']['product_name'] }}</h4>
-                                <p class="item-quantity">Qty: {{ item['quantity'] }}</p>
+                                <p class="item-category">{{ item['product']['category_name'] }}</p>
+                                <p class="item-quantity">Quantity: {{ item['quantity'] }} × {{ item['product']['base_price_formatted'] }}</p>
                                 
                                 {% if item['customizations'] %}
                                 <div class="item-customizations">
+                                    <strong>Customizations:</strong>
                                     {% for key, value in item['customizations'].items() %}
-                                        <small>{{ key }}: {{ value }}</small><br>
+                                        <span class="custom-tag">{{ key }}: {{ value }}</span>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
                             </div>
+                            
+                            <!-- Item Price -->
                             <div class="item-price">
                                 {{ item['line_total_formatted'] }}
                             </div>
@@ -106,9 +132,16 @@
                         Continue Shopping
                     </a>
                 {% endif %}
-
             </div>
         </div>
     </div>
 </section>
+
+<!-- Lightbox for viewing design images -->
+<div id="imageLightbox" class="lightbox" onclick="closeLightbox()">
+    <span class="lightbox-close">&times;</span>
+    <img id="lightboxImage" class="lightbox-content">
+</div>
+
+
 {% endblock %}

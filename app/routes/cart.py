@@ -128,6 +128,7 @@ def format_cart_response(cart):
             },
             'quantity': cart_item['quantity'],
             'design_file_url': cart_item.get('design_file_url'),
+            'preview_url': cart_item.get('preview_url'),  # <-- add this
             'customizations': customizations,
             'line_total': line_total,
             'line_total_formatted': PriceHelper.format_currency(line_total),

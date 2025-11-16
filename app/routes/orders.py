@@ -3,6 +3,7 @@ app/routes/orders.py
 Orders Routes
 Handles order placement, tracking, and history
 """
+import os
 from flask import Blueprint, json, request, jsonify, session, render_template, flash, redirect, url_for
 from datetime import datetime
 from app.routes.cart import get_or_create_cart, format_cart_response
@@ -414,9 +415,8 @@ def get_order(order_id):
             )
         
         for item in order_data.get("items", []):
-            # Determine fallback image based on product name
+            # Fallback product image
             product_name_lower = item["product"]["product_name"].lower()
-        
             if 'mug' in product_name_lower:
                 image_filename = '/static/images/products/mug.png'
             elif 'tote' in product_name_lower:
@@ -430,11 +430,17 @@ def get_order(order_id):
             elif 'tumbler' in product_name_lower:
                 image_filename = '/static/images/products/tumbler.png'
             else:
-                image_filename = '/static/images/products/default.png'  # fallback
+                image_filename = '/static/images/products/default.png'
 
-            # Only set image_url if not already set
             if not item["product"].get("image_url"):
                 item["product"]["image_url"] = image_filename
+
+            # Set preview image if exists
+            preview_path = f"app/static/images/preview/{item['order_item_id']}.png"
+            if os.path.exists(preview_path):
+                item["preview_url"] = url_for('static', filename=f'images/preview/{item["order_item_id"]}.png')
+            else:
+                item["preview_url"] = None
         
         # For JSON requests
         if request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
