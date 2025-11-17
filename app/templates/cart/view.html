@@ -6,9 +6,7 @@
     <div class="container">
         <h1>Shopping Cart</h1>
         
-        {% if session.get('customer_id') %}
-            <p class="user-info">Logged in as: <strong>{{ session.get('username') }}</strong></p>
-        {% elif session.get('session_id') %}
+        {% if session.get('session_id') %}
             <p class="user-info">Shopping as Guest | 
                 <a href="{{ url_for('auth.login') }}">Login</a> to save your cart
             </p>

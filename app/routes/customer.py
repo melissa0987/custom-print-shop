@@ -61,7 +61,8 @@ def edit_profile():
             'last_name': form.last_name.data,
             'email': form.email.data,
             'username': form.username.data,
-            'phone_number': form.phone.data or None
+            'phone_number': form.phone.data or None,
+            'address' : form.address.data or None
         }
         
         # Handle password change if provided
@@ -91,6 +92,7 @@ def edit_profile():
         form.email.data = customer['email']
         form.username.data = customer['username']
         form.phone.data = customer.get('phone_number')
+        form.address.data = customer.get('address') 
 
     return render_template('auth/edit_profile.html', form=form, customer=customer)
 

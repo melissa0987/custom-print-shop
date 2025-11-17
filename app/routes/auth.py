@@ -90,6 +90,7 @@ def register():
         # Use PasswordHelper for hashing
         password_hash = PasswordHelper.hash_password(data['password'])
         
+        # In auth.py register route, update the create call:
         customer_id = customer_model.create(
             username=data['username'].lower(),
             email=data['email'].lower(),
@@ -97,9 +98,9 @@ def register():
             first_name=data['first_name'],
             last_name=data['last_name'],
             phone_number=data.get('phone_number'),
+            address=data.get('address', ''), 
             is_active=True
         )
-        
         customer = customer_model.get_by_id(customer_id)
         session['customer_id'] = customer['customer_id']
         session['username'] = customer['username']

@@ -35,6 +35,9 @@ class CustomerService:
         if 'username' in update_data and not Validators.validate_username(update_data['username']):
             return False, "Invalid username format"
         
+        if 'address' in update_data and len(update_data['address']) > 255:
+            return False, "Address is too long"
+        
         updated = model.update(customer_id, **update_data)
         if not updated:
             return False, "Failed to update profile"

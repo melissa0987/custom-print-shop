@@ -13,10 +13,6 @@
                     or <a href="{{ url_for('auth.register') }}">Register</a> to track your order history.
                 </p>
             </div>
-        {% else %}
-            <div class="user-info">
-                <p>Logged in as: <strong>{{ session.get('username') }}</strong></p>
-            </div>
         {% endif %}
 
         <div class="checkout-grid">
@@ -27,16 +23,19 @@
                 <form method="POST" action="{{ url_for('orders.checkout') }}">
                     <div class="form-group">
                         <label for="shipping_address">Shipping Address *</label>
-                        <textarea id="shipping_address" name="shipping_address" 
-                                  rows="3" required 
-                                  placeholder="Enter your full shipping address"></textarea>
+                        <textarea id="shipping_address" name="shipping_address" rows="3" required
+                                placeholder="Enter your full shipping address">
+                                {% if customer %}{{ customer.address }}{% endif %}
+                        </textarea>
                     </div>
                     
                     <div class="form-group">
                         <label for="contact_phone">Contact Phone</label>
-                        <input type="tel" id="contact_phone" name="contact_phone" 
-                               placeholder="(555) 123-4567">
+                        <input type="tel" id="contact_phone" name="contact_phone"
+                            placeholder="(555) 123-4567"
+                            value="{{ customer.phone if customer and customer.phone else '' }}">
                     </div>
+
                     
                     {% if not session.get('customer_id') %}
                     <div class="form-group">

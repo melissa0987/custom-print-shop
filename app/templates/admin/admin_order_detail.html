@@ -56,6 +56,7 @@
                 <th>Unit Price</th>
                 <th>Subtotal</th>
                 <th>Design</th>
+                <th>Preview</th>
                 <th>Customizations</th>
             </tr>
         </thead>
@@ -65,11 +66,12 @@
 
                 <!-- Product Column -->
                 <td>
-                    <div class="item-flex">
-                        <div class="item-image">
-                            <img src="{{ item.product.image_url }}" alt="{{ item.product.product_name }}">
-                        </div>
-                        <div class="item-name">{{ item.product.product_name }}</div>
+                    <div class="product-image">
+                        <img src="{{ item.product.image_url }}" 
+                            alt="{{ item.product.product_name }}"
+                            loading="lazy"
+                            onerror="this.onerror=null; this.src='/static/images/products/default.png';">
+                    
                     </div>
                 </td>
 
@@ -83,13 +85,43 @@
                     {% set design_img = item.design_url 
                         or (item.customizations.design if item.customizations and 'design' in item.customizations else None) %}
                     
-                    {% if design_img %}
+                     {% if item.design_file_url %}
                         <div class="item-image" style="margin:auto;">
-                            <img src="{{ design_img }}" alt="Design">
+                            <img src="{{ item.design_file_url }}" 
+                                      alt="Your Design"
+                                      class="design-image"
+                                      onclick="openLightbox('{{ item.design_file_url }}')">
                         </div>
                     {% else %}
                         N/A
                     {% endif %}
+                </td>
+                <td>
+                    <div class="product-image">
+                        <img src="{{ item.product.image_url }}" 
+                            alt="{{ item.product.product_name }}"
+                            loading="lazy"
+                            onerror="this.onerror=null; this.src='/static/images/products/default.png';">
+                    <!-- Preview Image (if exists) -->
+                        {% if item.preview_url %}
+                        <div class="design-overlay">
+                            <img src="{{ item.preview_url }}" 
+                                alt="Preview"
+                                class="design-image"
+                                onclick="openLightbox('{{ item.preview_url }}')">
+                        </div>
+                        {% endif %}
+
+                        <!-- Design Overlay (if exists) -->
+                        {% if item.design_file_url %}
+                        <div class="design-overlay">
+                            <img src="{{ item.design_file_url }}" 
+                                alt="Your Design"
+                                class="design-image"
+                                onclick="openLightbox('{{ item.design_file_url }}')">
+                        </div>
+                        {% endif %}
+                    </div>
                 </td>
 
                 <!-- Other Customizations -->
@@ -142,3 +174,10 @@
 
 
 {% endblock %}
+
+<style>
+ 
+.product-image img{
+    max-width: 50%
+}
+</style>

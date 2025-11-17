@@ -28,9 +28,9 @@
             <div class="info-row">
                 <strong>Status:</strong>
                 {% if admin.is_active %}
-                    <span class="status-active">Active</span>
+                    <span class="status-badge active">Active</span>
                 {% else %}
-                    <span class="status-inactive">Inactive</span>
+                    <span class="status-badge inactive">Deactivated</span>
                 {% endif %}
             </div>
 
@@ -40,6 +40,7 @@
             </div>
         </div>
 
+        <hr/> 
         <!-- EDIT FORM -->
         <div class="admin-form-card">
             <h2>Edit Admin Account</h2>

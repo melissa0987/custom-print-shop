@@ -150,6 +150,7 @@ def get_dashboard():
     """Render admin dashboard with stats"""
     try:
         from app.models import Order, Customer, Product
+        from datetime import datetime
 
         order_model = Order()
         customer_model = Customer()
@@ -157,6 +158,16 @@ def get_dashboard():
 
         # Orders
         all_orders = order_model.get_all()
+
+        # Fetch all customers once and map by ID
+        all_customers = customer_model.get_all()
+        customer_map = {c['customer_id']: c for c in all_customers}
+
+        # Enrich orders with customer names
+        for order in all_orders:
+            customer = customer_map.get(order['customer_id'])
+            order['customer_name'] = f"{customer['first_name']} {customer['last_name']}" if customer else "N/A"
+
         total_orders = len(all_orders)
         pending_orders = sum(1 for o in all_orders if o['order_status'] == 'pending')
         processing_orders = sum(1 for o in all_orders if o['order_status'] == 'processing')
@@ -168,20 +179,21 @@ def get_dashboard():
             if o['created_at'].month == datetime.now().month
         )
 
-        # Customers
-        all_customers = customer_model.get_all()
+        # Customers stats
         total_customers = len(all_customers)
         active_customers = sum(1 for c in all_customers if c.get('is_active'))
 
-        # Products
+        # Products stats
         all_products = product_model.get_all(active_only=False)
         total_products = len(all_products)
         active_products = sum(1 for p in all_products if p.get('is_active'))
+
+        # Recent orders
         recent_orders = sorted(
-                all_orders,
-                key=lambda o: o['created_at'],
-                reverse=True
-            )[:5]
+            all_orders,
+            key=lambda o: o['created_at'],
+            reverse=True
+        )[:5]
 
         return render_template(
             'admin/admin_dashboard.html',
@@ -203,7 +215,8 @@ def get_dashboard():
                     'total': total_products,
                     'active': active_products
                 }
-            }, recent_orders=recent_orders
+            },
+            recent_orders=recent_orders
         )
 
     except Exception as e:
@@ -1517,7 +1530,7 @@ def update_admin_form(admin_id):
         flash("Admin user not found", "error")
         return redirect(url_for('admin.get_admins'))
 
-    # Permission check
+    # Permission check: only super_admin or self can edit
     if current_role != 'super_admin' and admin_id != current_admin_id:
         flash("You are not allowed to update this admin user.", "error")
         return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
@@ -1527,13 +1540,18 @@ def update_admin_form(admin_id):
     password = request.form.get("password")
     first_name = request.form.get("first_name")
     last_name = request.form.get("last_name")
+    new_role = request.form.get("role")  # Get role from form if provided
 
     # Update full name
     if first_name or last_name:
         admin_model.update_full_name(admin_id, first_name=first_name, last_name=last_name)
 
-    # Only super_admin can update status of other admins
-    if current_role == 'super_admin':
+    # Update role: only super_admin can change roles of others (not themselves)
+    if current_role == 'super_admin' and admin_id != current_admin_id and new_role:
+        admin_model.update_role(admin_id, new_role)
+
+    # Update status: prevent self-deactivation
+    if current_role == 'super_admin' and admin_id != current_admin_id:
         admin_model.update_status(admin_id, is_active)
 
     # Update password only if provided
@@ -1547,8 +1565,6 @@ def update_admin_form(admin_id):
         return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
     else:
         return redirect(url_for('admin.get_admin', admin_id=admin_id))
-
-
 
 @admin_bp.route('/profile/password', methods=['GET', 'POST', 'PUT'])
 @admin_required

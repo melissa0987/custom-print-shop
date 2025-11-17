@@ -14,26 +14,29 @@ from  .uploaded_file import UploadedFile
 
 
 class Customer: 
-    def __init__( self, customer_id=None, username=None, password_hash=None,  email=None, first_name=None, last_name=None, phone_number=None, is_active=True,  created_at=None, last_login=None
-    ):
+    def __init__(self, customer_id=None, username=None, password_hash=None, email=None,
+                 first_name=None, last_name=None, address=None, phone_number=None,
+                 is_active=True, created_at=None, last_login=None):
         self.customer_id = customer_id
         self.username = username
         self.password_hash = password_hash  # Store only hashed password
         self.email = email
         self.first_name = first_name
         self.last_name = last_name
+        self.address = address
         self.phone_number = phone_number
         self.is_active = is_active
         self.created_at = created_at or datetime.now()
         self.last_login = last_login
 
-    def to_dict(self, include_sensitive=False): 
+    def to_dict(self, include_sensitive=False):
         data = {
             'customer_id': self.customer_id,
             'username': self.username,
             'email': self.email,
             'first_name': self.first_name,
             'last_name': self.last_name,
+            'address': self.address,
             'phone_number': self.phone_number,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),
@@ -42,21 +45,24 @@ class Customer:
         if include_sensitive:
             data['password_hash'] = self.password_hash
         return data
+
+
+
     # ---------------------
     # CREATE
     # ---------------------
-    def create(self, username, email, password_hash, first_name, last_name, phone_number=None, is_active=True):
+      # ---------------------
+    def create(self, username, email, password_hash, first_name, last_name, address, phone_number=None, is_active=True):
         sql = """
             INSERT INTO customers (
-                username, email, password_hash, first_name, last_name, phone_number, is_active, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                username, email, password_hash, first_name, last_name, address, phone_number, is_active, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING customer_id;
         """
         now = datetime.now()
-        values = (username, email, password_hash, first_name, last_name, phone_number, is_active, now)
+        values = (username, email, password_hash, first_name, last_name, address, phone_number, is_active, now)
         with get_cursor() as cur:
             cur.execute(sql, values)
-             
             return cur.fetchone()["customer_id"]
 
     # ---------------------
@@ -86,8 +92,14 @@ class Customer:
         updates = []
         values = []
 
+        # Include 'address' as an updatable field
+        allowed_fields = [
+            'username', 'email', 'password_hash', 'first_name', 'last_name',
+            'phone_number', 'is_active', 'last_login', 'address'
+        ]
+
         for key, value in kwargs.items():
-            if key in ['username', 'email', 'password_hash', 'first_name', 'last_name', 'phone_number', 'is_active', 'last_login']:
+            if key in allowed_fields:
                 updates.append(f"{key} = %s")
                 values.append(value)
 
@@ -98,8 +110,8 @@ class Customer:
         values.append(customer_id)
         with get_cursor() as cur:
             cur.execute(sql, tuple(values))
-             
             return cur.rowcount > 0
+
 
     # ---------------------
     # DELETE
@@ -169,7 +181,7 @@ class Customer:
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField
-from wtforms.validators import DataRequired, Email, Optional, Length, Regexp
+from wtforms.validators import DataRequired, Length, Email, Optional, Regexp, EqualTo
 
 class EditProfileForm(FlaskForm):
     username = StringField('Username', validators=[
@@ -180,9 +192,17 @@ class EditProfileForm(FlaskForm):
     first_name = StringField('First Name', validators=[DataRequired()])
     last_name = StringField('Last Name', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
+    
+    # Address field (one-line full address)
+    address = StringField('Address', validators=[DataRequired(), Length(max=255)])
+    
     phone = StringField('Phone', validators=[Optional()])
+    
     password = PasswordField('New Password (leave blank to keep current)', validators=[
         Optional(),
         Length(min=8, message="Password must be at least 8 characters")
     ])
-    confirm_password = PasswordField('Confirm Password', validators=[Optional()])
+    confirm_password = PasswordField('Confirm Password', validators=[
+        Optional(),
+        EqualTo('password', message="Passwords must match")
+    ])

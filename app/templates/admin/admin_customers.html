@@ -83,6 +83,7 @@
                         <th>Name</th>
                         <th>Email</th>
                         <th>Phone</th>
+                        <th>Address</th>
                         <th>Status</th>
                         <th>Orders</th>
                         <th>Spent</th>
@@ -101,6 +102,7 @@
                             <td>{{ c.first_name }} {{ c.last_name }}</td>
                             <td>{{ c.email }}</td>
                             <td>{{ c.phone_number or 'N/A' }}</td>
+                            <td>{{ c.address or 'N/A' }}</td>
                             <td>
                                 {% if c.is_active %}
                                     <span class="status-badge active">Active</span>

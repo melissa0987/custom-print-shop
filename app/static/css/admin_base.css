@@ -195,7 +195,7 @@
 
 .admin-table th, .admin-table td {
     padding: 0.8rem 1rem;
-    text-align: left;
+    text-align: center;
     border-bottom: 1px solid #e0e0e0;
 }
 

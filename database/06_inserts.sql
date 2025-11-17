@@ -11,12 +11,12 @@ INSERT INTO admin_users (username, email, password_hash, first_name, last_name, 
     ('staff_olivia', 'olivia.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Olivia', 'Staff', 'staff', TRUE);
 
 -- Insert Sample Customers
-INSERT INTO customers (username, email, password_hash, first_name, last_name, phone_number) VALUES
-    ('johndoe', 'john.doe@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Doe', '514-555-0101'),
-    ('janesmith', 'jane.smith@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Smith', '514-555-0102'),
-    ('bobwilson', 'bob.wilson@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Bob', 'Wilson', '514-555-0103'),
-    ('alicebrown', 'alice.brown@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Alice', 'Brown', '514-555-0104'),
-    ('charliedavis', 'charlie.davis@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Charlie', 'Davis', '514-555-0105');
+INSERT INTO customers (username, email, password_hash, first_name, last_name, address, phone_number) VALUES
+    ('johndoe', 'john.doe@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Doe', '123 Main St, Montreal, QC', '514-555-0101'),
+    ('janesmith', 'jane.smith@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Smith', '456 Oak Ave, Montreal, QC', '514-555-0102'),
+    ('bobwilson', 'bob.wilson@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Bob', 'Wilson', '789 Pine Rd, Montreal, QC', '514-555-0103'),
+    ('alicebrown', 'alice.brown@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Alice', 'Brown', '321 Maple St, Montreal, QC', '514-555-0104'),
+    ('charliedavis', 'charlie.davis@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Charlie', 'Davis', '654 Cedar Ln, Montreal, QC', '514-555-0105');
 
 -- Insert Categories (created by admin_john with admin_id = 2)
 INSERT INTO categories (category_name, description, is_active, display_order, created_by, updated_by) VALUES

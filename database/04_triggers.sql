@@ -417,4 +417,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+-- NEW TRIGGER: automatically update customers.updated_at
+ALTER TABLE customers
+ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+CREATE TRIGGER update_customers_updated_at
+BEFORE UPDATE ON customers
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
 COMMIT;

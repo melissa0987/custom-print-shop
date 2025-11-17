@@ -105,22 +105,29 @@ def format_order_response(order, include_items=True):
 # CHECKOUT GET
 @orders_bp.route('/checkout', methods=['GET'])
 def checkout_page():
-    """Render checkout page"""
     try:
-        # Get cart for current session/user
         cart = get_or_create_cart()
         if not cart:
             flash('No cart found', 'error')
             return redirect(url_for('products.get_products'))
 
-        # Format cart data for template
         cart_data = format_cart_response(cart)
 
         if not cart_data['items']:
             flash('Your cart is empty', 'error')
             return redirect(url_for('cart.view_cart'))
 
-        return render_template('orders/checkout.html', cart=cart_data)
+        # Load customer info
+        customer = None
+        if session.get('customer_id'):
+            customer_model = Customer()
+            customer = customer_model.get_by_id(session['customer_id'])
+
+        return render_template(
+            'orders/checkout.html',
+            cart=cart_data,
+            customer=customer
+        )
 
     except Exception as e:
         flash(f'Failed to load checkout: {str(e)}', 'error')

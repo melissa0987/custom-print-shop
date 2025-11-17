@@ -7,6 +7,8 @@ SELECT
     COALESCE(c.username, 'Guest') AS username,
     COALESCE(c.first_name || ' ' || c.last_name, 'Guest') AS customer_name,
     COALESCE(c.email, sc.session_id) AS cart_owner,
+    c.address AS customer_address,     -- new field
+    c.phone_number AS customer_phone,  -- new field
     sc.session_id,
     COUNT(ci.cart_item_id) AS item_count,
     calculate_cart_total(sc.shopping_cart_id) AS cart_total,
@@ -17,7 +19,7 @@ FROM shopping_carts sc
 LEFT JOIN customers c ON sc.customer_id = c.customer_id
 LEFT JOIN cart_items ci ON sc.shopping_cart_id = ci.shopping_cart_id
 WHERE sc.expires_at > CURRENT_TIMESTAMP
-GROUP BY sc.shopping_cart_id, c.customer_id, c.username, c.first_name, c.last_name, c.email, sc.session_id, sc.created_at, sc.updated_at, sc.expires_at
+GROUP BY sc.shopping_cart_id, c.customer_id, c.username, c.first_name, c.last_name, c.email, c.address, c.phone_number, sc.session_id, sc.created_at, sc.updated_at, sc.expires_at
 ORDER BY sc.updated_at DESC;
 
 -- View cart details with products and customizations
@@ -50,9 +52,9 @@ SELECT
     COALESCE(c.username, 'Guest') AS username,
     COALESCE(c.first_name || ' ' || c.last_name, 'Guest') AS customer_name,
     COALESCE(c.email, o.contact_email) AS email,
+    COALESCE(c.address, o.shipping_address) AS shipping_address, -- use customer address if exists
     o.order_status,
     o.total_amount,
-    o.shipping_address,
     o.created_at,
     o.updated_at,
     au.username AS updated_by_admin

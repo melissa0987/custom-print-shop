@@ -35,6 +35,19 @@
                             <span class="label">Phone:</span>
                             <span class="value">{{ customer.phone_number or 'Not provided' }}</span>
                         </div>
+                        <div class="info-row">
+                            <span class="label">Address:</span>
+                            <span class="value">
+                                {% if customer.address or customer.city or customer.province or customer.postal_code %}
+                                    {{ customer.address or '' }}
+                                    {% if customer.city %}, {{ customer.city }}{% endif %}
+                                    {% if customer.province %}, {{ customer.province }}{% endif %}
+                                    {% if customer.postal_code %} {{ customer.postal_code }}{% endif %}
+                                {% else %}
+                                    Not provided
+                                {% endif %}
+                            </span>
+                        </div>
                         
                         <div class="info-row">
                             <span class="label">Account Status:</span>
