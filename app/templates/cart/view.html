@@ -29,8 +29,7 @@
                                     <div class="design-overlay">
                                         <img src="{{ item.design_file_url }}" 
                                              alt="Your Design"
-                                             class="design-image"
-                                             onclick="openLightbox('{{ item.design_file_url }}')">
+                                             class="design-image" >
                                     </div>
                                     {% endif %}
                         </div>
@@ -119,13 +118,7 @@
     </div>
 </section>
 
-<!-- Lightbox for viewing design images -->
-<div id="imageLightbox" class="lightbox" onclick="closeLightbox()">
-    <span class="lightbox-close">&times;</span>
-    <img id="lightboxImage" class="lightbox-content">
-</div>
-
-
+ 
 {% endblock %}
 
 

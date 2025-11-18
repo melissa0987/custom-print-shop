@@ -3,9 +3,7 @@ app/routes/files.py
 Files Routes
 Handles file uploads for custom designs
 
-"""
-# TODO: use render_template for html
-
+""" 
 import os
 from flask import Blueprint, request, jsonify, session, send_from_directory, current_app
 from app.models import UploadedFile

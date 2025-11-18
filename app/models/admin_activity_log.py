@@ -81,28 +81,7 @@ class AdminActivityLog:
             cur.execute(sql, values)
             return cur.fetchone()["log_id"]
 
-    # Fetch recent admin activity logs.
-    def get_all_logs(self, limit=50):
-        
-        sql = """
-            SELECT log_id, admin_id, action, table_name, record_id,
-                   old_values, new_values, ip_address, created_at
-            FROM admin_activity_log
-            ORDER BY created_at DESC
-            LIMIT %s;
-        """
-        with get_cursor(commit=False) as cur:
-            cur.execute(sql, (limit,))
-            return cur.fetchall()
-
-    # Fetch a specific log by ID.
-    def get_log_by_id(self, log_id):
-        
-        sql = "SELECT * FROM admin_activity_log WHERE log_id = %s;"
-        with get_cursor(commit=False) as cur:
-            cur.execute(sql, (log_id,))
-            return cur.fetchone()
-
+ 
     # Delete a log entry by ID.
     def delete_log(self, log_id): 
         sql = "DELETE FROM admin_activity_log WHERE log_id = %s;"

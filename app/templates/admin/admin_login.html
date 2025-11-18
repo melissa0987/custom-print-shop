@@ -7,7 +7,7 @@
 
     <h2>Admin Login Form</h2>
 
-    <!-- Flash messages (already in base.html but repeated here for clarity) -->
+    <!-- Flash messages  -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div style="margin-bottom: 1rem;">
@@ -22,7 +22,7 @@
 
     <form id="admin-login-form" method="POST" 
         action="{{ url_for('admin.admin_login') }}">
-      <!-- Preserve next parameter -->
+        
       {% if request.args.get('next') %}
         <input type="hidden" name="next" value="{{ request.args.get('next') }}">
       {% endif %}
@@ -40,7 +40,7 @@
         >
       
 
-      
+      <!-- password -->
         <label for="password">Password</label>
         <div class="password-wrapper">
             <input 

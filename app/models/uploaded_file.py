@@ -7,7 +7,9 @@ from app.database import get_cursor
 from datetime import datetime
  
 class UploadedFile: 
-    def __init__( self, file_id=None, customer_id=None, session_id=None, order_item_id=None, cart_item_id=None, file_url=None, original_filename=None, uploaded_at=None ):
+    def __init__( self, file_id=None, customer_id=None, session_id=None, 
+                 order_item_id=None, cart_item_id=None, file_url=None, 
+                 original_filename=None, uploaded_at=None ):
         
 
         self.file_id = file_id
@@ -90,7 +92,7 @@ class UploadedFile:
             return cur.fetchall()
 
     def get_orphaned_files(self, cutoff_date):
-        """Get files not attached to any cart or order, older than cutoff_date"""
+        """Get files not attached to any cart or order"""
         sql = """
             SELECT * FROM uploaded_files 
             WHERE cart_item_id IS NULL 

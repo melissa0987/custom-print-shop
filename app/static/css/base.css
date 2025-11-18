@@ -479,53 +479,7 @@ footer {
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* ===================================
-   RESPONSIVE DESIGN
-   =================================== */
-
-@media (max-width: 768px) {
-    nav {
-        flex-direction: column;
-        gap: var(--spacing-md);
-        padding: var(--spacing-md);
-    }
-    
-    .nav-links {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: var(--spacing-sm);
-    }
-    
-    main {
-        padding-top: 20px;
-    }
-    
-    .container {
-        padding: var(--spacing-md);
-    }
-    
-    .flash-messages {
-        right: var(--spacing-md);
-        left: var(--spacing-md);
-        max-width: none;
-    }
-    
-    .footer-grid {
-        flex-direction: column;
-    }
-}
-
-@media (max-width: 480px) {
-    .nav-links {
-        font-size: 0.9rem;
-    }
-    
-    .button-link {
-        padding: var(--spacing-xs) var(--spacing-md);
-        font-size: 0.9rem;
-    }
-}
-
+ 
 /* ===================================
    UTILITY CLASSES
    =================================== */

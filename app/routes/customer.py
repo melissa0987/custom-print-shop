@@ -4,10 +4,13 @@ Handle profile viewing and updating for logged-in customers
 """
 
 from flask import Blueprint, request, jsonify, session, render_template, flash, redirect, url_for
+from app.models.customer import Customer
 from app.services import CustomerService,  OrderService
 from app.models import  EditProfileForm
 from app.utils import login_required
+from werkzeug.security import generate_password_hash
 
+from app.utils.validators import Validators
 customer_bp = Blueprint('customer', __name__, url_prefix='/customer')
 
 
@@ -39,16 +42,14 @@ def edit_profile():
     
     if form.validate_on_submit():
         # Check if username changed and is unique
-        if form.username.data != customer['username']:
-            from app.models.customer import Customer
+        if form.username.data != customer['username']: 
             existing = Customer().get_by_username(form.username.data)
             if existing:
                 flash("Username already taken", "error")
                 return render_template('auth/edit_profile.html', form=form, customer=customer)
         
         # Check if email changed and is unique
-        if form.email.data != customer['email']:
-            from app.models.customer import Customer
+        if form.email.data != customer['email']: 
             # You'll need to add get_by_email method to Customer model
             existing = Customer().get_by_email(form.email.data)
             if existing:
@@ -69,9 +70,7 @@ def edit_profile():
         if form.password.data:
             if form.password.data != form.confirm_password.data:
                 flash("Passwords do not match", "error")
-                return render_template('auth/edit_profile.html', form=form, customer=customer)
-            
-            from werkzeug.security import generate_password_hash
+                return render_template('auth/edit_profile.html', form=form, customer=customer) 
             update_data['password_hash'] = generate_password_hash(form.password.data)
         
         success, result = CustomerService.update_profile(customer_id, **update_data)
@@ -119,8 +118,7 @@ def change_password_page():
         flash('New passwords do not match', 'error')
         return render_template('auth/change_password.html')
     
-    # Validate password strength
-    from app.utils import Validators
+    # Validate password strength 
     is_valid, message = Validators.validate_password_strength(new_password)
     if not is_valid:
         flash(message, 'error')

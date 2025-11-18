@@ -62,7 +62,7 @@ class OrderItem:
             return cur.fetchone()
 
     def get_by_order(self, order_id):
-        """Get all order items with product, category, and customizations"""
+         
         sql = """
             SELECT 
                 oi.order_item_id,
@@ -86,7 +86,7 @@ class OrderItem:
             cur.execute(sql, (order_id,))
             items = cur.fetchall()
             
-            # Load customizations for each item
+            
             customization_model = OrderItemCustomization()
             for item in items:
                 customizations = customization_model.get_by_order_item(item['order_item_id'])
@@ -116,7 +116,7 @@ class OrderItem:
         if not updates:
             return False
 
-        # Recalculate subtotal if quantity or unit_price changed
+         
         if quantity is not None or unit_price is not None:
             sql_get = "SELECT quantity, unit_price FROM order_items WHERE order_item_id = %s;"
             with get_cursor(commit=False) as cur:

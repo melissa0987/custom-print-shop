@@ -2091,179 +2091,20 @@ textarea.form-control {
 }
 .active-row {
     display: flex;
-    align-items: center; /* Vertically align checkbox and label */
-    gap: 6px; /* small space between checkbox and label */
+    align-items: center; 
+    gap: 6px;  
 }
 
 .active-row label {
     margin: 0;
     font-weight: 500;
-    cursor: pointer; /* makes label clickable */
+    cursor: pointer;  
 }
 
 /* Fix for the checkbox element selector */
 .active-row input[type="checkbox"] {
-    margin: 0; /* remove extra spacing */
+    margin: 0;  
     width: auto;
     height: auto;
 }
-
-/* ===================================
-   RESPONSIVE DESIGN
-   =================================== */
-
-@media (max-width: 1200px) {
-    .product-detail-grid,
-    .design-grid {
-        flex-direction: column;
-    }
-    
-    .preview-section {
-        position: static;
-        order: 2;
-    }
-    
-    .controls-section {
-        order: 1;
-    }
-}
-
-@media (max-width: 968px) {
-    .profile-grid {
-        flex-direction: column;
-    }
-    
-    .profile-info,
-    .profile-stats {
-        min-width: 100%;
-    }
-    
-    .stats-grid {
-        flex-direction: column;
-    }
-    
-    .stat-card {
-        flex: 1 1 100%;
-    }
-}
-
-@media (max-width: 768px) {
-    .filters-section form {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .filter-select, .filter-input {
-        width: 100%;
-    }
-
-    .admin-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.75rem;
-    }
-
-    .table-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-    
-    .products-grid {
-        justify-content: center;
-    }
-    
-    .product-card {
-        flex: 1 1 calc(50% - 1.5rem);
-        min-width: 200px;
-    }
-    
-    .filters form {
-        flex-direction: column;
-    }
-    
-    .filter-group {
-        width: 100%;
-    }
-    
-    .category-header {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .product-actions {
-        padding: 0 1rem 1rem;
-    }
-    
-    .flash-messages {
-        right: 1rem;
-        left: 1rem;
-        max-width: none;
-    }
-    
-    .dashboard-stats {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    }
-
-    .quick-actions {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    }
-}
-
-@media (max-width: 480px) {
-    .auth-container,
-    .auth-page {
-        padding: var(--spacing-lg);
-    }
-    
-    .auth-card,
-    .auth-form-section {
-        padding: var(--spacing-lg);
-    }
-    
-    .auth-tabs .tab {
-        font-size: 0.9rem;
-        padding: var(--spacing-sm) 0;
-    }
-    
-    .profile-edit-container,
-    .change-password-card {
-        padding: 1.5rem;
-    }
-    
-    .button-group,
-    .form-actions {
-        flex-direction: column;
-    }
-    
-    .btn-submit,
-    .btn-cancel,
-    .btn-primary,
-    .btn-secondary {
-        width: 100%;
-    }
-    
-    .products-page,
-    .product-detail-page,
-    .category-detail-page,
-    .design-page {
-        padding: 100px 1rem 40px;
-    }
-    
-    .product-card {
-        flex: 1 1 100%;
-    }
-    
-    .product-detail-grid {
-        padding: 1rem;
-    }
-    
-    .main-image {
-        height: 300px;
-    }
-    
-    .pagination {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-}
+ 

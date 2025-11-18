@@ -11,8 +11,7 @@ from app.models import (
     ShoppingCart, CartItem, CartItemCustomization,
     Product, Category
 )
-from app.utils import guest_or_customer, PriceHelper, Validators, ImageHelper
-from app.services.cart_service import CartService
+from app.utils import guest_or_customer, PriceHelper, Validators, ImageHelper 
 
 # Create blueprint
 cart_bp = Blueprint('cart', __name__)
@@ -193,9 +192,7 @@ def view_cart():
 
 
 @cart_bp.route('/add', methods=['POST'])
-def add_to_cart(): 
-    """Add item to cart - works for both logged in users and guests"""
-    # Ensure guest has session
+def add_to_cart():  
     if 'customer_id' not in session:
         ensure_session_id()
     

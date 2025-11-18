@@ -574,15 +574,4 @@
 .page-btn:hover {
     background: var(--primary-dark, #0056b3);
     color: white;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .orders-table th, .orders-table td {
-        padding: 0.6rem 0.8rem;
-    }
-    .actions {
-        flex-direction: column;
-        gap: 0.3rem;
-    }
-}
+} 

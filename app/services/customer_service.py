@@ -46,9 +46,7 @@ class CustomerService:
         return True, customer
 
     @staticmethod
-    def change_password(customer_id, current_password, new_password):
-        """Change customer password"""
-        
+    def change_password(customer_id, current_password, new_password): 
         try:
             model = Customer()
             customer = model.get_by_id(customer_id)
@@ -77,9 +75,7 @@ class CustomerService:
             return False, f"Error: {str(e)}"
 
     @staticmethod
-    def change_password_as_admin(customer_id, new_password):
-        """Change customer password"""
-        
+    def change_password_as_admin(customer_id, new_password): 
         try:
             model = Customer()
             customer = model.get_by_id(customer_id)

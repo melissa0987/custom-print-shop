@@ -119,14 +119,5 @@ class Category:
         product_model = Product()
         return product_model.get_by_category(category_id)
 
-    # Get all active products in this category"
-    def get_active_products(self, category_id): 
-        return [p for p in self.get_products(category_id) if p['is_active']]
-
-    # otal products in this category
-    def get_product_count(self, category_id): 
-        return len(self.get_products(category_id))
-
-    # Number of active products in this category
-    def get_active_product_count(self, category_id): 
-        return len(self.get_active_products(category_id))
+ 
+ 

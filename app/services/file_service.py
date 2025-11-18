@@ -23,17 +23,17 @@ class FileService:
     
     @staticmethod
     def allowed_file(filename):
-        """Check if the file extension is allowed."""
+        
         return Validators.validate_file_extension(filename, FileService.ALLOWED_EXTENSIONS)
     
     @staticmethod
     def generate_unique_filename(original_filename):
-        """Generate a unique, safe filename."""
+         
         return FileHelper.generate_unique_filename(original_filename)
 
     @staticmethod
     def get_file_path(filename, customer_id=None, session_id=None):
-        """Get file path for storage"""
+         
         if customer_id:
             folder = f"customer_{customer_id}"
         elif session_id:
@@ -47,14 +47,14 @@ class FileService:
     @staticmethod
     def save_file(file, customer_id=None, session_id=None, 
                   cart_item_id=None, order_item_id=None, upload_folder=None):
-        """Save uploaded file"""
+         
         if not file or file.filename.strip() == "":
             return False, "No file provided"
 
         if not FileService.allowed_file(file.filename):
             return False, "File type not allowed"
 
-        # Validate file size if possible
+        
         file.seek(0, os.SEEK_END)
         size = file.tell()
         file.seek(0)
@@ -69,7 +69,7 @@ class FileService:
 
             file.save(full_path)
 
-            # Store database record
+             
             uploaded_file_model = UploadedFile()
             file_id = uploaded_file_model.create(
                 file_url=f"/static/{file_path}",
@@ -80,7 +80,7 @@ class FileService:
                 order_item_id=order_item_id
             )
 
-            # Attach to related item if needed
+             
             if cart_item_id:
                 cart_item_model = CartItem()
                 cart_item = cart_item_model.get_by_id(cart_item_id)
@@ -93,7 +93,7 @@ class FileService:
                 if order_item:
                     order_item_model.update(order_item_id, design_file_url=f"/static/{file_path}")
 
-            # Get the uploaded file record
+            
             uploaded_file = uploaded_file_model.get_by_id(file_id)
             return True, uploaded_file
 
@@ -101,7 +101,7 @@ class FileService:
             return False, f"Failed to save file: {str(e)}"
     
 
-    # Save multiple uploaded files
+     
     @staticmethod
     def save_multiple_files(files, customer_id=None, session_id=None, upload_folder=None): 
         uploaded_files = []
@@ -133,7 +133,7 @@ class FileService:
             return None
     
 
-    # Fetch all files associated with a user or guest session.
+     
     @staticmethod
     def get_user_files(customer_id=None, session_id=None): 
         try:
@@ -146,14 +146,14 @@ class FileService:
             else:
                 return []
             
-            # Sort by uploaded_at descending
+            
             files.sort(key=lambda x: x.get('uploaded_at') or datetime.now().min, reverse=True)
             return files
         except Exception:
             return []
     
 
-    # Delete a file and its record if user owns it.
+     
     @staticmethod
     def delete_file(file_id, customer_id=None, session_id=None, upload_folder=None): 
         try:
@@ -187,7 +187,7 @@ class FileService:
             return False, f"Failed to delete file: {str(e)}"
     
 
-    # Check if a user owns a file (or is admin)
+     
     @staticmethod
     def verify_file_ownership(file_id, customer_id=None, session_id=None, is_admin=False): 
         try:
@@ -206,7 +206,7 @@ class FileService:
             return False
     
 
-    # Return summary statistics of a user's files.
+     
     @staticmethod
     def get_file_statistics(customer_id=None): 
         try:
@@ -226,40 +226,7 @@ class FileService:
             return {"total_files": 0}
     
 
-    # Clean up orphaned files (not attached to cart or order).
-    @staticmethod
-    def cleanup_orphaned_files(days_old=30, upload_folder='uploads'): 
-        """Clean up orphaned files (not attached to cart or order) older than X days"""
-        try:
-            from datetime import timedelta
-            uploaded_file_model = UploadedFile()
-            cutoff_date = datetime.now() - timedelta(days=days_old)
-            deleted_count = 0
-            
-            orphaned = uploaded_file_model.get_orphaned_files(cutoff_date)
-            
-            for file in orphaned:
-                # Delete physical file
-                try:
-                    file_path = file['file_url'].replace("/static/", "")
-                    full_path = os.path.join(upload_folder, file_path)
-                    if os.path.exists(full_path):
-                        os.remove(full_path)
-                except Exception as e:
-                    print(f"Error deleting physical file {file['file_id']}: {e}")
-                
-                # Delete database record
-                uploaded_file_model.delete(file['file_id'])
-                deleted_count += 1
-            
-            print(f"Cleaned up {deleted_count} orphaned files")
-            return deleted_count
-            
-        except Exception as e:
-            print(f"Cleanup failed: {e}")
-            return 0
-        
-
+    
     # Return upload configuration for frontend display.
     @staticmethod
     def get_file_info(): 

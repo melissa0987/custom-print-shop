@@ -63,8 +63,7 @@
             <div class="flash-messages">
                 {% for category, message in messages %}
                     <div class="flash-message flash-{{ category }}">
-                        {{ message }}
-                        <button onclick="this.parentElement.remove()">&times;</button>
+                        {{ message }} 
                     </div>
                 {% endfor %}
             </div>
@@ -137,7 +136,7 @@
         </div>
     </footer>
 
-     <!-- <script src="{{ url_for('static', filename='js/main.js') }}"></script> -->
+ 
     <script src="{{ url_for('static', filename='js/cart.js') }}"></script>
     {% block script%}
     

@@ -11,14 +11,15 @@ from app.models import Customer, AdminUser
 from app.models.cart_item import CartItem
 from app.models.cart_item_customization import CartItemCustomization
 from app.models.shopping_cart import ShoppingCart
+from app.models.uploaded_file import UploadedFile
+from app.routes.cart import get_or_create_cart, update_cart_count
 from app.utils import (
     login_required,
     admin_required,
     PasswordHelper,
     Validators
 )
-from werkzeug.security import generate_password_hash
-from app.services.auth_service import AuthService
+from werkzeug.security import generate_password_hash 
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__) 
@@ -110,14 +111,12 @@ def register():
         if guest_session_id:
             merge_guest_cart_to_user(customer['customer_id'])
         
-        # Check if user has items in cart after merge
-        from app.routes.cart import get_or_create_cart, update_cart_count
+        # Check if user has items in cart after merge 
         cart = get_or_create_cart()
         update_cart_count()
         
         has_cart_items = False
-        if cart:
-            from app.models.cart_item import CartItem
+        if cart: 
             cart_item_model = CartItem()
             cart_items = cart_item_model.get_by_cart(cart['shopping_cart_id'])
             has_cart_items = len(cart_items) > 0
@@ -331,8 +330,7 @@ def merge_guest_cart_to_user(customer_id):
                             customization_value=c['customization_value']
                         )
 
-        # Update uploaded files to link to customer
-        from app.models.uploaded_file import UploadedFile
+        # Update uploaded files to link to customer 
         uploaded_file_model = UploadedFile()
         uploaded_file_model.update_session_to_customer(session_id, customer_id)
 

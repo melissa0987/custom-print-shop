@@ -88,8 +88,7 @@
         {% if admin.admin_id != session.get('admin_id') %}
         <div class="admin-form-card">
             <form method="POST" action="{{ url_for('admin.delete_admin', admin_id=admin.admin_id) }}" class="delete-form">
-                <button type="submit" class="btn-danger"
-                    onclick="alert('Are you sure you want to delete this admin?'); return false;">
+                <button type="submit" class="btn-danger">
                     Delete User
                 </button>
 

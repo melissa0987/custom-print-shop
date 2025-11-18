@@ -4,6 +4,7 @@ Admin Routes
 Handles admin panel operations (orders, products, customers, reports) 
 """
 
+import traceback
 from flask import Blueprint, current_app, flash, redirect, request, jsonify, session, url_for, render_template
 
 from app.models import (
@@ -29,10 +30,7 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 # ADMIN LOGIN
 # ============================================ 
 @admin_bp.route('/login', methods=['GET', 'POST'])
-def admin_login():
-    """Admin login page + login handler"""
-
-    # If already logged in, redirect to dashboard
+def admin_login(): 
     if session.get('admin_id'):
         return redirect(url_for('admin.get_dashboard'))
       
@@ -66,7 +64,7 @@ def admin_login():
             flash(error_msg, 'danger')
             return render_template('admin/admin_login.html')
 
-        # Verify password using the AdminUser static method
+         
         if not AdminUser.verify_password(admin, password):
             error_msg = 'Invalid email or password'
             if request.is_json:
@@ -147,81 +145,17 @@ def admin_logout():
 @admin_bp.route('/dashboard', methods=['GET'])
 @permission_required('view_dashboard')
 def get_dashboard():
-    """Render admin dashboard with stats"""
-    try:
-        from app.models import Order, Customer, Product
-        from datetime import datetime
+    stats = AdminService.get_dashboard_stats()
 
-        order_model = Order()
-        customer_model = Customer()
-        product_model = Product()
+    if not stats:
+        # If fetching stats failed, render error page
+        return render_template('errors/error.html', message="Failed to load dashboard stats"), 500
 
-        # Orders
-        all_orders = order_model.get_all()
-
-        # Fetch all customers once and map by ID
-        all_customers = customer_model.get_all()
-        customer_map = {c['customer_id']: c for c in all_customers}
-
-        # Enrich orders with customer names
-        for order in all_orders:
-            customer = customer_map.get(order['customer_id'])
-            order['customer_name'] = f"{customer['first_name']} {customer['last_name']}" if customer else "N/A"
-
-        total_orders = len(all_orders)
-        pending_orders = sum(1 for o in all_orders if o['order_status'] == 'pending')
-        processing_orders = sum(1 for o in all_orders if o['order_status'] == 'processing')
-
-        # Revenue
-        total_revenue = sum(o['total_amount'] for o in all_orders)
-        month_revenue = sum(
-            o['total_amount'] for o in all_orders
-            if o['created_at'].month == datetime.now().month
-        )
-
-        # Customers stats
-        total_customers = len(all_customers)
-        active_customers = sum(1 for c in all_customers if c.get('is_active'))
-
-        # Products stats
-        all_products = product_model.get_all(active_only=False)
-        total_products = len(all_products)
-        active_products = sum(1 for p in all_products if p.get('is_active'))
-
-        # Recent orders
-        recent_orders = sorted(
-            all_orders,
-            key=lambda o: o['created_at'],
-            reverse=True
-        )[:5]
-
-        return render_template(
-            'admin/admin_dashboard.html',
-            stats={
-                'orders': {
-                    'total': total_orders,
-                    'pending': pending_orders,
-                    'processing': processing_orders
-                },
-                'revenue': {
-                    'total': total_revenue,
-                    'month': month_revenue
-                },
-                'customers': {
-                    'total': total_customers,
-                    'active': active_customers
-                },
-                'products': {
-                    'total': total_products,
-                    'active': active_products
-                }
-            },
-            recent_orders=recent_orders
-        )
-
-    except Exception as e:
-        flash(f"Failed to load dashboard: {str(e)}", "danger")
-        return render_template('admin/admin_dashboard.html', stats=None)
+    return render_template(
+        'admin/admin_dashboard.html',
+        stats=stats,
+        recent_orders=stats.get('recent_orders', [])
+    )
 
 
 # ============================================
@@ -230,270 +164,83 @@ def get_dashboard():
 @admin_bp.route('/orders', methods=['GET'])
 @permission_required('view_orders')
 def get_orders():
-    """Render orders management page with data passed via Jinja"""
     status_filter = request.args.get('status')
     search_term = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 20, type=int), 100)
-    
+
     try:
-        order_model = Order()
-        customer_model = Customer()
-        
-        # Get all orders
-        all_orders = order_model.get_all() if hasattr(order_model, 'get_all') else []
-        
-        # Apply status filter
-        if status_filter:
-            all_orders = [o for o in all_orders if o.get('order_status') == status_filter]
-        
-        # Format orders with customer info
-        formatted_orders = []
-        for order in all_orders:
-            customer_username = 'Guest'
-            customer_email = order.get('contact_email')
-            
-            if order.get('customer_id'):
-                customer = customer_model.get_by_id(order['customer_id'])
-                if customer:
-                    customer_username = customer['username']
-                    customer_email = customer['email']
-            
-            order_data = {
-                'order_id': order['order_id'],
-                'order_number': order['order_number'],
-                'customer_username': customer_username,
-                'customer_email': customer_email,
-                'order_status': order['order_status'],
-                'total_amount': float(order['total_amount']),
-                'created_at': order.get('created_at'),
-                'updated_at': order.get('updated_at')
-            }
-            
-            # Apply search filter
-            if search_term:
-                search_lower = search_term.lower()
-                if not (
-                    (order_data['order_number'] and search_lower in order_data['order_number'].lower()) or
-                    (customer_username and search_lower in customer_username.lower()) or
-                    (customer_email and search_lower in customer_email.lower())
-                ):
-                    continue
-            
-            formatted_orders.append(order_data)
-        
-        # Sort by created_at descending
-        formatted_orders.sort(key=lambda x: x.get('created_at') or datetime.min, reverse=True)
-        
-        # Pagination
-        total_orders = len(formatted_orders)
-        offset = (page - 1) * per_page
-        paginated_orders = formatted_orders[offset:offset + per_page]
-        
+        orders, total_orders, total_pages = AdminService.get_all_orders(
+            status_filter=status_filter,
+            page=page,
+            per_page=per_page,
+            search_term=search_term
+        )
+
         pagination = {
             'page': page,
             'per_page': per_page,
             'total_orders': total_orders,
-            'total_pages': max(1, (total_orders + per_page - 1) // per_page),
+            'total_pages': max(1, total_pages),
             'has_next': page * per_page < total_orders,
             'has_prev': page > 1
         }
-        
+
         return render_template(
             'admin/admin_orders.html',
-            orders=paginated_orders,
+            orders=orders,
             pagination=pagination
         )
-            
-    except Exception as e:
-        flash(f'Failed to load orders: {str(e)}', 'danger')
-        return render_template('admin/admin_orders.html', orders=[], pagination=None)
 
+    except Exception as e:
+        # Log the error
+        print(f"Error in get_orders: {str(e)}")
+        print(traceback.format_exc())
+
+        return render_template('errors/error.html', error_message=f'Failed to load orders: {str(e)}'), 500
+    
  
 @admin_bp.route('/orders/<int:order_id>', methods=['GET'])
 @permission_required('view_orders')
 def get_order_details(order_id):
-    """Get order details - returns HTML page or JSON for AJAX"""
     try:
-        # Admin can view any order; bypass ownership checks
-        order_model = Order()
-        order_item_model = OrderItem()
-        product_model = Product()
-        category_model = Category()
-        order_status_history_model = OrderStatusHistory()
+        order_data = AdminService.get_order_details(order_id)
 
-        order = order_model.get_by_id(order_id)
-        
-        # Store raw datetime objects for later formatting
-        raw_created_at = order.get('created_at')
-        raw_updated_at = order.get('updated_at')
-
-        # Format order data
-        order_data = {
-            'order_id': order['order_id'],
-            'order_number': order['order_number'],
-            'order_status': order['order_status'],
-            'total_amount': float(order['total_amount']),
-            'shipping_address': order['shipping_address'],
-            'contact_phone': order.get('contact_phone'),
-            'contact_email': order.get('contact_email'),
-            'notes': order.get('notes'),
-            'created_at': raw_created_at,  # Keep as datetime object initially
-            'updated_at': raw_updated_at   # Keep as datetime object initially
-        }
-
-        # Customer info
-        if order.get('customer_id'):
-            customer = Customer().get_by_id(order['customer_id'])
-            if customer:
-                order_data['customer'] = {
-                    'customer_id': customer['customer_id'],
-                    'username': customer['username'],
-                    'email': customer['email'],
-                    'full_name': Customer().full_name(customer)
-                }
-            else:
-                order_data['customer'] = 'Guest'
-        else:
-            order_data['customer'] = 'Guest'
-
-        # Add items
-        items = []
-        order_items = order_item_model.get_by_order(order_id)
-        for oi in order_items:
-            product = product_model.get_by_id(oi['product_id'])
-            category = category_model.get_by_id(product['category_id'])
-            customizations = {}
-            raw_cust = oi.get('customizations', [])
-            if isinstance(raw_cust, (list, tuple)):
-                customizations = {c['customization_key']: c['customization_value'] for c in raw_cust}
-            elif isinstance(raw_cust, dict):
-                customizations = raw_cust
-
-            items.append({
-                'order_item_id': oi['order_item_id'],
-                'product': {
-                    'product_id': product['product_id'],
-                    'product_name': product['product_name'],
-                    'category_name': category['category_name']
-                },
-                'quantity': oi['quantity'],
-                'unit_price': float(oi['unit_price']),
-                'subtotal': float(oi['subtotal']),
-                'design_file_url': oi.get('design_file_url'),
-                'customizations': customizations
-            })
-        order_data['items'] = items
-
-        # Add status history
-        history = []
-        status_records = order_status_history_model.get_by_order(order_id) or []
-        for h in status_records:
-            history.append({
-                'status': h.get('status'),
-                'changed_at': h['changed_at'].isoformat() if h.get('changed_at') else None,
-                'changed_by': order_status_history_model.get_changed_by_name(h),
-                'notes': h.get('notes')
-            })
-        order_data['status_history'] = history
-
-        # Root-level customer info for template
-        if isinstance(order_data.get('customer'), dict):
-            order_data['customer_name'] = order_data['customer'].get('full_name', 'Unknown')
-            order_data['customer_email'] = order_data['customer'].get('email', 'N/A')
-        else:
-            order_data['customer_name'] = 'Guest'
-            order_data['customer_email'] = order_data.get('contact_email', 'N/A')
-
-        # Format dates differently based on request type
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # For JSON/AJAX: use ISO format strings
-            if raw_created_at:
-                order_data['created_at'] = raw_created_at.isoformat() if isinstance(raw_created_at, datetime) else raw_created_at
-            if raw_updated_at:
-                order_data['updated_at'] = raw_updated_at.isoformat() if isinstance(raw_updated_at, datetime) else raw_updated_at
-        else:
-            # For HTML: use formatted strings
-            if raw_created_at:
-                order_data['created_at'] = DateHelper.format_datetime(raw_created_at)
-            if raw_updated_at:
-                order_data['updated_at'] = DateHelper.format_datetime(raw_updated_at)
-
-        # Fallback images for products
-        for item in order_data.get("items", []):
-            pname = item["product"]["product_name"].lower()
-            if 'mug' in pname:
-                img = '/static/images/products/mug.png'
-            elif 'tote' in pname:
-                img = '/static/images/products/tote.png'
-            elif 'drawstring' in pname:
-                img = '/static/images/products/drawstring-bag.png'
-            elif 'shopping' in pname:
-                img = '/static/images/products/shopping-bag.png'
-            elif 't-shirt' in pname or 'tshirt' in pname:
-                img = '/static/images/products/shirt.png'
-            elif 'tumbler' in pname:
-                img = '/static/images/products/tumbler.png'
-            else:
-                img = '/static/images/products/default.png'
-            if not item["product"].get("image_url"):
-                item["product"]["image_url"] = img
-
-        # JSON response for AJAX
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'order': order_data}), 200
 
-        # Render HTML
         return render_template('admin/admin_order_detail.html', order=order_data)
 
     except Exception as e:
+        print(f"Error in get_order_details route: {str(e)}")
         import traceback
-        print(f"Error in get_order_details: {str(e)}")
         print(traceback.format_exc())
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'error': f'Failed to get order details: {str(e)}'}), 500
-        flash(f'Failed to get order details: {str(e)}', 'error')
-        return redirect(url_for('admin.get_orders'))     
+        return render_template('errors/error.html', error_message=str(e)), 500
 
 
 @admin_bp.route('/orders/<int:order_id>/status', methods=['POST'])
 @permission_required('update_order_status')
 def update_order_status(order_id):
-    new_status = request.form.get('status')
-    notes = request.form.get('notes', '')
+    try:
+        new_status = request.form.get('status')
+        notes = request.form.get('notes', '')
 
-    if not new_status or new_status not in ['pending', 'processing', 'completed', 'cancelled']:
-        flash('Invalid status', 'error')
+        OrderService.update_order_status(
+            order_id=order_id,
+            new_status=new_status,
+            admin_id=session['admin_id'],
+            notes=notes
+        )
+
+        flash(f'Status updated to {new_status}', 'success')
         return redirect(url_for('admin.get_order_details', order_id=order_id))
 
-    order_model = Order()
-    order = order_model.get_by_id(order_id)
-    if not order:
-        flash('Order not found', 'error')
-        return redirect(url_for('admin.get_orders'))
-
-    old_status = order['order_status']
-    order_model.update_status(order_id, new_status, updated_by=session['admin_id'])
-
-    # Log history
-    OrderStatusHistory().create(
-        order_id=order_id,
-        status=new_status,
-        changed_by=session['admin_id'],
-        notes=notes
-    )
-
-    AdminActivityLog().create_log(
-        admin_id=session['admin_id'],
-        action='update_order_status',
-        table_name='orders',
-        record_id=order_id,
-        old_values={'order_status': old_status},
-        new_values={'order_status': new_status, 'notes': notes}
-    )
-
-    flash(f'Status updated to {new_status}', 'success')
-    return redirect(url_for('admin.get_order_details', order_id=order_id))
+    except Exception as e:
+        print(f"Error updating order status: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return render_template('errors/error.html', error_message=str(e)), 500
+    
 
 # ============================================
 # PRODUCT MANAGEMENT
@@ -501,161 +248,50 @@ def update_order_status(order_id):
 @admin_bp.route('/products', methods=['GET'])
 @permission_required('view_products')
 def get_products_admin():
-    wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
-
-    category_id = request.args.get('category_id', type=int)
-    search_term = request.args.get('search', '').strip()
-    min_price = request.args.get('min_price', type=float)
-    max_price = request.args.get('max_price', type=float)
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
-    sort_by = request.args.get('sort_by', 'name')
-    sort_order = request.args.get('sort_order', 'asc')
-
     try:
-        product_model = Product()
-        category_model = Category()
+        wants_json = request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']
 
-        # Get all products (including inactive for admin)
-        products = product_model.get_all(active_only=False)
+        category_id = request.args.get('category_id', type=int)
+        search_term = request.args.get('search', '').strip()
+        min_price = request.args.get('min_price', type=float)
+        max_price = request.args.get('max_price', type=float)
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 20, type=int), 100)
+        sort_by = request.args.get('sort_by', 'name')
+        sort_order = request.args.get('sort_order', 'asc')
 
-        # --- Apply filters ---
-        if category_id:
-            products = [p for p in products if p.get('category_id') == category_id]
-
-        if search_term:
-            s = search_term.lower()
-            products = [p for p in products if s in p.get('product_name', '').lower() or s in p.get('description', '').lower()]
-
-        if min_price is not None:
-            products = [p for p in products if float(p.get('base_price', 0)) >= min_price]
-        if max_price is not None:
-            products = [p for p in products if float(p.get('base_price', 0)) <= max_price]
-
-        # --- Apply sorting ---
-        if sort_by == 'price':
-            products.sort(key=lambda x: float(x.get('base_price', 0)), reverse=(sort_order == 'desc'))
-        elif sort_by == 'newest':
-            products.sort(key=lambda x: x.get('created_at') or '', reverse=(sort_order == 'desc'))
-        else:  # default: sort by name
-            products.sort(key=lambda x: x.get('product_name', '').lower(), reverse=(sort_order == 'desc'))
-
-        # --- Pagination ---
-        paginated = PaginationHelper.paginate_list(products, page, per_page)
-
-        # Format products with category info
-        formatted_products = []
-        for p in paginated['items']:
-            category = category_model.get_by_id(p['category_id'])
-            image_path = ImageHelper.get_product_image_url(p['product_id'], p['product_name'])
-            image_url = url_for('static', filename=image_path)
-
-            formatted_products.append({
-                'product_id': p['product_id'],
-                'product_name': p['product_name'],
-                'slug': StringHelper.slugify(p['product_name']),
-                'description': StringHelper.truncate_text(p.get('description'), 120),
-                'base_price': float(p['base_price']),
-                'base_price_formatted': PriceHelper.format_currency(p['base_price']),
-                'category': {
-                    'category_id': category['category_id'],
-                    'category_name': category['category_name']
-                } if category else None,
-                'image_url': image_url,
-                'is_active': p.get('is_active'),
-                'created_at': p['created_at'].isoformat() if p.get('created_at') else None
-            })
-
-        pagination_data = {
-            'page': paginated['page'],
-            'per_page': paginated['per_page'],
-            'total_items': paginated['total_items'],
-            'total_pages': max(1, paginated['total_pages']),
-            'has_next': paginated['page'] < paginated['total_pages'],
-            'has_prev': paginated['page'] > 1
-        }
-
-        # Get all categories for filter dropdown
-        categories = category_model.get_all()
-        categories_for_template = [{'category_id': c['category_id'], 'category_name': c['category_name']} for c in categories]
+        data = AdminService.get_products(
+            category_id=category_id,
+            search_term=search_term,
+            min_price=min_price,
+            max_price=max_price,
+            page=page,
+            per_page=per_page,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
 
         if wants_json:
-            return jsonify({'products': formatted_products, 'pagination': pagination_data}), 200
+            return jsonify({'products': data['products'], 'pagination': data['pagination']}), 200
 
-        return render_template('admin/admin_products.html',
-                               products=formatted_products,
-                               pagination=pagination_data,
-                               categories=categories_for_template,
-                               current_category=category_id,
-                               search_term=search_term,
-                               sort_by=sort_by,
-                               sort_order=sort_order)
+        return render_template(
+            'admin/admin_products.html',
+            products=data['products'],
+            pagination=data['pagination'],
+            categories=data['categories'],
+            current_category=category_id,
+            search_term=search_term,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
 
     except Exception as e:
-        flash(f'Failed to load products: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_dashboard'))
-
- 
-def get_products_data():
-    """API endpoint to get all products"""
-    category_id = request.args.get('category_id', type=int)
-    is_active_str = request.args.get('is_active')
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
+        print(f"Error in get_products_admin: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return render_template('errors/error.html', error_message=str(e)), 500
     
-    try:
-        product_model = Product()
-        category_model = Category()
-        
-        # Get products
-        if is_active_str and is_active_str.lower() == 'false':
-            products = product_model.get_all(active_only=False)
-        else:
-            products = product_model.get_all(active_only=True)
-        
-        # Filter by category
-        if category_id:
-            products = [p for p in products if p.get('category_id') == category_id]
-        
-        # Sort by product name
-        products.sort(key=lambda x: x.get('product_name', '').lower())
-        
-        # Get total count
-        total_products = len(products)
-        
-        # Pagination
-        offset = (page - 1) * per_page
-        products = products[offset:offset + per_page]
-        
-        # Format results
-        result = []
-        for p in products:
-            category = category_model.get_by_id(p['category_id'])
-            result.append({
-                'product_id': p['product_id'],
-                'category_id': p['category_id'],
-                'product_name': p['product_name'],
-                'description': p.get('description'),
-                'base_price': float(p['base_price']),
-                'category_name': category['category_name'] if category else 'Unknown',
-                'is_active': p.get('is_active'),
-                'times_ordered': product_model.get_total_orders(p['product_id']),
-                'total_revenue': product_model.get_total_revenue(p['product_id'])
-            })
-        
-        return jsonify({
-            'products': result,
-            'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total_products': total_products
-            }
-        }), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to get products: {str(e)}'}), 500
-
-
+ 
 @admin_bp.route('/products/create', methods=['GET', 'POST'])
 @permission_required('manage_products')
 def create_product():
@@ -665,237 +301,73 @@ def create_product():
             categories = Category().get_all()
             return render_template('admin/admin_product_form.html', categories=categories, action='create')
         except Exception as e:
-            flash(f'Failed to load form: {str(e)}', 'danger')
-            return redirect(url_for('admin.get_products_admin'))
-    
+            return render_template('errors/error.html', error_message=f"Failed to load form: {str(e)}"), 500
+
     # POST
     data = request.form.to_dict()
     file = request.files.get('product_image')
 
-    required_fields = ['product_name', 'category_id', 'base_price']
-    for field in required_fields:
-        if not data.get(field):
-            flash(f'{field} is required', 'danger')
-            return redirect(url_for('admin.create_product'))
-    
     try:
-        # 1. Create product first to get product_id
-        product_id = Product().create(
-            category_id=int(data['category_id']),
-            product_name=data['product_name'],
-            base_price=float(data['base_price']),
-            description=data.get('description'),
-            is_active=data.get('is_active') == 'on',
-            created_by=session.get('admin_id')
-        )
-
-        # 2. Ensure directories exist
-        ImageHelper.ensure_directories()
-
-        # 3. Save uploaded image using product_id
-        if file and ImageHelper.validate_image_file(file.filename):
-            ext = file.filename.rsplit('.', 1)[1].lower()
-            
-            # Main product image
-            product_filename = f"product_{product_id}.{ext}"
-            product_path = os.path.join(current_app.root_path, ImageHelper.PRODUCT_IMAGES_DIR, product_filename)
-            file.save(product_path)
-
-            # Mockup image
-            mockup_filename = f"product_{product_id}_mockup.{ext}"
-            mockup_path = os.path.join(current_app.root_path, ImageHelper.MOCKUPS_DIR, mockup_filename)
-            file.seek(0)
-            file.save(mockup_path)
-
-            # Update product record with main image URL
-            Product().update(product_id, image_url=f"{ImageHelper.PRODUCT_IMAGES_DIR}/{product_filename}")
-
+        AdminService.create_product(data, file)
         flash('Product created successfully', 'success')
         return redirect(url_for('admin.get_products_admin'))
-    
+
     except Exception as e:
-        flash(f'Failed to create product: {str(e)}', 'danger')
-        return redirect(url_for('admin.create_product'))
+        return render_template('errors/error.html', error_message=f"Failed to create product: {str(e)}"), 500
+    
 
 
 @admin_bp.route('/products/<int:product_id>', methods=['GET'])
 @permission_required('view_products')
-def get_product_detail(product_id):
-    """
-    Display details for a single product in the admin panel.
-    """
+def get_product_detail(product_id): 
     try:
-        product_model = Product()
-        category_model = Category()
-
-        # Fetch the product by ID (including inactive for admin)
-        product = product_model.get_by_id(product_id)
-        if not product:
-            flash(f'Product with ID {product_id} not found.', 'warning')
-            return redirect(url_for('admin.get_products_admin'))
-
-        # Get category info
-        category = category_model.get_by_id(product.get('category_id'))
-
-        # Get product image URL
-        image_path = ImageHelper.get_product_image_url(product['product_id'], product['product_name'])
-        image_url = url_for('static', filename=image_path)
-
-        # Format product data
-        formatted_product = {
-            'product_id': product['product_id'],
-            'product_name': product['product_name'],
-            'slug': StringHelper.slugify(product['product_name']),
-            'description': product.get('description'),
-            'base_price': float(product['base_price']),
-            'base_price_formatted': PriceHelper.format_currency(product['base_price']),
-            'category': {
-                'category_id': category['category_id'],
-                'category_name': category['category_name']
-            } if category else None,
-            'image_url': image_url,
-            'is_active': product.get('is_active'),
-            'created_at': product['created_at'].isoformat() if product.get('created_at') else None,
-            'updated_at': product['updated_at'].isoformat() if product.get('updated_at') else None
-        }
-        categories = Category().get_all()
-
+        result = AdminService.get_product_detail(product_id)
         return render_template(
             'admin/admin_product_detail.html',
-            product=formatted_product,
-            categories=categories
+            product=result['product'],
+            categories=result['categories']
         )
-
     except Exception as e:
-        flash(f'Failed to load product details: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_products_admin'))
-
+        return render_template('errors/error.html', error_message=f"Failed to load product details: {str(e)}"), 500
+    
 
 @admin_bp.route('/products/<int:product_id>/toggle', methods=['POST'])
 @permission_required('manage_products')
 def toggle_product_status(product_id):
     """Toggle product active status (deactivate/activate)"""
     try:
-        product_model = Product()
-        product = product_model.get_by_id(product_id)
-        
-        if not product:
-            flash('Product not found', 'danger')
-            return redirect(url_for('admin.get_products_admin'))
-        
-        new_status = not product.get('is_active', True)
-        
-        success = product_model.update(
-            product_id,
-            is_active=new_status,
-            updated_by=session.get('admin_id')
-        )
-        
-        if not success:
-            flash('Failed to toggle product status', 'danger')
-            return redirect(url_for('admin.get_products_admin'))
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='toggle_product_status',
-            table_name='products',
-            record_id=product_id,
-            old_values={'is_active': product.get('is_active')},
-            new_values={'is_active': new_status}
-        )
-        
+        new_status = AdminService.toggle_product_status(product_id, session.get('admin_id'))
         status_text = 'activated' if new_status else 'deactivated'
         flash(f'Product {status_text} successfully', 'success')
         return redirect(url_for('admin.get_products_admin'))
-            
     except Exception as e:
-        flash(f'Failed to toggle product status: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_products_admin'))
+        return render_template('errors/error.html', error_message=f'Failed to toggle product status: {str(e)}'), 500
     
-
 
 @admin_bp.route('/products/<int:product_id>/delete', methods=['POST'])
 @permission_required('manage_products')
 def delete_product(product_id):
-    """Delete product: soft delete if there are related orders, else hard delete"""
+    """Delete product: soft or hard delete depending on related orders"""
     try:
-        product_model = Product()
-        product = product_model.get_by_id(product_id)
-        
-        if not product:
-            flash('Product not found', 'danger')
-            return redirect(url_for('admin.get_products_admin'))
-        
-        # Check if product has orders
-        total_orders = product_model.get_total_orders(product_id)
-        
-        if total_orders > 0:
-            # Soft delete: deactivate product
-            success = product_model.update(
-                product_id,
-                is_active=False,
-                updated_by=session.get('admin_id')
-            )
-            if success:
-                flash('Product has existing orders, so it was deactivated.', 'info')
-            else:
-                flash('Failed to deactivate product.', 'danger')
-        else:
-            # Hard delete: no related orders
-            success = product_model.delete(product_id)
-            if success:
-                flash('Product deleted successfully.', 'success')
-            else:
-                flash('Failed to delete product.', 'danger')
-        
+        message = AdminService.delete_product(product_id, session.get('admin_id'))
+        flash(message, 'success')
         return redirect(url_for('admin.get_products_admin'))
-            
     except Exception as e:
-        flash(f'Failed to delete product: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_products_admin'))
+        return render_template('errors/error.html', error_message=f'Failed to delete product: {str(e)}'), 500
+
 
 @admin_bp.route('/products/<int:product_id>', methods=['POST'])
 @permission_required('manage_products')
 def update_product(product_id):
     """Update existing product"""
     try:
-        product_model = Product()
-        product = product_model.get_by_id(product_id)
-        if not product:
-            flash('Product not found', 'danger')
-            return redirect(url_for('admin.get_products_admin'))
-
-        data = request.form.to_dict()
-        file = request.files.get('product_image')
-
-        # Update product
-        product_model.update(
-            product_id,
-            product_name=data.get('product_name'),
-            category_id=int(data.get('category_id')),
-            base_price=float(data.get('base_price')),
-            description=data.get('description'),
-            is_active=data.get('is_active') == 'on',
-            updated_by=session.get('admin_id')
-        )
-
-        # Update image if uploaded
-        if file and ImageHelper.validate_image_file(file.filename):
-            ext = file.filename.rsplit('.', 1)[1].lower()
-            filename = f"{secure_filename(data['product_name'])}.{ext}"
-            path = os.path.join(current_app.root_path, ImageHelper.PRODUCT_IMAGES_DIR, filename)
-            file.save(path)
-            product_model.update(product_id, image_url=f"images/products/{filename}")
-
+        AdminService.update_product(product_id, request.form.to_dict(), 
+                                    request.files.get('product_image'), session.get('admin_id'))
         flash('Product updated successfully', 'success')
         return redirect(url_for('admin.get_product_detail', product_id=product_id))
-
+    
     except Exception as e:
-        flash(f'Failed to update product: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_products_admin'))
-
+        return render_template('errors/error.html', error_message=f'Failed to update product: {str(e)}'), 500
  
 # ============================================
 # CUSTOMER MANAGEMENT
@@ -983,8 +455,7 @@ def get_customers_admin():
 def edit_customer(customer_id):
     """Edit customer"""
     customer_model = Customer()
-    customer_service = CustomerService()
-    
+
     if request.method == 'GET':
         try:
             customer = customer_model.get_by_id(customer_id)
@@ -992,7 +463,7 @@ def edit_customer(customer_id):
                 flash('Customer not found', 'danger')
                 return redirect(url_for('admin.get_customers_admin'))
 
-            # 🔥 Get customer order list
+            # Get customer orders
             success, customer_orders = OrderService.get_order_list_by_customer_id(customer_id)
             if not success:
                 customer_orders = []
@@ -1007,268 +478,81 @@ def edit_customer(customer_id):
         except Exception as e:
             flash(f'Failed to load customer: {str(e)}', 'danger')
             return redirect(url_for('admin.get_customers_admin'))
-    
 
-    if request.method == 'POST': 
-    # POST - handle form submission
+    # POST
+    if request.method == 'POST':
         data = request.form.to_dict()
-        
         try:
-            customer = customer_model.get_by_id(customer_id)
-            if not customer:
-                flash('Customer not found', 'danger')
-                return redirect(url_for('admin.get_customers_admin'))
-            
-            
-            # Update customer
-            update_data = {}
-            # Only update password if provided
-            if 'password' in data and data['password'].strip():
-                update_data['password'] = data['password'].strip()
-                customer_service.change_password_as_admin(customer_id, update_data['password'])
-
-            for field in ['username', 'email', 'first_name', 'last_name', 'phone_number']:
-                if field in data:
-                    update_data[field] = data[field]
-            
-            update_data['is_active'] = data.get('is_active') == 'on'
-            
-            success = customer_model.update(customer_id, **update_data)
-            
+            success, old_customer = AdminService.update_customer_as_admin(customer_id, data)
             if not success:
                 flash('Failed to update customer', 'danger')
-                return redirect(url_for('admin.edit_customer', customer_id=customer_id))
-            
-            # Log activity
-            activity_log_model = AdminActivityLog()
-            activity_log_model.create_log(
-                admin_id=session['admin_id'],
-                action='update_customer',
-                table_name='customers',
-                record_id=customer_id,
-                old_values=customer,
-                new_values=data
-            )
-            
-            flash('Customer updated successfully', 'success')
+            else:
+                flash('Customer updated successfully', 'success')
+
             return redirect(url_for('admin.edit_customer', customer_id=customer_id))
-                
+
         except Exception as e:
             flash(f'Failed to update customer: {str(e)}', 'danger')
             return redirect(url_for('admin.edit_customer', customer_id=customer_id))
-
-
+        
+        
 @admin_bp.route('/customers/<int:customer_id>/toggle', methods=['POST'])
 @permission_required('manage_customers')
-def toggle_customer_status(customer_id):
-    """Toggle customer active status (deactivate/activate)"""
+def toggle_customer_status(customer_id): 
     try:
-        customer_model = Customer()
-        customer = customer_model.get_by_id(customer_id)
-        
-        if not customer:
-            flash('Customer not found', 'danger')
-            return redirect(url_for('admin.get_customers_admin'))
-        
-        new_status = not customer.get('is_active', True)
-        
-        success = customer_model.update(customer_id, is_active=new_status)
-        
+        success, new_status = AdminService.toggle_customer_status(customer_id)
         if not success:
             flash('Failed to toggle customer status', 'danger')
-            return redirect(url_for('admin.get_customers_admin'))
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='toggle_customer_status',
-            table_name='customers',
-            record_id=customer_id,
-            old_values={'is_active': customer.get('is_active')},
-            new_values={'is_active': new_status}
-        )
-        
-        status_text = 'activated' if new_status else 'deactivated'
-        flash(f'Customer {status_text} successfully', 'success')
+        else:
+            status_text = 'activated' if new_status else 'deactivated'
+            flash(f'Customer {status_text} successfully', 'success')
+
         return redirect(url_for('admin.get_customers_admin'))
-            
+
+    except ValueError as e:
+        flash(str(e), 'danger')
+        return redirect(url_for('admin.get_customers_admin'))
     except Exception as e:
         flash(f'Failed to toggle customer status: {str(e)}', 'danger')
         return redirect(url_for('admin.get_customers_admin'))
 
 
-def get_customers_data():
-    """API endpoint to get all customers"""
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
-    
-    try:
-        customer_model = Customer()
-        order_model = Order()
-        
-        # Get all customers
-        all_customers = customer_model.get_all() if hasattr(customer_model, 'get_all') else []
-        
-        # Add order statistics
-        result = []
-        for customer in all_customers:
-            customer_orders = [o for o in order_model.get_all() if o.get('customer_id') == customer['customer_id']] if hasattr(order_model, 'get_all') else []
-            total_spent = sum(float(o.get('total_amount', 0)) for o in customer_orders if o.get('order_status') == 'completed')
-            
-            result.append({
-                'customer_id': customer['customer_id'],
-                'username': customer['username'],
-                'email': customer['email'],
-                'first_name': customer['first_name'],
-                'last_name': customer['last_name'],
-                'phone_number': customer.get('phone_number'),
-                'is_active': customer.get('is_active', True),
-                'created_at': customer['created_at'].isoformat() if customer.get('created_at') else None,
-                'last_login': customer['last_login'].isoformat() if customer.get('last_login') else None,
-                'total_orders': len(customer_orders),
-                'total_spent': total_spent
-            })
-        
-        # Pagination
-        total_customers = len(result)
-        offset = (page - 1) * per_page
-        paginated_customers = result[offset:offset + per_page]
-        
-        return jsonify({
-            'customers': paginated_customers,
-            'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total_customers': total_customers
-            }
-        }), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to get customers: {str(e)}'}), 500
 
 @admin_bp.route('/customers/<int:customer_id>', methods=['GET'])
 @permission_required('view_customers')
 def get_customer_details(customer_id):
     """Get customer details"""
     try:
-        customer_model = Customer()
-        order_model = Order()
-        
-        customer = customer_model.get_by_id(customer_id)
-        
-        if not customer:
-            return jsonify({'error': 'Customer not found'}), 404
-        
-        # Get customer orders
-        customer_orders = [o for o in order_model.get_all() if o.get('customer_id') == customer_id] if hasattr(order_model, 'get_all') else []
-        total_spent = sum(float(o.get('total_amount', 0)) for o in customer_orders if o.get('order_status') == 'completed')
-        
-        # Get recent orders
-        recent_orders = sorted(customer_orders, key=lambda x: x.get('created_at', ''), reverse=True)[:5]
-        
-        return jsonify({
-            'customer': {
-                'customer_id': customer['customer_id'],
-                'username': customer['username'],
-                'email': customer['email'],
-                'first_name': customer['first_name'],
-                'last_name': customer['last_name'],
-                'phone_number': customer.get('phone_number'),
-                'is_active': customer.get('is_active', True),
-                'created_at': customer['created_at'].isoformat() if customer.get('created_at') else None,
-                'last_login': customer['last_login'].isoformat() if customer.get('last_login') else None,
-                'total_orders': len(customer_orders),
-                'total_spent': total_spent,
-                'recent_orders': [
-                    {
-                        'order_id': o['order_id'],
-                        'order_number': o['order_number'],
-                        'order_status': o['order_status'],
-                        'total_amount': float(o['total_amount']),
-                        'created_at': o['created_at'].isoformat() if o.get('created_at') else None
-                    }
-                    for o in recent_orders
-                ]
-            }
-        }), 200
-            
+        customer_data = AdminService.get_customer_details(customer_id)
+        return jsonify({'customer': customer_data}), 200
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': f'Failed to get customer details: {str(e)}'}), 500
-
+    
 
 @admin_bp.route('/customers/<int:customer_id>/password', methods=['PUT'])
 @permission_required('view_customers')
-def change_customer_password(customer_id):
-    """Change customer password"""
+def change_customer_password(customer_id): 
     data = request.get_json()
     new_password = data.get('password')
     
-    if not new_password:
-        return jsonify({'error': 'Password is required'}), 400
-    
     try:
-        customer_model = Customer()
-        customer = customer_model.get_by_id(customer_id)
-        
-        if not customer:
-            return jsonify({'error': 'Customer not found'}), 404
-        
-        customer_model.update_password(customer_id, new_password)
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
+        AdminService.change_customer_password(
             admin_id=session['admin_id'],
-            action='change_customer_password',
-            table_name='customers',
-            record_id=customer_id,
-            old_values=None,
-            new_values={'action': 'password_changed'}
+            customer_id=customer_id,
+            new_password=new_password
         )
-        
         return jsonify({'message': 'Password changed successfully'}), 200
-            
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400 if str(e) == 'Password is required' else 404
     except Exception as e:
         return jsonify({'error': f'Failed to change password: {str(e)}'}), 500
 
 
-@admin_bp.route('/customers/<int:customer_id>/delete', methods=['POST'])
-@permission_required('manage_customers')
-def delete_customer(customer_id):
-    """Delete customer"""
-    try:
-        customer_model = Customer()
-        customer = customer_model.get_by_id(customer_id)
-        
-        if not customer:
-            flash('Customer not found', 'danger')
-            return redirect(url_for('admin.get_customers_admin'))
-        
-        # Log activity before deletion
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='delete_customer',
-            table_name='customers',
-            record_id=customer_id,
-            old_values={'username': customer['username'], 'email': customer['email']},
-            new_values=None
-        )
-        
-        success = customer_model.delete(customer_id)
-        
-        if not success:
-            flash('Failed to delete customer', 'danger')
-            return redirect(url_for('admin.get_customers_admin'))
-        
-        flash('Customer deleted successfully', 'success')
-        return redirect(url_for('admin.get_customers_admin'))
-            
-    except Exception as e:
-        flash(f'Failed to delete customer: {str(e)}', 'danger')
-        return redirect(url_for('admin.get_customers_admin'))
-        
+ 
          
 # ============================================
 # ADMIN USER MANAGEMENT (SUPER ADMIN ONLY)
@@ -1276,129 +560,52 @@ def delete_customer(customer_id):
 @admin_bp.route('/admins/<int:admin_id>/profile', methods=['GET'])
 @admin_required
 def get_admin_profile(admin_id):
-    """
-    Render admin profile page.
-    - Super admins can view any profile
-    - Regular admins can only view their own profile
-    """
     current_admin_id = session.get('admin_id')
     current_role = session.get('admin_role')
 
-    # Restrict access
-    if current_role != 'super_admin' and admin_id != current_admin_id:
-        flash("You can only view your own profile.", "error")
+    try:
+        admin = AdminService.get_admin_profile(
+            admin_id=admin_id,
+            current_admin_id=current_admin_id,
+            current_role=current_role
+        )
+        return render_template('admin/profile.html', admin=admin)
+    
+    except PermissionError as e:
+        flash(str(e), "error")
         return redirect(url_for('admin.get_admin', admin_id=current_admin_id))
-
-    # Fetch admin data
-    admin_model = AdminUser()
-    admin = admin_model.get_by_id(admin_id)
-
-    if not admin:
-        flash("Admin user not found.", "error")
+    except ValueError as e:
+        flash(str(e), "error")
         return redirect(url_for('admin.get_admins'))
-
-    return render_template('admin/profile.html', admin=admin)
 
 
 @admin_bp.route('/admins', methods=['GET'])
 @admin_required
 def get_admins():
-    """Render admin users management page with filters."""
     if session.get('admin_role') not in ['super_admin', 'admin']:
         flash('Only super admin can access this page', 'error')
         return redirect(url_for('admin.get_dashboard'))
 
-    # Get query params
-    role = request.args.get('role', '')
-    status = request.args.get('status', '')
-    search = request.args.get('search', '')
+    filters = {
+        'role': request.args.get('role', ''),
+        'status': request.args.get('status', ''),
+        'search': request.args.get('search', '')
+    }
     sort_by = request.args.get('sort_by', 'id')
     sort_order = request.args.get('sort_order', 'asc')
 
-    # Fetch all admins
-    admin_model = AdminUser()
-    admin_users = admin_model.get_all()  # list of dicts or objects
+    admin_users = AdminService.get_admins_list(filters=filters, sort_by=sort_by, sort_order=sort_order)
 
-    # Filter by role
-    if role:
-        admin_users = [a for a in admin_users if a['role'] == role]
-
-    # Filter by status
-    if status:
-        if status == 'active':
-            admin_users = [a for a in admin_users if a.get('is_active', True)]
-        elif status == 'inactive':
-            admin_users = [a for a in admin_users if not a.get('is_active', True)]
-
-    # Filter by search (username, email, first_name, last_name)
-    if search:
-        search_lower = search.lower()
-        admin_users = [
-            a for a in admin_users
-            if search_lower in a['username'].lower() 
-               or search_lower in a['email'].lower() 
-               or search_lower in a['first_name'].lower()
-               or search_lower in a['last_name'].lower()
-        ]
-
-    # Sort
-    reverse = True if sort_order == 'desc' else False
-    if sort_by == 'id':
-        admin_users.sort(key=lambda a: a['admin_id'], reverse=reverse)
-    elif sort_by == 'username':
-        admin_users.sort(key=lambda a: a['username'].lower(), reverse=reverse)
-    elif sort_by == 'name':
-        admin_users.sort(key=lambda a: (a['first_name'] + a['last_name']).lower(), reverse=reverse)
-    elif sort_by == 'role':
-        admin_users.sort(key=lambda a: a['role'].lower(), reverse=reverse)
-    elif sort_by == 'created':
-        admin_users.sort(key=lambda a: a['created_at'] or '', reverse=reverse)
-    elif sort_by == 'last_login':
-        admin_users.sort(key=lambda a: a['last_login'] or '', reverse=reverse)
-
-    # Pass current filters to template
     return render_template(
         'admin/admins.html',
         admin_users=admin_users,
-        role=role,
-        status=status,
-        search=search,
+        role=filters['role'],
+        status=filters['status'],
+        search=filters['search'],
         sort_by=sort_by,
         sort_order=sort_order
     )
-
-
-def get_admins_data():
-    """API endpoint to get all admin users"""
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 50, type=int), 100)
-    
-    try:
-        admin_model = AdminUser()
-        
-        # Get all admins
-        all_admins = admin_model.get_all()
-        
-        # Format admins
-        result = []
-        for admin in all_admins:
-            result.append({
-                'admin_id': admin['admin_id'],
-                'username': admin['username'],
-                'email': admin['email'],
-                'first_name': admin['first_name'],
-                'last_name': admin['last_name'],
-                'role': admin['role'],
-                'is_active': admin.get('is_active', True),
-                'created_at': admin['created_at'].isoformat() if admin.get('created_at') else None,
-                'last_login': admin['last_login'].isoformat() if admin.get('last_login') else None
-            })
-        
-        return jsonify({'admins': result}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to get admin users: {str(e)}'}), 500
-
+ 
 @admin_bp.route('/admins/add', methods=['GET'])
 @admin_required
 def show_add_admin_form():
@@ -1411,18 +618,15 @@ def show_add_admin_form():
 
 @admin_bp.route('/admins/<int:admin_id>', methods=['GET'])
 @admin_required
-def get_admin(admin_id):
-    """Fetch a single admin user and render their data"""
-    # Only super admin can access
+def get_admin(admin_id): 
     if session.get('admin_role') != 'super_admin':
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'error': 'Only super admin can access this page'}), 403
         flash('Only super admin can access this page', 'error')
         return redirect(url_for('admin.get_dashboard'))
 
-    # Fetch admin data
-    admin_model = AdminUser()
-    admin_data = admin_model.get_by_id(admin_id)  # returns dict or object
+     
+    admin_data = AdminService.get_admin_by_id(admin_id)
 
     if not admin_data:
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1430,11 +634,10 @@ def get_admin(admin_id):
         flash('Admin user not found', 'error')
         return redirect(url_for('admin.get_admins'))
 
-    # If AJAX request, return JSON
+     
     if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'admin': admin_data})
 
-    # Otherwise, render HTML template
     return render_template('admin/admin_detail.html', admin=admin_data)
 
 
@@ -1447,15 +650,13 @@ def add_admin_from_form():
 
     form = request.form
 
-    admin_model = AdminUser()
-
-    admin_id = admin_model.create(
+    admin_id = AdminService.create_admin(
         username=form.get('username'),
         email=form.get('email'),
         password=form.get('password'),
-        first_name=form.get('first_name'),
-        last_name=form.get('last_name'),
-        role=form.get('role'),
+        first_name=form.get('first_name', ''),
+        last_name=form.get('last_name', ''),
+        role=form.get('role', 'admin'),
         is_active=True if form.get('is_active') == "on" else False,
         created_by=session['admin_id']
     )
@@ -1463,104 +664,32 @@ def add_admin_from_form():
     flash("Admin user created successfully!", "success")
     return redirect(url_for('admin.update_admin', admin_id=admin_id))
 
-
 @admin_bp.route('/admins/<int:admin_id>', methods=['PUT'])
 @admin_required
 def update_admin(admin_id):
-    """Update admin user (super admin only)"""
     if session.get('admin_role') != 'super_admin':
         return jsonify({'error': 'Only super admin can update admin users'}), 403
-    
-    data = request.get_json()
-    
-    try:
-        admin_model = AdminUser()
-        admin = admin_model.get_by_id(admin_id)
-        
-        if not admin:
-            return jsonify({'error': 'Admin user not found'}), 404
-        
-        # Update fields (excluding password which has separate endpoint)
-        update_data = {}
-        if 'email' in data:
-            update_data['email'] = data['email']
-        if 'first_name' in data:
-            update_data['first_name'] = data['first_name']
-        if 'last_name' in data:
-            update_data['last_name'] = data['last_name']
-        if 'role' in data:
-            update_data['role'] = data['role']
-        if 'is_active' in data:
-            update_data['is_active'] = data['is_active']
-        
-        # Update admin - you'll need to implement this method in AdminUser model
-        for key, value in update_data.items():
-            # This is a simplified version - implement proper update method in model
-            pass
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='update_admin_user',
-            table_name='admin_users',
-            record_id=admin_id,
-            old_values={'role': admin['role']},
-            new_values=data
-        )
-        
-        return jsonify({'message': 'Admin user updated successfully'}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to update admin user: {str(e)}'}), 500
 
+    data = request.get_json()
+    success, message = AdminService.update_admin(admin_id, data, updated_by=session.get('admin_id'))
+    if not success:
+        return jsonify({'error': message}), 404
+    return jsonify({'message': message}), 200
 
 @admin_bp.route('/admins/<int:admin_id>', methods=['POST'])
 @admin_required
 def update_admin_form(admin_id):
-    """Handle HTML form submission from admin_detail.html"""
-
     current_admin_id = session.get('admin_id')
     current_role = session.get('admin_role')
 
-    admin_model = AdminUser()
-    admin = admin_model.get_by_id(admin_id)
+    success, message = AdminService.update_admin_from_form(
+        admin_id,
+        request.form,
+        current_admin_id=current_admin_id,
+        current_role=current_role
+    )
 
-    if not admin:
-        flash("Admin user not found", "error")
-        return redirect(url_for('admin.get_admins'))
-
-    # Permission check: only super_admin or self can edit
-    if current_role != 'super_admin' and admin_id != current_admin_id:
-        flash("You are not allowed to update this admin user.", "error")
-        return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
-
-    # Read form data
-    is_active = True if request.form.get("is_active") == "on" else False
-    password = request.form.get("password")
-    first_name = request.form.get("first_name")
-    last_name = request.form.get("last_name")
-    new_role = request.form.get("role")  # Get role from form if provided
-
-    # Update full name
-    if first_name or last_name:
-        admin_model.update_full_name(admin_id, first_name=first_name, last_name=last_name)
-
-    # Update role: only super_admin can change roles of others (not themselves)
-    if current_role == 'super_admin' and admin_id != current_admin_id and new_role:
-        admin_model.update_role(admin_id, new_role)
-
-    # Update status: prevent self-deactivation
-    if current_role == 'super_admin' and admin_id != current_admin_id:
-        admin_model.update_status(admin_id, is_active)
-
-    # Update password only if provided
-    if password and password.strip() != "":
-        admin_model.update_password(admin_id, password)
-
-    flash("Admin updated successfully", "success")
-
-    # Redirect depending on whether the updated admin is the current user
+    flash(message, "success" if success else "error")
     if admin_id == current_admin_id:
         return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
     else:
@@ -1569,10 +698,6 @@ def update_admin_form(admin_id):
 @admin_bp.route('/profile/password', methods=['GET', 'POST', 'PUT'])
 @admin_required
 def change_admin_password():
-    """
-    Render and handle password change for the current logged-in admin.
-    - Super admin or regular admin can change their own password.
-    """
     current_admin_id = session.get('admin_id')
     if not current_admin_id:
         flash("You must be logged in to change password.", "error")
@@ -1584,110 +709,48 @@ def change_admin_password():
         flash("Admin user not found.", "error")
         return redirect(url_for('admin.get_dashboard'))
 
-    # Handle form submission
-    if request.method == 'POST' or request.method == 'PUT':
-        new_password = request.form.get('new_password') or request.json.get('password')
+    if request.method in ['POST', 'PUT']:
+        # Get password from form (POST) or JSON (PUT)
+        new_password = request.form.get('new_password') or (request.json and request.json.get('password'))
         confirm_password = request.form.get('confirm_password')
 
         if not new_password or (request.method == 'POST' and new_password != confirm_password):
             flash("Passwords do not match or are empty.", "error")
             return redirect(url_for('admin.change_admin_password'))
 
-        try:
-            admin_model.update_password(current_admin_id, new_password)
-
-            # Log activity
-            activity_log_model = AdminActivityLog()
-            activity_log_model.create_log(
-                admin_id=current_admin_id,
-                action='change_admin_password',
-                table_name='admin_users',
-                record_id=current_admin_id,
-                old_values=None,
-                new_values={'action': 'password_changed'}
-            )
-
-            flash("Password changed successfully.", "success")
+        success, message = AdminService.change_password(current_admin_id, new_password)
+        flash(message, "success" if success else "error")
+        if success:
             return redirect(url_for('admin.get_admin_profile', admin_id=current_admin_id))
+        return redirect(url_for('admin.change_admin_password'))
 
-        except Exception as e:
-            flash(f"Failed to change password: {str(e)}", "error")
-            return redirect(url_for('admin.change_admin_password'))
-
-    # GET request renders the password change page
     return render_template('admin/admin_password.html', admin=admin)
 
 
+ 
 @admin_bp.route('/admins/<int:admin_id>/deactivate', methods=['PUT'])
 @admin_required
 def deactivate_admin(admin_id):
-    """Deactivate admin user (super admin only)"""
     if session.get('admin_role') != 'super_admin':
         return jsonify({'error': 'Only super admin can deactivate admin users'}), 403
-    
-    # Cannot deactivate yourself
-    if admin_id == session.get('admin_id'):
-        return jsonify({'error': 'Cannot deactivate your own account'}), 400
-    
-    try:
-        admin_model = AdminUser()
-        admin = admin_model.get_by_id(admin_id)
-        
-        if not admin:
-            return jsonify({'error': 'Admin user not found'}), 404
-        
-        admin_model.update_status(admin_id, False)
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='deactivate_admin_user',
-            table_name='admin_users',
-            record_id=admin_id,
-            old_values={'is_active': True},
-            new_values={'is_active': False}
-        )
-        
-        return jsonify({'message': 'Admin user deactivated successfully'}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to deactivate admin user: {str(e)}'}), 500
+
+    success, message = AdminService.deactivate_admin(admin_id)
+    status_code = 200 if success else 400
+    return jsonify({'message' if success else 'error': message}), status_code
 
 
 @admin_bp.route('/admins/<int:admin_id>/activate', methods=['PUT'])
 @admin_required
-def activate_admin(admin_id):
-    """Activate admin user (super admin only)"""
+def activate_admin(admin_id): 
     if session.get('admin_role') != 'super_admin':
         return jsonify({'error': 'Only super admin can activate admin users'}), 403
-    
-    try:
-        admin_model = AdminUser()
-        admin = admin_model.get_by_id(admin_id)
-        
-        if not admin:
-            return jsonify({'error': 'Admin user not found'}), 404
-        
-        admin_model.update_status(admin_id, True)
-        
-        # Log activity
-        activity_log_model = AdminActivityLog()
-        activity_log_model.create_log(
-            admin_id=session['admin_id'],
-            action='activate_admin_user',
-            table_name='admin_users',
-            record_id=admin_id,
-            old_values={'is_active': False},
-            new_values={'is_active': True}
-        )
-        
-        return jsonify({'message': 'Admin user activated successfully'}), 200
-            
-    except Exception as e:
-        return jsonify({'error': f'Failed to activate admin user: {str(e)}'}), 500
+
+    success, message = AdminService.activate_admin(admin_id)
+    status_code = 200 if success else 400
+    return jsonify({'message' if success else 'error': message}), status_code
 
 
+ 
 @admin_bp.route('/admins/<int:admin_id>/delete', methods=['POST'])
 @admin_required
 def delete_admin(admin_id):
@@ -1695,21 +758,8 @@ def delete_admin(admin_id):
         flash("Only super admins can delete admin users.", "error")
         return redirect(url_for('admin.get_admin', admin_id=admin_id))
 
-    if admin_id == session.get('admin_id'):
-        flash("You cannot delete your own account.", "error")
-        return redirect(url_for('admin.get_admin', admin_id=admin_id))
+    success, message = AdminService.delete_admin(admin_id)
+    flash(message, "success" if success else "error")
 
-    admin_model = AdminUser()
-    admin = admin_model.get_by_id(admin_id)
-
-    if not admin:
-        flash("Admin user not found.", "error")
-        return redirect(url_for('admin.get_admins'))
-
-    admin_model.delete(admin_id)
-
-    flash("Admin user deleted successfully.", "success")
     return redirect(url_for('admin.get_admins'))
-
-
  

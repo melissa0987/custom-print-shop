@@ -19,7 +19,7 @@ class Customer:
                  is_active=True, created_at=None, last_login=None):
         self.customer_id = customer_id
         self.username = username
-        self.password_hash = password_hash  # Store only hashed password
+        self.password_hash = password_hash  
         self.email = email
         self.first_name = first_name
         self.last_name = last_name
@@ -92,7 +92,7 @@ class Customer:
         updates = []
         values = []
 
-        # Include 'address' as an updatable field
+         
         allowed_fields = [
             'username', 'email', 'password_hash', 'first_name', 'last_name',
             'phone_number', 'is_active', 'last_login', 'address'
@@ -191,13 +191,9 @@ class EditProfileForm(FlaskForm):
     ])
     first_name = StringField('First Name', validators=[DataRequired()])
     last_name = StringField('Last Name', validators=[DataRequired()])
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    
-    # Address field (one-line full address)
-    address = StringField('Address', validators=[DataRequired(), Length(max=255)])
-    
-    phone = StringField('Phone', validators=[Optional()])
-    
+    email = StringField('Email', validators=[DataRequired(), Email()]) 
+    address = StringField('Address', validators=[DataRequired(), Length(max=255)]) 
+    phone = StringField('Phone', validators=[Optional()]) 
     password = PasswordField('New Password (leave blank to keep current)', validators=[
         Optional(),
         Length(min=8, message="Password must be at least 8 characters")

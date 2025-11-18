@@ -10,7 +10,10 @@ from datetime import datetime
 
 
 class Product: 
-    def __init__( self,  product_id=None, category_id=None, product_name=None, description=None, base_price=0.0, is_active=True, created_at=None,  updated_at=None, created_by=None, updated_by=None  ):
+    def __init__( self,  product_id=None, category_id=None, product_name=None, 
+                 description=None, base_price=0.0, is_active=True, 
+                 created_at=None,  updated_at=None, created_by=None, 
+                 updated_by=None  ):
 
         self.product_id = product_id
         self.category_id = category_id

@@ -10,6 +10,7 @@ from datetime import datetime
 from app.models import Category, Product
 from app.services import ProductService
 from app.utils import StringHelper, ImageHelper
+from app.database import health_check as db_health_check
 
 # Create blueprint
 main_bp = Blueprint('main', __name__)
@@ -262,7 +263,7 @@ def sitemap():
 @main_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    from app.database import health_check as db_health_check
+    
     try:
         db_health = db_health_check()
         health_status = {

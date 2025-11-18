@@ -21,11 +21,7 @@ class DesignService:
     DEFAULT_Y = 0.5
     
     @staticmethod
-    def process_design_upload(file, product_id, customer_id=None, session_id=None):
-        """
-        Process uploaded design file and create preview using product mockup.
-        Returns design URL and preview URL
-        """
+    def process_design_upload(file, product_id, customer_id=None, session_id=None): 
 
         if not file or file.filename == '':
             return False, "No file provided"
@@ -34,14 +30,14 @@ class DesignService:
             return False, "Invalid file type"
 
         try:
-            # 1. Setup directories
+            # Setup directories
             designs_dir = "app/static/images/designs"
             previews_dir = "app/static/images/previews"
 
             os.makedirs(designs_dir, exist_ok=True)
             os.makedirs(previews_dir, exist_ok=True)
 
-            # 2. Generate filenames
+            # Generate filenames
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             original_filename = secure_filename(file.filename)
 
@@ -51,16 +47,16 @@ class DesignService:
             design_path = os.path.join(designs_dir, design_filename)
             preview_path = os.path.join(previews_dir, preview_filename)
 
-            # 3. Save original design
+            # ave original design
             file.save(design_path)
 
-            # 4. Validate image
+            # Validate image
             is_valid, error_msg = ImageProcessor.validate_image(design_path)
             if not is_valid:
                 os.remove(design_path)
                 return False, error_msg
 
-            # 5. Get product mockup
+            # Get product mockup
             product_model = Product()
             product = product_model.get_by_id(product_id)
             
@@ -72,13 +68,13 @@ class DesignService:
             mockup_url = ImageHelper.get_mockup_url(product_id)
             # Convert URL to file path
             if mockup_url.startswith('/static/'):
-                mockup_relative = mockup_url[8:]  # Remove '/static/'
+                mockup_relative = mockup_url[8:]
             else:
                 mockup_relative = mockup_url.lstrip('/')
             
             mockup_path = os.path.join('app', 'static', mockup_relative)
 
-            # 6. Generate preview with mockup
+            # preview with mockup
             preview_url = None
             if os.path.exists(mockup_path):
                 success, msg = ImageProcessor.create_preview_with_mockup(
@@ -94,11 +90,10 @@ class DesignService:
                     preview_url = f"/static/images/previews/{preview_filename}"
                 else:
                     print(f"Preview generation failed: {msg}")
-                    # Continue without preview
             else:
                 print(f"Mockup not found at: {mockup_path}")
 
-            # 7. Save to database
+            #Save to database
             uploaded_file_model = UploadedFile()
             file_id = uploaded_file_model.create(
                 file_url=f"/static/images/designs/{design_filename}",
@@ -107,14 +102,14 @@ class DesignService:
                 session_id=session_id
             )
 
-            # 8. Get image metadata
+            # Get image metadata
             image_info = ImageProcessor.get_image_info(design_path)
 
             # 9. Return complete data
             return True, {
                 "file_id": file_id,
                 "design_url": f"/static/images/designs/{design_filename}",
-                "preview_url": preview_url,  # This is the key field!
+                "preview_url": preview_url, 
                 "original_filename": original_filename,
                 "image_info": image_info,
                 "product_id": product_id

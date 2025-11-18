@@ -120,45 +120,13 @@ class CartItem:
     # UTILITY METHODS
     # ---------------------
 
-    # Calculate line total: quantity * product price
-    def get_line_total(self, cart_item): 
-        return float(cart_item['quantity'] * cart_item['product']['base_price'])
-
     def add_customization(self, cart_item_id, key, value):
         """Add a customization to this cart item"""
         cust_model = CartItemCustomization()
         return cust_model.create(cart_item_id, key, value)
 
-        # ---------------------
-    # ADD OR INCREMENT
-    # ---------------------
-    def add_or_increment(self, shopping_cart_id, product_id, quantity=1, design_file_url=None):
-        """
-        If a product already exists in the cart, increment its quantity.
-        Otherwise, create a new cart item.
-        """
-        # Fetch existing items in the cart
-        existing_items = self.get_by_cart(shopping_cart_id)
-        
-        # Look for the product
-        item = next((i for i in existing_items if i['product_id'] == product_id), None)
-        
-        if item:
-            # Update existing item quantity
-            new_quantity = item['quantity'] + int(quantity)
-            self.update(item['cart_item_id'], quantity=new_quantity)
-            return item['cart_item_id']
-        else:
-            # Create new cart item
-            return self.create(
-                shopping_cart_id=shopping_cart_id,
-                product_id=product_id,
-                quantity=int(quantity),
-                design_file_url=design_file_url
-            )
-        
-    def get_total_items(self, shopping_cart_id):
-        """Return the total number of items (sum of quantities) in a given cart"""
+ 
+    def get_total_items(self, shopping_cart_id): 
         sql = "SELECT COALESCE(SUM(quantity), 0) AS total_items FROM cart_items WHERE shopping_cart_id = %s;"
         with get_cursor(commit=False) as cur:
             cur.execute(sql, (shopping_cart_id,))
