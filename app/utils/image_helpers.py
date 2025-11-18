@@ -28,14 +28,7 @@ class ImageHelper:
     
     @staticmethod
     def get_product_image_url(product_id, product_name=None):
-        """
-        Get product image URL, returns default if not found
-        Checks for:
-        1. product_{id}.png
-        2. product_{id}.jpg
-        3. {slugified_name}.png
-        4. Default image
-        """
+         
         base_dir = ImageHelper.PRODUCT_IMAGES_DIR
         
         if product_id:

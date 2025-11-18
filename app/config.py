@@ -23,7 +23,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
     
     # Session Configuration
-    SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+    SESSION_COOKIE_SECURE = False  
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     PERMANENT_SESSION_LIFETIME = timedelta(hours=2)
@@ -81,7 +81,7 @@ class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True
     
-    # Add stricter security headers for production
+    
     SECURITY_HEADERS = {
         **Config.SECURITY_HEADERS,
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',

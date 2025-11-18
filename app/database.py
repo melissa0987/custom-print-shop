@@ -59,7 +59,7 @@ def close_db():
 # ================================================================
 # CONNECTION HELPERS
 # ================================================================
-"""Get a DB connection from the pool."""
+"""connection """
 def get_connection(): 
     if not _connection_pool:
         raise ConnectionError("Database pool not initialized.")

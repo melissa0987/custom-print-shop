@@ -87,17 +87,7 @@ class ImageProcessor:
     @staticmethod
     def create_preview_with_mockup(design_path, mockup_path, output_path, 
                                    design_scale=0.5, design_x=0.5, design_y=0.5):
-        """
-        Create a preview image with design overlaid on product mockup
         
-        Args:
-            design_path: Path to user's design image
-            mockup_path: Path to product mockup image
-            output_path: Path to save the preview
-            design_scale: Scale of design relative to mockup (0.0 to 1.0)
-            design_x: Horizontal position (0.0 = left, 0.5 = center, 1.0 = right)
-            design_y: Vertical position (0.0 = top, 0.5 = center, 1.0 = bottom)
-        """
         try:
             # Open mockup
             with Image.open(mockup_path) as mockup:
