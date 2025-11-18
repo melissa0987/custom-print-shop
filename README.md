@@ -51,7 +51,7 @@ This platform allows customers to design and order custom-printed products like 
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/printcraft.git
+git clone https://github.com/melissa0987/custom-print-shop
 cd printcraft
 ```
 
@@ -73,8 +73,8 @@ Create a `.env` file in the root directory:
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_NAME=custom_print
-DATABASE_USER=your_username
-DATABASE_PASSWORD=your_password
+DATABASE_USER=`your_username`
+DATABASE_PASSWORD=`your_password`
 DATABASE_SSLMODE=disable
 
 # Application Configuration
@@ -95,12 +95,12 @@ CORS_ORIGINS=http://localhost:5000
 createdb custom_print
 
 # Run database schema
-psql -U your_username -d custom_print -f database/01_schema.sql
-psql -U your_username -d custom_print -f database/02_indexes.sql
-psql -U your_username -d custom_print -f database/03_functions.sql
-psql -U your_username -d custom_print -f database/04_triggers.sql
-psql -U your_username -d custom_print -f database/05_views.sql
-psql -U your_username -d custom_print -f database/06_inserts.sql
+psql -U `your_username` -d custom_print -f database/01_schema.sql
+psql -U `your_username` -d custom_print -f database/02_indexes.sql
+psql -U `your_username` -d custom_print -f database/03_functions.sql
+psql -U `your_username` -d custom_print -f database/04_triggers.sql
+psql -U `your_username` -d custom_print -f database/05_views.sql
+psql -U `your_username` -d custom_print -f database/06_inserts.sql
 ```
 
 Or use the Flask CLI:
@@ -196,18 +196,7 @@ Main CSS files are in `app/static/css/`:
 - **File Upload Validation**: File type and size restrictions
 - **Role-Based Access**: Permission decorators for routes
 
-## 🧪 Testing
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_models.py
-
-# Run with coverage
-pytest --cov=app tests/
-```
-
+ 
 ## 📦 Deployment
 
 ### Production Checklist
@@ -308,7 +297,6 @@ The application uses a normalized PostgreSQL database with the following main ta
 - **order_status_history** - Order status tracking
 - **admin_activity_log** - Audit trail
 
-See `database/01_schema.sql` for complete schema.
-
+ 
 ---
 
