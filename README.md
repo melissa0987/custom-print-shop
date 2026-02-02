@@ -3,7 +3,7 @@
 A full-featured custom printing e-commerce web application built with Flask and PostgreSQL. 
 This platform allows customers to design and order custom-printed products like mugs, t-shirts, tumblers, and bags with personalized designs.
 
-## 🌟 Features
+## Features
 
 ### Customer Features
 - **User Authentication**: Secure registration and login system with password validation
@@ -32,7 +32,7 @@ This platform allows customers to design and order custom-printed products like 
 - **Database Optimization**: Efficient queries with proper indexing
 - **Security**: Password hashing, CSRF protection, input validation
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Backend**: Python 3.x, Flask
 - **Database**: PostgreSQL with psycopg2
@@ -47,7 +47,7 @@ This platform allows customers to design and order custom-printed products like 
 - PostgreSQL 12 or higher
 - pip (Python package installer)
 
-## 🚀 Installation
+## Installation
 
 ### 1. Clone the Repository
 ```bash
@@ -122,7 +122,7 @@ python run.py
 
 The application will be available at `http://localhost:5000`
 
-## 📁 Project Structure
+## Project Structure
 ```
 CUSTOM-PRINT-SHOP/
 ├── app/
@@ -140,13 +140,13 @@ CUSTOM-PRINT-SHOP/
 └── run.py                   # Application entry point
 ```
 
-## 🔑 Default Admin Account
+## Default Admin Account
 
 After running the database inserts, you can login with:
 - **Email**: admin@printcraft.com
 - **Password**: admin123 (change immediately in production)
 
-## 📚 API Endpoints
+## API Endpoints
 
 ### Public Routes
 - `GET /` - Homepage
@@ -168,7 +168,7 @@ After running the database inserts, you can login with:
 - `GET /admin/customers` - Manage customers
 - `POST /admin/orders/<id>/status` - Update order status
 
-## 🎨 Customization
+## Customization
 
 ### Adding New Products
 1. Login as admin
@@ -186,7 +186,7 @@ Main CSS files are in `app/static/css/`:
 - `products.css` - Product pages
 - `cart-order.css` - Cart and checkout
 
-## 🔒 Security Features
+## Security Features
 
 - **Password Hashing**: Using werkzeug.security
 - **Input Validation**: Server-side validation for all forms
@@ -197,7 +197,7 @@ Main CSS files are in `app/static/css/`:
 - **Role-Based Access**: Permission decorators for routes
 
  
-## 📦 Deployment
+## Deployment
 
 ### Production Checklist
 1. Set `FLASK_ENV=production` in `.env`
@@ -221,7 +221,7 @@ docker build -t printcraft .
 docker run -p 5000:5000 printcraft
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Database Connection Issues
 ```bash
@@ -245,7 +245,7 @@ psql -U your_username -d custom_print -c "SELECT 1"
 - Verify `SECRET_KEY` is set
 - Check session configuration in `config.py`
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
@@ -253,35 +253,22 @@ psql -U your_username -d custom_print -c "SELECT 1"
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Authors
+## Authors
 
 - **Melissa Bangloy* - *Initial work*
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Flask documentation
 - PostgreSQL community
 - Bootstrap/CSS frameworks 
 
- 
-## 🗺️ Roadmap
 
-- [ ] Payment gateway integration (Stripe/PayPal)
-- [ ] Email notifications for orders
-- [ ] Advanced design editor
-- [ ] Bulk order discounts
-- [ ] Wishlist functionality
-- [ ] Product reviews and ratings
-- [ ] Social media integration
-- [ ] Analytics dashboard
-- [ ] Multi-language support
-- [ ] Mobile app
-
-## 📊 Database Schema
+## Database Schema
 
 The application uses a normalized PostgreSQL database with the following main tables:
 
