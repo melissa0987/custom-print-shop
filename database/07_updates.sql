@@ -78,7 +78,7 @@ ALTER TABLE order_items
 ADD COLUMN design_id INTEGER REFERENCES designs(design_id) ON DELETE SET NULL;
 
 
-Add design templates/presets
+-- Add design templates/presets
 -- (For offering pre-made designs to users)
 CREATE TABLE IF NOT EXISTS design_templates (
     template_id SERIAL PRIMARY KEY,

@@ -1,22 +1,22 @@
 
 -- Insert Sample Admin Users 
 INSERT INTO admin_users (username, email, password_hash, first_name, last_name, role, is_active) VALUES
-    ('superadmin', 'superadmin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Super', 'Admin', 'super_admin', TRUE),
-    ('admin_john', 'john.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Admin', 'super_admin', TRUE),
-    ('staff_jane', 'jane.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Administrator', 'admin', TRUE),
-    ('admin_emily', 'emily.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Emily', 'Administrator', 'admin', TRUE),
-    ('staff_michael', 'michael.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Michael', 'Staff', 'staff', TRUE),
-    ('staff_sophia', 'sophia.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Sophia', 'Staff', 'staff', TRUE),
-    ('admin_david', 'david.admin@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'David', 'Administrator', 'admin', TRUE),
-    ('staff_olivia', 'olivia.staff@printcraft.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Olivia', 'Staff', 'staff', TRUE);
+    ('superadmin', 'superadmin@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Super', 'Admin', 'super_admin', TRUE),
+    ('admin_john', 'john.admin@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'John', 'Admin', 'super_admin', TRUE),
+    ('staff_jane', 'jane.staff@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Jane', 'Administrator', 'admin', TRUE),
+    ('admin_emily', 'emily.admin@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Emily', 'Administrator', 'admin', TRUE),
+    ('staff_michael', 'michael.staff@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Michael', 'Staff', 'staff', TRUE),
+    ('staff_sophia', 'sophia.staff@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Sophia', 'Staff', 'staff', TRUE),
+    ('admin_david', 'david.admin@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'David', 'Administrator', 'admin', TRUE),
+    ('staff_olivia', 'olivia.staff@printcraft.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Olivia', 'Staff', 'staff', TRUE);
 
 -- Insert Sample Customers
 INSERT INTO customers (username, email, password_hash, first_name, last_name, address, phone_number) VALUES
-    ('johndoe', 'john.doe@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'John', 'Doe', '123 Main St, Montreal, QC', '514-555-0101'),
-    ('janesmith', 'jane.smith@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Jane', 'Smith', '456 Oak Ave, Montreal, QC', '514-555-0102'),
-    ('bobwilson', 'bob.wilson@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Bob', 'Wilson', '789 Pine Rd, Montreal, QC', '514-555-0103'),
-    ('alicebrown', 'alice.brown@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Alice', 'Brown', '321 Maple St, Montreal, QC', '514-555-0104'),
-    ('charliedavis', 'charlie.davis@email.com', 'scrypt:32768:8:1$w8mk452lIinHUfCY$7f600ca2108e6e740d9f5c627e521ce2b835b1a0923f877d1a49b8a384d10da11a6a9a9cc6dfc8f12be51d331909260164be0a15e4f986cd8f6fb03945d0cc34', 'Charlie', 'Davis', '654 Cedar Ln, Montreal, QC', '514-555-0105');
+    ('johndoe', 'john.doe@email.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'John', 'Doe', '123 Main St, Montreal, QC', '514-555-0101'),
+    ('janesmith', 'jane.smith@email.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Jane', 'Smith', '456 Oak Ave, Montreal, QC', '514-555-0102'),
+    ('bobwilson', 'bob.wilson@email.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Bob', 'Wilson', '789 Pine Rd, Montreal, QC', '514-555-0103'),
+    ('alicebrown', 'alice.brown@email.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Alice', 'Brown', '321 Maple St, Montreal, QC', '514-555-0104'),
+    ('charliedavis', 'charlie.davis@email.com', 'scrypt:32768:8:1$JrnNuvYaOwDq4Zew$fb5a9764b62d8d0774c98c5c035ab328905556ac46c5744a9125f52cbca4f1e9719c8915d5a3e7e0e22f9117790625fa4ed6715a56d9dfcbe9b92a9953f2563f', 'Charlie', 'Davis', '654 Cedar Ln, Montreal, QC', '514-555-0105');
 
 -- Insert Categories (created by admin_john with admin_id = 2)
 INSERT INTO categories (category_name, description, is_active, display_order, created_by, updated_by) VALUES
@@ -55,15 +55,15 @@ INSERT INTO shopping_carts (customer_id, session_id) VALUES
 -- Insert Sample Cart Items
 INSERT INTO cart_items (shopping_cart_id, product_id, quantity, design_file_url) VALUES
     -- johndoe's cart (shopping_cart_id = 1)
-    (1, 1, 2, '../icons/mug.png'),
-    (1, 4, 1, '../icons/mug.png'),
+    (1, 1, 2, NULL),
+    (1, 4, 1, NULL),
     
     -- janesmith's cart (shopping_cart_id = 2)
     (2, 6, 1, NULL),
-    (2, 10, 2, '../icons/mug.png'),
+    (2, 10, 2, NULL),
     
     -- Guest cart 1 (shopping_cart_id = 3)
-    (3, 3, 1, '../icons/mug.png'),
+    (3, 3, 1, NULL),
     
     -- Guest cart 2 (shopping_cart_id = 4)
     (4, 6, 1, NULL);
@@ -101,24 +101,24 @@ VALUES
 -- Insert Sample Order Items
 INSERT INTO order_items (order_id, product_id, quantity, unit_price, design_file_url, subtotal)VALUES
     -- Order 1: Two ceramic mugs (order_id = 1)
-    (1, 1, 2, 12.99, '../icons/mug.png', 25.98),
+    (1, 1, 2, 12.99, NULL, 25.98),
 
     -- Order 2: Tumbler and T-shirt (order_id = 2)
-    (2, 4, 1, 24.99, '../icons/mug.png', 24.99),
-    (2, 10, 1, 19.99, '../icons/mug.png', 19.99),
+    (2, 4, 1, 24.99, NULL, 24.99),
+    (2, 10, 1, 19.99, NULL, 19.99),
 
     -- Order 3: Canvas tote bag (order_id = 3)
-    (3, 6, 1, 16.99, '../icons/mug.png', 16.99),
+    (3, 6, 1, 16.99, NULL, 16.99),
 
     -- Order 4: Cotton Shopping Bag (order_id = 4, cancelled)
-    (4, 8, 2, 12.99, '../icons/mug.png', 25.98),
-    (4, 1, 1, 12.99, '../icons/mug.png', 12.99),
+    (4, 8, 2, 12.99, NULL, 25.98),
+    (4, 1, 1, 12.99, NULL, 12.99),
 
     -- Order 5: Multiple items (order_id = 5) 
-    (5, 1, 2, 14.99, '../icons/mug.png', 29.98),
+    (5, 1, 2, 14.99, NULL, 29.98),
 
     -- Order 6: Guest order (order_id = 6)
-    (6, 3, 1, 19.99, '../icons/mug.png', 19.99);
+    (6, 3, 1, 19.99, NULL, 19.99);
 
 -- Insert Order Item Customizations
 INSERT INTO order_item_customizations (order_item_id, customization_key, customization_value) VALUES
@@ -161,20 +161,20 @@ INSERT INTO order_item_customizations (order_item_id, customization_key, customi
 INSERT INTO uploaded_files (customer_id, session_id, order_item_id, cart_item_id, file_url, original_filename)
 VALUES
     -- Files linked to order items
-    (1, NULL, 1, NULL, '../icons/mug.png', 'company_logo.png'),
-    (2, NULL, 2, NULL, '../icons/mug.png', 'family_photo.jpg'),
-    (2, NULL, 3, NULL, '../icons/mug.png', 'band_artwork.png'),
-    (3, NULL, 4, NULL, '../icons/mug.png','business_design.pdf'),
-    (1, NULL, 5, NULL, '../icons/mug.png', 'event_design.ai'),
-    (1, NULL, 6, NULL, '../icons/mug.png', 'mug_design.png'),
-    (4, NULL, 7, NULL, '../icons/mug.png', 'team_logo.png'),
-    (4, NULL, 8, NULL, '../icons/mug.png', 'motivational_quote.jpg'), 
+    (1, NULL, 1, NULL, NULL, NULL),
+    (2, NULL, 2, NULL, NULL, NULL),
+    (2, NULL, 3, NULL, NULL, NULL),
+    (3, NULL, 4, NULL, NULL,NULL),
+    (1, NULL, 5, NULL, NULL, NULL),
+    (1, NULL, 6, NULL, NULL, NULL),
+    (4, NULL, 7, NULL, NULL, NULL),
+    (4, NULL, 8, NULL, NULL, NULL), 
     
     -- Files linked to cart items (temporary)
-    (1, NULL, NULL, 1, '../icons/mug.png', 'cart_logo.png'),
-    (1, NULL, NULL, 2, '../icons/mug.png', 'cart_tumbler_design.jpg'),
-    (2, NULL, NULL, 4, '../icons/mug.png', 'cart_tshirt_design.png'),
-    (NULL, 'guest-session-12345', NULL, 5, '../icons/mug.png', 'guest_cart_design.png');
+    (1, NULL, NULL, 1, NULL, NULL),
+    (1, NULL, NULL, 2, NULL, NULL),
+    (2, NULL, NULL, 4, NULL, NULL),
+    (NULL, 'guest-session-12345', NULL, 5, NULL, NULL);
 
 -- Insert Order Status History
 INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES

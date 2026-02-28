@@ -3,7 +3,7 @@
 Secure Banking App Runner
 Loads configuration and starts the Flask application
 """
-import os
+import os 
 from app.config import get_config
 from __init__ import app
 
